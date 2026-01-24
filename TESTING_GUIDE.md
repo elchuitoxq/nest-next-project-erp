@@ -1,58 +1,58 @@
-# Testing Guide & Seed Data
+# Guía de Pruebas y Datos Semilla
 
-This guide explains how to populate the database with realistic test data for development, demos, and QA.
+Esta guía explica cómo poblar la base de datos con datos de prueba realistas para desarrollo, demostraciones y QA.
 
-## 🚀 Quick Start (Development)
+## 🚀 Inicio Rápido (Desarrollo)
 
-To reset the database and load the **Robust Test Suite** (recommended for development):
+Para reiniciar la base de datos y cargar la **Suite de Pruebas Robusta** (recomendado para desarrollo):
 
 ```bash
 npm run db:setup:test
 ```
 
-This command performs:
-1.  **Reset:** Drops all tables (TRUNCATE CASCADE).
-2.  **Push:** Applies the latest Drizzle schema.
-3.  **Seed Test:** Runs `seed-test.ts`.
+Este comando realiza:
+1.  **Reinicio (Reset):** Elimina todas las tablas (TRUNCATE CASCADE).
+2.  **Push:** Aplica el esquema de Drizzle más reciente.
+3.  **Seed Test:** Ejecuta la estrategia híbrida (`seed-test.ts` + `seed:transactions`).
 
-## 🧪 What Data is Included?
+## 🧪 ¿Qué datos se incluyen?
 
-The robust seed (`seed-test.ts`) creates a complete simulation of a Venezuelan company structure.
+La semilla robusta crea una simulación completa de una estructura empresarial venezolana.
 
-### 1. Infrastructure
-*   **Branches:** 2 Active Branches ("Sucursal Caracas", "Sucursal Valencia").
-*   **Users:**
-    *   `admin@erp.com` (Password: `admin123`) - Full Access.
-    *   `ventas.ccs@erp.com` - Sales Representative (Caracas only).
-    *   `almacen.val@erp.com` - Warehouse Manager (Valencia only).
-    *   `tesoreria@erp.com` - Treasurer (Multi-branch).
+### 1. Infraestructura
+*   **Sucursales:** 2 Sucursales Activas ("Sucursal Caracas", "Sucursal Valencia").
+*   **Usuarios:**
+    *   `admin@erp.com` (Contraseña: `admin123`) - Acceso Total.
+    *   `ventas.ccs@erp.com` - Representante de Ventas (Solo Caracas).
+    *   `almacen.val@erp.com` - Gerente de Almacén (Solo Valencia).
+    *   `tesoreria@erp.com` - Tesorero (Multisucursal).
 
-### 2. Finance & Economy
-*   **Currencies:** USD ($) and VES (Bs).
-*   **Exchange Rate:** Base rate set at **~352.7063** (as of simulation date).
-*   **History:** Includes 30 days of historical rates (calculated backwards from 352.7 down to ~340) to simulate realistic inflation.
-*   **Treasury:**
-    *   **Cash:** USD and VES petty cash boxes per branch.
-    *   **Bank:** "Banesco" (VES) and "Zelle Corp" (USD).
+### 2. Finanzas y Economía
+*   **Monedas:** USD ($) y VES (Bs).
+*   **Tasa de Cambio:** Tasa base fijada en **~352.7063** (a la fecha de simulación).
+*   **Historial:** Incluye 30 días de tasas históricas (calculadas hacia atrás desde 352.7 bajando hasta ~340) para simular una inflación realista.
+*   **Tesorería:**
+    *   **Efectivo:** Cajas chicas en USD y VES por sucursal.
+    *   **Banco:** "Banesco" (VES) y "Zelle Corp" (USD).
 
-### 3. Inventory & Operations
-*   **Products:** 30 Items (Laptops, Accessories, Services) with different tax rules.
-*   **Stock:** Initial inventory adjustment made 30 days ago.
-*   **Transactions:**
-    *   **10 Purchases:** Historical simulated purchases.
-    *   **50 Sales:** Mix of paid, unpaid, and voided invoices spread over the last 30 days.
-    *   **Payments:** Automatic partial and full payments registered for ~70% of sales.
+### 3. Inventario y Operaciones
+*   **Productos:** 30 Artículos (Laptops, Accesorios, Servicios) con diferentes reglas de impuestos.
+*   **Stock:** Ajuste de inventario inicial realizado hace 30 días.
+*   **Transacciones (Vía API):**
+    *   **10 Compras:** Compras históricas simuladas respetando el flujo de pedidos.
+    *   **20-50 Ventas:** Mezcla de facturas pagadas, pendientes y anuladas distribuidas en los últimos 30 días.
+    *   **Pagos:** Pagos parciales y totales registrados automáticamente para ~70% de las ventas.
 
-## 🧹 Clean Setup (Production-like)
+## 🧹 Configuración Limpia (Tipo Producción)
 
-If you only want the bare minimum (Roles, Admin User, Base Config) without fake data:
+Si solo deseas el mínimo indispensable (Roles, Usuario Admin, Configuración Base) sin datos falsos:
 
 ```bash
 npm run db:setup
 ```
 
-## ⚠️ Troubleshooting
+## ⚠️ Solución de Problemas
 
-If you encounter foreign key errors or "relation does not exist":
-1.  Ensure your `.env` has the correct `DATABASE_URL`.
-2.  Run the full setup command again (`npm run db:setup:test`) as it handles the order of operations strictly.
+Si encuentras errores de clave foránea o "relation does not exist":
+1.  Asegúrate de que tu `.env` tenga la `DATABASE_URL` correcta.
+2.  Ejecuta el comando de configuración completo nuevamente (`npm run db:setup:test`) ya que maneja el orden de las operaciones estrictamente.

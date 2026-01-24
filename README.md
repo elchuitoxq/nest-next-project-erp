@@ -1,53 +1,53 @@
-# ERP Venezuela: Enterprise Monorepo Solution
+# ERP Venezuela: Solución Monorepo Empresarial
 
-A comprehensive, modular ERP system specifically designed for the Venezuelan market, built with a cutting-edge technical stack and a focused on user experience and fiscal compliance.
+Un sistema ERP modular y completo diseñado específicamente para el mercado venezolano, construido con tecnología de vanguardia y enfocado en la experiencia de usuario y el cumplimiento fiscal.
 
-## 🚀 Technical Stack
+## 🚀 Stack Técnico
 
-- **Monorepo Management:** [Turborepo](https://turbo.build/)
-- **Frontend Core:** [Next.js 15+](https://nextjs.org/) (App Router), React Query, Tailwind CSS, [Shadcn/UI](https://ui.shadcn.com/)
-- **Backend Core:** [NestJS](https://nestjs.com/) (Modular Architecture)
-- **Persistence & ORM:** PostgreSQL + [Drizzle ORM](https://orm.drizzle.team/)
-- **Reliability:** TypeScript (Strict Mode), Zod Validation
+- **Gestión de Monorepo:** [Turborepo](https://turbo.build/)
+- **Núcleo Frontend:** [Next.js 15+](https://nextjs.org/) (App Router), React Query, Tailwind CSS, [Shadcn/UI](https://ui.shadcn.com/)
+- **Núcleo Backend:** [NestJS](https://nestjs.com/) (Arquitectura Modular)
+- **Persistencia y ORM:** PostgreSQL + [Drizzle ORM](https://orm.drizzle.team/)
+- **Confiabilidad:** TypeScript (Modo Estricto), Validación con Zod
 
-## ✨ Key Features
+## ✨ Características Principales
 
-- **Multi-Branch Design:** native isolation of data and operations per business branch.
-- **Dual Currency Core:** seamless handling of USD (Base/Anchor) and VES (Fiscal/Legal) with automated BCV rate updates.
-- **Inventory & Logistics:** multi-warehouse management, real-time stock tracking, and asset loans (comodatos).
-- **Fiscal Compliance:** built-in support for IVA, IGTF (3%), and automated retention management (VAT/Income Tax).
-- **Business Intelligence:** real-time KPIs and sales analytics integrated into the executive dashboard.
+- **Diseño Multisucursal:** aislamiento nativo de datos y operaciones por sucursal comercial.
+- **Núcleo Bimonetario:** manejo fluido de USD (Base/Ancla) y VES (Fiscal/Legal) con actualizaciones automatizadas de tasas BCV.
+- **Inventario y Logística:** gestión multi-almacén, seguimiento de stock en tiempo real y préstamos de activos (comodatos).
+- **Cumplimiento Fiscal:** soporte integrado para IVA, IGTF (3%) y gestión automatizada de retenciones (IVA/ISLR).
+- **Inteligencia de Negocios:** KPIs en tiempo real y análisis de ventas integrados en el panel ejecutivo.
 
-## 📂 Project Structure
+## 📂 Estructura del Proyecto
 
 ```bash
 .
 ├── apps
-│   ├── api          # Backend Application (NestJS)
-│   └── web          # Frontend Application (Next.js)
+│   ├── api          # Aplicación Backend (NestJS)
+│   └── web          # Aplicación Frontend (Next.js)
 ├── packages
-│   ├── db           # Database Schema, Migrations & Drizzle Client
-│   ├── ui           # Shared design system components
-│   └── config       # Shared ESLint, TSConfig, and build configurations
-└── docs             # Engineering and architectural guides
+│   ├── db           # Esquema de Base de Datos, Migraciones y Cliente Drizzle
+│   ├── ui           # Componentes de diseño compartidos
+│   └── config       # Configuraciones compartidas de ESLint, TSConfig y construcción
+└── docs             # Guías de ingeniería y arquitectura
 ```
 
-## 🛠️ Getting Started
+## 🛠️ Comenzando (Getting Started)
 
-### 1. Requirements
+### 1. Requisitos
 
 - Node.js 18+
 - PostgreSQL
-- npm or pnpm
+- npm o pnpm
 
-### 2. Setup (Instalación)
+### 2. Configuración (Setup)
 
 ```bash
 # Instalar dependencias
 npm install
 ```
 
-### 3. Database & Testing (Base de Datos y Pruebas)
+### 3. Base de Datos y Pruebas (Database & Testing)
 
 El proyecto incluye un sistema de semillas (seeds) robusto para generar datos de prueba realistas.
 
@@ -68,23 +68,23 @@ npm run db:setup
 
 ℹ️ **Guía Detallada:** Para ver las credenciales de prueba, escenarios cubiertos y detalles de la simulación financiera, consulta la **[Guía de Pruebas (TESTING_GUIDE.md)](./TESTING_GUIDE.md)**.
 
-### 4. Development
+### 4. Desarrollo
 
 ```bash
-# Run both Backend and Frontend in parallel (Turbo)
+# Ejecutar Backend y Frontend en paralelo (Turbo)
 npm run dev
 ```
 
 - **Frontend:** [http://localhost:3000](http://localhost:3000)
 - **API:** [http://localhost:3001](http://localhost:3001)
 
-## 📖 Documentation
+## 📖 Documentación
 
-For deep technical dives and business logic details, refer to:
+Para inmersiones técnicas profundas y detalles de lógica de negocio, consulta:
 
-- [AI_CONTEXT.md](file:///AI_CONTEXT.md): Core business rules and architectural patterns (Primary source for agents).
-- [.system_docs/architecture.md](file:///.system_docs/architecture.md): Technical standards and design patterns.
+- [AI_CONTEXT.md](file:///AI_CONTEXT.md): Reglas de negocio principales y patrones arquitectónicos (Fuente principal para agentes).
+- [.system_docs/architecture.md](file:///.system_docs/architecture.md): Estándares técnicos y patrones de diseño.
 
 ---
 
-Built with ❤️ for Venezuelan Business Excellence.
+Construido con ❤️ para la Excelencia Empresarial Venezolana.
