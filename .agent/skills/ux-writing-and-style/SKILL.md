@@ -92,6 +92,11 @@ Ensure a consistent, professional, and clear voice across the entire ERP applica
     - _Good_: "Factura registrada exitosamente."
     - _Bad_: "Éxito", "Guardado".
 
+6.  **Visual Indicators (Badges)**: Use consistent colors for transaction types to allow quick scanning.
+    - **Income/Sales (Ingresos)**: `Teal` (`bg-teal-600`).
+    - **Expense/Purchases (Egresos)**: `Orange` (`bg-orange-600`).
+    - **Neutral/Info**: `Gray` or `Blue`.
+
 ## Technical Implementation (Frontend)
 
 - **Validation**: Use Zod schemas with custom Spanish error messages (`.min(1, "El campo es obligatorio")`).

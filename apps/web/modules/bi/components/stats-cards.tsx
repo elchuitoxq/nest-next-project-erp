@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, Package, ShoppingCart, Users } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { KpiData } from "../hooks/use-bi";
+import { KpiData } from "../types";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface StatsCardsProps {
@@ -27,19 +27,37 @@ export function StatsCards({ data, isLoading }: StatsCardsProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
-            Ventas Totales (Mes)
+            Ventas Totales
           </CardTitle>
-          <DollarSign className="text-muted-foreground h-4 w-4" />
+          <DollarSign className="text-teal-600 h-4 w-4" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
             {formatCurrency(data.totalSales)}
           </div>
           <p className="text-muted-foreground text-xs">
-            +20.1% desde el mes pasado
+            Ingresos brutos del periodo
           </p>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">
+            Gastos Totales
+          </CardTitle>
+          <ShoppingCart className="text-orange-600 h-4 w-4" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">
+            {formatCurrency(data.totalPurchases)}
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Compras registradas
+          </p>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
@@ -56,6 +74,7 @@ export function StatsCards({ data, isLoading }: StatsCardsProps) {
           </p>
         </CardContent>
       </Card>
+      
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
@@ -69,20 +88,6 @@ export function StatsCards({ data, isLoading }: StatsCardsProps) {
           </div>
           <p className="text-muted-foreground text-xs">
             {data.activeProducts} productos activos
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Pedidos Pendientes
-          </CardTitle>
-          <ShoppingCart className="text-muted-foreground h-4 w-4" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{data.pendingOrders}</div>
-          <p className="text-muted-foreground text-xs">
-            Requieren atención inmediata
           </p>
         </CardContent>
       </Card>

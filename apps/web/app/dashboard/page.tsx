@@ -20,10 +20,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Activity } from "lucide-react";
+import { ActivityFeed } from "@/modules/bi/components/activity-feed";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { useState } from "react";
+import { DateRange } from "react-day-picker";
+import { subDays } from "date-fns";
 
 export default function Page() {
-  const { kpis, chart } = useBiStats();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
+  });
+
+  const { kpis, chart, activity } = useBiStats({
+    from: dateRange?.from,
+    to: dateRange?.to,
+  });
 
   return (
     <SidebarInset>
@@ -50,6 +62,13 @@ export default function Page() {
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">Resumen</h2>
+          <div className="flex items-center space-x-2">
+            <DateRangePicker
+              date={dateRange}
+              onDateChange={setDateRange}
+              align="end"
+            />
+          </div>
         </div>
 
         {/* KPI Cards */}
@@ -59,23 +78,8 @@ export default function Page() {
           {/* Main Chart */}
           <OverviewChart data={chart.data} isLoading={chart.isLoading} />
 
-          {/* Recent Activity / Secondary Card */}
-          <Card className="col-span-3">
-            <CardHeader>
-              <CardTitle>Actividad Reciente</CardTitle>
-              <CardDescription>
-                Últimas operaciones registradas.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-                <div className="flex flex-col items-center gap-2">
-                  <Activity className="h-8 w-8 opacity-50" />
-                  <p>Próximamente: Feed de actividad</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Recent Activity */}
+          <ActivityFeed data={activity.data} isLoading={activity.isLoading} />
         </div>
       </div>
     </SidebarInset>

@@ -20,7 +20,9 @@
     "db:generate": "drizzle-kit generate",
     "db:reset": "tsx reset.ts",
     "db:seed": "tsx seed.ts",
-    "db:setup": "npx tsx reset.ts && npx drizzle-kit push && npx tsx seed.ts"
+    "db:seed:test": "tsx seed-test.ts",
+    "db:setup": "npx tsx reset.ts && npx drizzle-kit push && npx tsx seed.ts",
+    "db:setup:test": "npx tsx reset.ts && npx drizzle-kit push && npx tsx seed-test.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -30,6 +32,7 @@
     "uuidv7": "^1.0.2"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.2.0",
     "@repo/typescript-config": "*",
     "@types/bcrypt": "^6.0.0",
     "drizzle-kit": "^0.31.8",

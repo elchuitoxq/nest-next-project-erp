@@ -42,6 +42,7 @@ const payload = {
   - Rates are snapshot at the moment of Invoice/Order creation.
   - **Purchase**: Uses the rate to convert Cost (in invoice currency) to Base Cost (for Inventory WAC).
   - **Sale**: Uses the rate to display price in foreign currency.
+  - **Conversion Rule**: When creating transactions in Base Currency (VES) from items priced in USD, explicitly multiply: `PriceVES = PriceUSD * ExchangeRate`. Do not rely on implicit DB defaults for critical conversions in seeds.
 
 ## 4. Purchasing Logic (Cuentas por Pagar)
 
@@ -60,3 +61,10 @@ const payload = {
 
 - **TypeScript Errors**: If adding relations (like `user` or `exchangeRate`) to `findAll`, remember to update the Frontend `Invoice` interface type definition to match.
 - **Duplicated Imports**: `drizzle-orm` schema imports can get large. Watch out for duplicated identifiers like `paymentMethods`.
+
+## 7. Frontend Structure & Routing
+
+- **Configuration vs Operation**:
+  - **Config**: Static setup like Bank Accounts and Payment Methods lives in `/dashboard/treasury/config/`.
+  - **Operations**: Daily tasks like Payments and Daily Close live in `/dashboard/treasury/`.
+- **Navigation**: Always update `app-sidebar.tsx` when moving modules to preserve menu integrity.

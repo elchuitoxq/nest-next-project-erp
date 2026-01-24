@@ -3,13 +3,13 @@ import {
   users,
   currencies,
   paymentMethods,
-  employees,
   roles,
   usersRoles,
   bankAccounts,
   branches,
   usersBranches,
   exchangeRates,
+  // paymentMethodAccounts, // Add if needed
 } from "./src";
 import { sql } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
@@ -17,15 +17,17 @@ import * as dotenv from "dotenv";
 
 dotenv.config({ path: "./src/.env" });
 
-async function main() {
+export async function seed(isClean = true) {
   console.log("🚀 Seeding database with Multi-Branch Finance support...");
 
   try {
-    // Clean DB
-    console.log("🧹 Cleaning tables...");
-    await db.execute(
-      sql`TRUNCATE TABLE users_roles, users, currencies, payment_methods, employees, partners, branches, roles, organization_modules, user_app_settings, exchange_rates, warehouses, product_categories, products, stock, inventory_moves, inventory_move_lines, invoices, invoice_items, payments, loans, loan_items, payroll_runs, payroll_items, credit_notes, credit_note_items, bank_accounts, payment_allocations, users_branches CASCADE`,
-    );
+    if (isClean) {
+      // Clean DB
+      console.log("🧹 Cleaning tables...");
+      await db.execute(
+        sql`TRUNCATE TABLE users_roles, users, currencies, payment_methods, payment_method_accounts, employees, partners, branches, roles, organization_modules, user_app_settings, exchange_rates, warehouses, product_categories, products, stock, inventory_moves, inventory_move_lines, invoices, invoice_items, payments, loans, loan_items, payroll_runs, payroll_items, credit_notes, credit_note_items, bank_accounts, payment_allocations, users_branches CASCADE`,
+      );
+    }
 
     // 1. Seed Roles
     console.log("👥 Seeding Roles...");
@@ -35,6 +37,8 @@ async function main() {
         { name: "admin", description: "Administrator with full access" },
         { name: "manager", description: "Manager with access to operations" },
         { name: "seller", description: "Seller with access to sales" },
+        { name: "warehouse", description: "Warehouse Keeper" },
+        { name: "accountant", description: "Accountant/Treasurer" },
       ])
       .returning();
 
@@ -104,115 +108,142 @@ async function main() {
 
     // 4.1 Initial Exchange Rate
     await db.insert(exchangeRates).values({
-      currencyId: usd.id,
-      rate: "45.5000000000",
-      source: "BCV",
+      currencyId: ves.id,
+      rate: "352.7063000000",
+      source: "MANUAL_WIDGET",
     });
+
+    const seededAccounts: any[] = [];
+    const seededMethods: any[] = [];
 
     // 4.2 Per Branch Financial Data
     for (const branch of seededBranches) {
       console.log(`🏦 Seeding Branch Data for ${branch.name}...`);
 
       // 4.3 Payment Methods
-      await db.insert(paymentMethods).values([
-        {
-          name: "Efectivo USD",
-          code: "CASH_USD",
-          currencyId: usd.id,
-          branchId: branch.id,
-          isDigital: false,
-        },
-        {
-          name: "Efectivo Bs",
-          code: "CASH_VES",
-          currencyId: ves.id,
-          branchId: branch.id,
-          isDigital: false,
-        },
-        {
-          name: "Punto de Venta",
-          code: "POS",
-          currencyId: ves.id,
-          branchId: branch.id,
-          isDigital: true,
-        },
-        {
-          name: "Pago Móvil",
-          code: "PAGO_MOVIL",
-          currencyId: ves.id,
-          branchId: branch.id,
-          isDigital: true,
-        },
-        {
-          name: "Transferencia en Bs",
-          code: "TRANSFERENCIA_VES",
-          currencyId: ves.id,
-          branchId: branch.id,
-          isDigital: true,
-        },
-        {
-          name: "Transferencia en $",
-          code: "TRANSFERENCIA_USD",
-          currencyId: usd.id,
-          branchId: branch.id,
-          isDigital: true,
-        },
-        // --- RETENCIONES ---
-        {
-          name: "Retención IVA 75%",
-          code: "RET_IVA_75",
-          currencyId: ves.id,
-          branchId: branch.id,
-          isDigital: true,
-        },
-        {
-          name: "Retención IVA 100%",
-          code: "RET_IVA_100",
-          currencyId: ves.id,
-          branchId: branch.id,
-          isDigital: true,
-        },
-        {
-          name: "Retención ISLR",
-          code: "RET_ISLR",
-          currencyId: ves.id, // Usually handled in Base Currency
-          branchId: branch.id,
-          isDigital: true,
-        },
-      ]);
+      const methods = await db
+        .insert(paymentMethods)
+        .values([
+          {
+            name: "Efectivo USD",
+            code: "CASH_USD",
+            currencyId: usd.id,
+            branchId: branch.id,
+            isDigital: false,
+          },
+          {
+            name: "Efectivo Bs",
+            code: "CASH_VES",
+            currencyId: ves.id,
+            branchId: branch.id,
+            isDigital: false,
+          },
+          {
+            name: "Punto de Venta",
+            code: "POS",
+            currencyId: ves.id,
+            branchId: branch.id,
+            isDigital: true,
+          },
+          {
+            name: "Pago Móvil",
+            code: "PAGO_MOVIL",
+            currencyId: ves.id,
+            branchId: branch.id,
+            isDigital: true,
+          },
+          {
+            name: "Transferencia en Bs",
+            code: "TRANSFERENCIA_VES",
+            currencyId: ves.id,
+            branchId: branch.id,
+            isDigital: true,
+          },
+          {
+            name: "Transferencia en $",
+            code: "TRANSFERENCIA_USD",
+            currencyId: usd.id,
+            branchId: branch.id,
+            isDigital: true,
+          },
+          // --- RETENCIONES ---
+          {
+            name: "Retención IVA 75%",
+            code: "RET_IVA_75",
+            currencyId: ves.id,
+            branchId: branch.id,
+            isDigital: true,
+          },
+          {
+            name: "Retención IVA 100%",
+            code: "RET_IVA_100",
+            currencyId: ves.id,
+            branchId: branch.id,
+            isDigital: true,
+          },
+          {
+            name: "Retención ISLR",
+            code: "RET_ISLR",
+            currencyId: ves.id, // Usually handled in Base Currency
+            branchId: branch.id,
+            isDigital: true,
+          },
+        ])
+        .returning();
+      seededMethods.push(...methods);
 
       // 4.4 Bank Accounts
-      await db.insert(bankAccounts).values([
-        {
-          name: `Caja Principal USD - ${branch.name.split(" ")[1]}`,
-          type: "CASH",
-          currencyId: usd.id,
-          branchId: branch.id,
-          currentBalance: "1000.00",
-        },
-        {
-          name: `Caja Principal Bs - ${branch.name.split(" ")[1]}`,
-          type: "CASH",
-          currencyId: ves.id,
-          branchId: branch.id,
-          currentBalance: "5000.00",
-        },
-        {
-          name: `Banesco Empresa - ${branch.name.split(" ")[1]}`,
-          type: "CHECKING",
-          currencyId: ves.id,
-          branchId: branch.id,
-          currentBalance: "25000.00",
-        },
-      ]);
+      const accounts = await db
+        .insert(bankAccounts)
+        .values([
+          {
+            name: `Caja Principal USD - ${branch.name.split(" ")[1]}`,
+            type: "CASH",
+            currencyId: usd.id,
+            branchId: branch.id,
+            currentBalance: "1000.00",
+          },
+          {
+            name: `Caja Principal Bs - ${branch.name.split(" ")[1]}`,
+            type: "CASH",
+            currencyId: ves.id,
+            branchId: branch.id,
+            currentBalance: "5000.00",
+          },
+          {
+            name: `Banesco Empresa - ${branch.name.split(" ")[1]}`,
+            type: "CHECKING",
+            currencyId: ves.id,
+            branchId: branch.id,
+            currentBalance: "25000.00",
+          },
+        ])
+        .returning();
+      seededAccounts.push(...accounts);
     }
 
-    console.log("✅ Seeding completed successfully!");
-    process.exit(0);
+    // Return Seed Data for Tests
+    return {
+      adminUser,
+      branches: seededBranches,
+      currencies: { usd, ves },
+      paymentMethods: seededMethods,
+      bankAccounts: seededAccounts,
+      roles: {
+        admin: adminRole,
+      },
+    };
   } catch (error) {
     console.error("❌ Seeding failed:", error);
     process.exit(1);
   }
 }
 
-main();
+// Auto-run if main module
+if (require.main === module) {
+  seed(true).then(() => {
+    console.log("✅ Seeding completed successfully!");
+    process.exit(0);
+  });
+}
+

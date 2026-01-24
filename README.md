@@ -40,17 +40,35 @@ A comprehensive, modular ERP system specifically designed for the Venezuelan mar
 - PostgreSQL
 - npm or pnpm
 
-### 2. Setup
+### 2. Setup (Instalación)
 
 ```bash
-# Install dependencies
+# Instalar dependencias
 npm install
-
-# Initialize Database Schema
-npm run db:push -w @repo/db
 ```
 
-### 3. Development
+### 3. Database & Testing (Base de Datos y Pruebas)
+
+El proyecto incluye un sistema de semillas (seeds) robusto para generar datos de prueba realistas.
+
+**Opción A: Entorno de Pruebas Completo (Recomendado)**
+Genera usuarios, sucursales, inventario y **transacciones reales** (Compras/Ventas/Pagos) simulando lógica de negocio.
+
+```bash
+npm run db:setup:test
+```
+> Esto ejecuta una estrategia híbrida: Limpieza DB -> Schema Push -> Infraestructura (DB) -> Transacciones (API).
+
+**Opción B: Entorno Limpio (Producción)**
+Solo configuración esencial (Admin, Roles, Monedas).
+
+```bash
+npm run db:setup
+```
+
+ℹ️ **Guía Detallada:** Para ver las credenciales de prueba, escenarios cubiertos y detalles de la simulación financiera, consulta la **[Guía de Pruebas (TESTING_GUIDE.md)](./TESTING_GUIDE.md)**.
+
+### 4. Development
 
 ```bash
 # Run both Backend and Frontend in parallel (Turbo)

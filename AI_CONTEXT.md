@@ -16,10 +16,10 @@ El sistema opera bajo un modelo de **Multisucursal (Multi-Branch)** por defecto:
 - Los usuarios tienen acceso a una o varias sucursales (tabla `users_branches`).
 - **Contexto Activo:** El frontend envía el encabezado `x-branch-id`. El backend usa `BranchInterceptor` para validar el acceso y filtrar datos automáticamente, incluyendo saldos y disponibilidad de tesorería por sucursal.
 
-## 💰 Economía y Multimoneda (USD/VES)
-
-Venezuela opera bajo una economía dual. Reglas críticas:
-
+## 💰 Economía y Tesorería
+- **Estructura Modular:**
+  - **Operaciones:** Pagos, Cobros y Cierre de Caja (`/dashboard/treasury/daily-close`).
+  - **Configuración:** Cuentas Bancarias y Métodos de Pago movidos a `/dashboard/treasury/config/`.
 - **Tasa de Cambio:** Módulo centralizado (BCV) con histórico, segregado por sucursal para permitir variaciones regionales si es necesario.
 - **Dualidad Monetaria:** Todo registro guarda monto en moneda origen, tasa aplicada y equivalente en VES. Las monedas (USD/VES) se configuran por sucursal.
 - **Recálculo Dinámico:** Los Pedidos pueden recalcularse (`POST /orders/:id/recalculate`) para actualizar precios según la tasa del día antes de facturar.
@@ -27,7 +27,7 @@ Venezuela opera bajo una economía dual. Reglas críticas:
 ## ⚖️ Cumplimiento Fiscal (SENIAT)
 
 - **Impuestos:** IVA (General 16%, Reducido, Exento) + IGTF (3% sobre pagos en divisas).
-- **Retenciones:** Manejo automático de comprobantes de retención de IVA e ISLR según perfil de contribuyente (Ordinario vs Especial).
+- **Retenciones:** Manejo automático. El módulo visual dedicado de "Gestión de Impuestos" fue eliminado en favor de reportes integrados.
 - **Libros Legales:** Generación de Libros de Compra y Venta filtrados por sucursal.
 
 ## 🛒 Módulo de Operaciones (Ventas y Compras)
@@ -35,6 +35,9 @@ Venezuela opera bajo una economía dual. Reglas críticas:
 - **Segregación de Pedidos (`Orders`)**:
   - **Ventas (`SALE`)**: Generan Salida de Stock (OUT). Gestión de Clientes.
   - **Compras (`PURCHASE`)**: Generan Entrada de Stock (IN). Gestión de Proveedores y Costos.
+- **Distinción Visual (UX)**:
+  - **Ventas**: Badge color `teal` (Ingreso).
+  - **Compras**: Badge color `orange` (Egreso).
 - **Flujo de Facturación (`Invoicing`)**:
   - **Borrador (`DRAFT`)**: Nace con código temporal (`DRAFT-{timestamp}`). No requiere número de control.
   - **Publicación (`POSTED`)**: Asigna correlativo fiscal secuencial (`A-0000X` Ventas / `C-0000X` Compras).

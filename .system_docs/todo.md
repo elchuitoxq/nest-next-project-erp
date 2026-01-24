@@ -23,7 +23,9 @@
 
 - [x] Backend: Billing logic, Tax calculations (IVA/IGTF), and Retentions.
 - [x] Frontend: Invoices Management (List, Details, PDF/View).
+- [x] **UX Improvements**: Visual distinction (Teal/Orange) for Sales vs Purchases.
 - [x] Frontend: Payment Registration (via Treasury/Dialog).
+- [x] **Refactor**: Treasury module reorganization (Config vs Operations).
 - [ ] Frontend: Manual Invoice Creation (Wizard or Form).
 - [/] Cash & Bank Management (Reconciliation).
 - [ ] Dual Currency Recalculation (Orders to Invoice flow).

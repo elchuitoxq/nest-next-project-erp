@@ -8,7 +8,7 @@ import {
   YAxis,
   Tooltip,
 } from "recharts";
-import { ChartData } from "../hooks/use-bi";
+import { ChartData } from "../types";
 import {
   Card,
   CardContent,
@@ -31,9 +31,9 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
   return (
     <Card className="col-span-4">
       <CardHeader>
-        <CardTitle>Resumen de Ventas</CardTitle>
+        <CardTitle>Flujo de Caja</CardTitle>
         <CardDescription>
-          Ventas realizadas en los últimos 7 días.
+          Comparativa de Ingresos vs Egresos.
         </CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
@@ -48,8 +48,8 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
               tickFormatter={(value) => {
                 const date = new Date(value);
                 return date.toLocaleDateString("es-VE", {
-                  weekday: "short",
                   day: "numeric",
+                  month: "short",
                 });
               }}
             />
@@ -66,12 +66,24 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
                 borderRadius: "8px",
                 border: "1px solid #e2e8f0",
               }}
+              labelFormatter={(label) => new Date(label).toLocaleDateString("es-VE", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+              })}
             />
             <Bar
-              dataKey="total"
-              fill="currentColor"
+              dataKey="income"
+              name="Ventas"
+              fill="#0d9488" // Teal-600
               radius={[4, 4, 0, 0]}
-              className="fill-primary"
+            />
+             <Bar
+              dataKey="expense"
+              name="Compras"
+              fill="#ea580c" // Orange-600
+              radius={[4, 4, 0, 0]}
             />
           </BarChart>
         </ResponsiveContainer>

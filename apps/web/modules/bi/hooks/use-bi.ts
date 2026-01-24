@@ -1,35 +1,37 @@
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { ActivityItem, ChartData, KpiData } from "../types";
 
-export interface KpiData {
-  totalSales: number;
-  accountsReceivable: number;
-  inventoryValue: number;
-  pendingOrders: number;
-  activeProducts: number;
-}
+export function useBiStats(dateRange?: { from?: Date; to?: Date }) {
+  const queryParams = new URLSearchParams();
+  if (dateRange?.from)
+    queryParams.append("startDate", dateRange.from.toISOString());
+  if (dateRange?.to) queryParams.append("endDate", dateRange.to.toISOString());
+  const queryString = queryParams.toString();
 
-export interface ChartData {
-  date: string;
-  total: number;
-}
-
-export function useBiStats() {
   const kpis = useQuery({
-    queryKey: ["bi", "kpis"],
+    queryKey: ["bi", "kpis", queryString],
     queryFn: async () => {
-      const response = await api.get<KpiData>("/bi/kpis");
+      const response = await api.get<KpiData>(`/bi/kpis?${queryString}`);
       return response.data;
     },
   });
 
   const chart = useQuery({
-    queryKey: ["bi", "chart"],
+    queryKey: ["bi", "chart", queryString],
     queryFn: async () => {
-      const response = await api.get<ChartData[]>("/bi/chart");
+      const response = await api.get<ChartData[]>(`/bi/chart?${queryString}`);
       return response.data;
     },
   });
 
-  return { kpis, chart };
+  const activity = useQuery({
+    queryKey: ["bi", "activity"],
+    queryFn: async () => {
+      const response = await api.get<ActivityItem[]>("/bi/activity");
+      return response.data;
+    },
+  });
+
+  return { kpis, chart, activity };
 }
