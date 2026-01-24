@@ -6,7 +6,6 @@ import {
   useUpdateBankAccount,
 } from "@/modules/treasury/hooks/use-bank-accounts";
 import { BankAccountsTable } from "@/modules/treasury/components/bank-accounts-table";
-import { ExchangeRateWidget } from "@/modules/treasury/components/exchange-rate-widget";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import {
@@ -63,7 +62,7 @@ export default function BankAccountsPage() {
   const { data: currencies } = useQuery({
     queryKey: ["currencies"],
     queryFn: async () => {
-      const { data } = await api.get("/finance/currencies");
+      const { data } = await api.get("/settings/currencies");
       return data;
     },
   });
@@ -148,10 +147,10 @@ export default function BankAccountsPage() {
         <div className="flex items-center justify-between py-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
-              Cuentas y Monedas
+              Cuentas Bancarias
             </h1>
             <p className="text-muted-foreground">
-              Administra tus cuentas bancarias y tasas de cambio.
+              Administra tus cuentas bancarias.
             </p>
           </div>
           <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -246,12 +245,9 @@ export default function BankAccountsPage() {
           </Dialog>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="md:col-span-2 space-y-6">
+        <div className="grid gap-6 md:grid-cols-1">
+          <div className="space-y-6">
             <BankAccountsTable onEdit={handleEdit} />
-          </div>
-          <div>
-            <ExchangeRateWidget />
           </div>
         </div>
       </div>

@@ -15,7 +15,7 @@ import {
 
 import { eq, sql, and, desc } from 'drizzle-orm';
 import Decimal from 'decimal.js';
-import { CurrenciesService } from '../finance/currencies/currencies.service';
+import { CurrenciesService } from '../settings/currencies/currencies.service';
 
 @Injectable()
 export class TreasuryService {

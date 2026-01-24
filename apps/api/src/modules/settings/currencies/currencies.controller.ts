@@ -11,19 +11,17 @@ import { CurrenciesService } from './currencies.service';
 import { JwtAuthGuard } from '../../../modules/auth/jwt-auth.guard';
 import { BranchInterceptor } from '../../../common/interceptors/branch.interceptor';
 
-@Controller('finance/currencies')
+@Controller('settings/currencies')
 @UseGuards(JwtAuthGuard)
 @UseInterceptors(BranchInterceptor)
 export class CurrenciesController {
   constructor(private readonly currenciesService: CurrenciesService) {}
 
   @Get()
-  @Get()
   findAll() {
     return this.currenciesService.findAll();
   }
 
-  @Post()
   @Post()
   create(@Body() body: any) {
     // Remove branchId from creation

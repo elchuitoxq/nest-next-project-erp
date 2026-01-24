@@ -598,6 +598,21 @@ export const loanItems = pgTable("loan_items", {
 
 // --- RRHH SCHEMA ---
 
+export const jobPositions = pgTable("job_positions", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  name: text("name").notNull().unique(), // Gerente, Vendedor, Analista
+  description: text("description"),
+  
+  // Salary Tabulator
+  currencyId: uuid("currency_id").references(() => currencies.id),
+  baseSalaryMin: numeric("base_salary_min", { precision: 20, scale: 2 }).default("0"),
+  baseSalaryMax: numeric("base_salary_max", { precision: 20, scale: 2 }).default("0"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const employees = pgTable("employees", {
   id: uuid("id")
     .primaryKey()
@@ -608,14 +623,45 @@ export const employees = pgTable("employees", {
   email: text("email"),
   phone: text("phone"),
 
-  position: text("position").notNull(), // Manager, Salesman, Warehouse
+  positionId: uuid("position_id").references(() => jobPositions.id), // Link to Position
+  
   hireDate: timestamp("hire_date").defaultNow(),
-  baseSalary: numeric("base_salary", { precision: 20, scale: 2 }).notNull(), // Monthly or period base
+  
+  // Salary Configuration
+  salaryCurrencyId: uuid("salary_currency_id").references(() => currencies.id), // USD or VES
+  baseSalary: numeric("base_salary", { precision: 20, scale: 2 }).notNull(), // Monthly base
+  
   payFrequency: text("pay_frequency").default("BIWEEKLY"), // WEEKLY, BIWEEKLY, MONTHLY
+
+  // Bank Info (1:1)
+  bankName: text("bank_name"), // Banesco, Mercantil, etc.
+  accountNumber: text("account_number"), // 20 digits
+  accountType: text("account_type").default("CHECKING"), // CHECKING, SAVINGS
 
   status: text("status").default("ACTIVE"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+// Add relations for RRHH
+export const jobPositionsRelations = relations(jobPositions, ({ one, many }) => ({
+  currency: one(currencies, {
+    fields: [jobPositions.currencyId],
+    references: [currencies.id],
+  }),
+  employees: many(employees),
+}));
+
+export const employeesRelations = relations(employees, ({ one, many }) => ({
+  position: one(jobPositions, {
+    fields: [employees.positionId],
+    references: [jobPositions.id],
+  }),
+  salaryCurrency: one(currencies, {
+    fields: [employees.salaryCurrencyId],
+    references: [currencies.id],
+  }),
+  payrollItems: many(payrollItems),
+}));
 
 export const payrollRuns = pgTable("payroll_runs", {
   id: uuid("id")

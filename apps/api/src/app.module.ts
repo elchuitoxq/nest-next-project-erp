@@ -2,14 +2,14 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
-import { CurrenciesModule } from './modules/finance/currencies/currencies.module';
+import { CurrenciesModule } from './modules/settings/currencies/currencies.module';
 import { PartnersModule } from './modules/partners/partners.module';
 import { ProductsModule } from './modules/products/products.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { TreasuryModule } from './modules/treasury/treasury.module';
 import { LoansModule } from './modules/loans/loans.module';
-import { HrService } from './modules/hr/hr.service';
+import { HrModule } from './modules/hr/hr.module';
 import { BiModule } from './modules/bi/bi.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { UsersModule } from './modules/users/users.module';
@@ -27,6 +27,7 @@ import { CreditNotesModule } from './modules/credit-notes/credit-notes.module';
     BillingModule,
     TreasuryModule,
     LoansModule,
+    HrModule,
     BiModule,
     RolesModule,
     UsersModule,
@@ -35,6 +36,6 @@ import { CreditNotesModule } from './modules/credit-notes/credit-notes.module';
     CreditNotesModule,
   ],
   controllers: [AppController],
-  providers: [AppService, HrService],
+  providers: [AppService],
 })
 export class AppModule {}

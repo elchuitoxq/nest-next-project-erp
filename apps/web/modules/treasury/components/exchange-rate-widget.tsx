@@ -16,7 +16,7 @@ export function ExchangeRateWidget() {
   const { data: currencies } = useQuery({
     queryKey: ["currencies"],
     queryFn: async () => {
-      const { data } = await api.get<any[]>("/finance/currencies");
+      const { data } = await api.get<any[]>("/settings/currencies");
       return data;
     },
   });
@@ -24,7 +24,7 @@ export function ExchangeRateWidget() {
   const { data: latestRates, isLoading } = useQuery({
     queryKey: ["exchange-rates", "latest"],
     queryFn: async () => {
-      const { data } = await api.get("/finance/currencies/rates/latest");
+      const { data } = await api.get("/settings/currencies/rates/latest");
       return data;
     },
   });
@@ -36,7 +36,7 @@ export function ExchangeRateWidget() {
       const ves = currencies?.find((c: any) => c.code === "VES");
       if (!ves) throw new Error("Moneda VES no encontrada");
 
-      await api.post("/finance/currencies/rates", {
+      await api.post("/settings/currencies/rates", {
         currencyId: ves.id,
         rate: val,
         source: "MANUAL_WIDGET",

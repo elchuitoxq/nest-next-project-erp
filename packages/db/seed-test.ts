@@ -23,6 +23,8 @@ import {
   payments,
   paymentAllocations,
   paymentMethodAccounts,
+  jobPositions,
+  employees,
 } from "./src";
 import { sql } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
@@ -105,6 +107,80 @@ async function main() {
           isDefault: b.id === u.branches[0].id,
         });
       }
+    }
+
+    // =================================================================================
+    // LEVEL 1.6: HR DATA (Positions & Employees)
+    // =================================================================================
+    console.log("👔 [L1.6] Seeding HR (Positions & Employees)...");
+
+    const [posManager, posSales, posWarehouse, posAccountant] = await db
+      .insert(jobPositions)
+      .values([
+        {
+          name: "Gerente General",
+          description: "Responsable de la operación global",
+          currencyId: currUSD.id,
+          baseSalaryMin: "1500.00",
+          baseSalaryMax: "3000.00",
+        },
+        {
+          name: "Vendedor Senior",
+          description: "Encargado de ventas y atención al cliente",
+          currencyId: currUSD.id,
+          baseSalaryMin: "500.00",
+          baseSalaryMax: "1200.00",
+        },
+        {
+          name: "Analista de Inventario",
+          description: "Gestión de almacén y stock",
+          currencyId: currUSD.id,
+          baseSalaryMin: "400.00",
+          baseSalaryMax: "800.00",
+        },
+        {
+          name: "Contador",
+          description: "Gestión financiera y tributaria",
+          currencyId: currUSD.id,
+          baseSalaryMin: "800.00",
+          baseSalaryMax: "1500.00",
+        },
+      ])
+      .returning();
+
+    const allUsers = await db.select().from(users);
+    
+    const empMapping = [
+        { email: "admin@erp.com", pos: posManager, salary: "2500.00" },
+        { email: "ventas.ccs@erp.com", pos: posSales, salary: "800.00" },
+        { email: "almacen.val@erp.com", pos: posWarehouse, salary: "500.00" },
+        { email: "tesoreria@erp.com", pos: posAccountant, salary: "1200.00" },
+    ];
+
+    for (const map of empMapping) {
+        const user = allUsers.find(u => u.email === map.email);
+        if (user) {
+            const [firstName, ...lastNameParts] = user.name.split(" ");
+            const lastName = lastNameParts.join(" ") || "User";
+
+            await db.insert(employees).values({
+                firstName: firstName,
+                lastName: lastName,
+                identityCard: `V-${faker.string.numeric(8)}`,
+                email: user.email,
+                phone: faker.phone.number(),
+                positionId: map.pos.id,
+                salaryCurrencyId: currUSD.id,
+                baseSalary: map.salary,
+                payFrequency: "BIWEEKLY",
+                status: "ACTIVE",
+                hireDate: faker.date.past({ years: 2 }),
+                // Bank Info
+                bankName: faker.helpers.arrayElement(["Banesco", "Mercantil", "Provincial", "Banco de Venezuela"]),
+                accountNumber: faker.string.numeric(20),
+                accountType: "CHECKING",
+            });
+        }
     }
 
     // =================================================================================
@@ -338,7 +414,7 @@ async function main() {
           invoiceNumber: `FACT-${faker.string.numeric(5)}`,
           partnerId: supplier.id,
           branchId: branch.id,
-          currencyId: currUSD.id,
+          currencyId: currVES.id, // Generate in Base Currency (VES) to use Rate
           exchangeRate: dailyRate,
           type: "PURCHASE",
           status: "POSTED",
@@ -355,16 +431,20 @@ async function main() {
       for (let j = 0; j < itemsCount; j++) {
         const prod = faker.helpers.arrayElement(physicalProds);
         const qty = faker.number.int({ min: 5, max: 20 });
-        const cost = Number(prod.cost);
-        const lineTotal = qty * cost;
+        // Convert Cost USD -> VES using Daily Rate
+        const rate = Number(dailyRate);
+        const costUSD = Number(prod.cost);
+        const costVES = (costUSD * rate).toFixed(2); // Calculate VES amount
+        
+        const lineTotal = qty * Number(costVES);
 
         await db.insert(invoiceItems).values({
           invoiceId: inv.id,
           productId: prod.id,
           quantity: qty.toString(),
-          price: cost.toString(),
-          cost: cost.toString(),
-          total: lineTotal.toString(),
+          price: costVES, // Store in VES
+          cost: costVES,
+          total: lineTotal.toFixed(2),
           taxRate: "16.00",
         });
         total += lineTotal;
@@ -394,7 +474,7 @@ async function main() {
           code: `A-${faker.string.numeric(5).padStart(5, "0")}`,
           partnerId: customer.id,
           branchId: branch.id,
-          currencyId: currUSD.id,
+          currencyId: currVES.id, // Generate in Base Currency (VES)
           exchangeRate: dailyRate,
           type: "SALE",
           status: status,
@@ -408,16 +488,23 @@ async function main() {
       for (let j = 0; j < itemsCount; j++) {
         const prod = faker.helpers.arrayElement(seededProducts);
         const qty = faker.number.int({ min: 1, max: 3 });
-        const price = Number(prod.price);
-        const lineTotal = qty * price;
+        // Convert Price USD -> VES
+        const rate = Number(dailyRate);
+        const priceUSD = Number(prod.price);
+        const costUSD = Number(prod.cost);
+        
+        const priceVES = (priceUSD * rate).toFixed(2);
+        const costVES = (costUSD * rate).toFixed(2);
+        
+        const lineTotal = qty * Number(priceVES);
 
         await db.insert(invoiceItems).values({
           invoiceId: inv.id,
           productId: prod.id,
           quantity: qty.toString(),
-          price: price.toString(),
-          cost: prod.cost,
-          total: lineTotal.toString(),
+          price: priceVES, // Store in VES
+          cost: costVES,
+          total: lineTotal.toFixed(2),
           taxRate: prod.taxRate,
         });
         total += lineTotal;

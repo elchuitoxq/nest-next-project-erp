@@ -16,6 +16,7 @@ The file `packages/db/seed-test.ts` is the **Source of Truth** for:
 2.  **Realistic Data**: Use `@faker-js/faker` to generate data that looks real. Avoid "Test 1", "Product A". Use "Corporación Acme", "Laptop Dell XPS", etc.
 3.  **Hierarchy**: Follow the 6-Level seeding strategy:
     - **L1**: Infra (Roles, Users, Branches)
+    - **L1.6**: HR (Positions, Employees)
     - **L2**: Finance (Currencies, Rates, Accounts)
     - **L3**: Masters (Partners, Products)
     - **L4**: Inventory (Initial Stock)

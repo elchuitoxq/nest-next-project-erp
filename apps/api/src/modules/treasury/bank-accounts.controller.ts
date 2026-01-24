@@ -11,9 +11,10 @@ import {
   Req,
 } from '@nestjs/common';
 import { BankAccountsService } from './bank-accounts.service';
-import { bankAccounts } from '@repo/db';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { BranchInterceptor } from '../../common/interceptors/branch.interceptor';
+import { CreateBankAccountDto } from './dto/create-bank-account.dto';
+import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 
 @Controller('treasury/bank-accounts')
 @UseGuards(JwtAuthGuard)
@@ -32,14 +33,14 @@ export class BankAccountsController {
   }
 
   @Post()
-  create(@Body() data: typeof bankAccounts.$inferInsert, @Req() req: any) {
+  create(@Body() data: CreateBankAccountDto, @Req() req: any) {
     return this.service.create({ ...data, branchId: req.branchId });
   }
 
   @Put(':id')
   update(
     @Param('id') id: string,
-    @Body() data: Partial<typeof bankAccounts.$inferInsert>,
+    @Body() data: UpdateBankAccountDto,
     @Req() req: any,
   ) {
     return this.service.update(id, data, req.branchId);
@@ -50,3 +51,4 @@ export class BankAccountsController {
     return this.service.toggleActive(id, req.branchId);
   }
 }
+

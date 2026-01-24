@@ -3,7 +3,7 @@ import { AppModule } from '../app.module';
 import { OrdersService } from '../modules/orders/orders.service';
 import { BillingService } from '../modules/billing/billing.service';
 import { UsersService } from '../modules/users/users.service';
-import { CurrenciesService } from '../modules/finance/currencies/currencies.service';
+import { CurrenciesService } from '../modules/settings/currencies/currencies.service';
 import { db, users, invoices, payments, paymentAllocations, orders, orderItems, stock, inventoryMoves, exchangeRates, bankAccounts, paymentMethods, partners, products, branches, warehouses } from '@repo/db';
 import { eq, desc } from 'drizzle-orm';
 import { faker } from '@faker-js/faker';

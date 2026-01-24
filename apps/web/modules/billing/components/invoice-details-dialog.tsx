@@ -269,6 +269,7 @@ export function InvoiceDetailsDialog({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>SKU</TableHead>
                   <TableHead>Producto</TableHead>
                   <TableHead className="text-right">Cant.</TableHead>
                   <TableHead className="text-right">Precio</TableHead>
@@ -278,6 +279,9 @@ export function InvoiceDetailsDialog({
               <TableBody>
                 {invoice.items?.map((item) => (
                   <TableRow key={item.id}>
+                    <TableCell className="font-mono text-xs">
+                      {item.product?.sku || "-"}
+                    </TableCell>
                     <TableCell>
                       {item.product?.name || "Producto desconocido"}
                     </TableCell>
@@ -294,7 +298,7 @@ export function InvoiceDetailsDialog({
                 ))}
 
                 <TableRow>
-                  <TableCell colSpan={3} className="text-right font-bold">
+                  <TableCell colSpan={4} className="text-right font-bold">
                     Base Imponible
                   </TableCell>
                   <TableCell className="text-right">
@@ -302,7 +306,7 @@ export function InvoiceDetailsDialog({
                   </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell colSpan={3} className="text-right font-bold">
+                  <TableCell colSpan={4} className="text-right font-bold">
                     IVA
                   </TableCell>
                   <TableCell className="text-right">
@@ -311,7 +315,7 @@ export function InvoiceDetailsDialog({
                 </TableRow>
                 {parseFloat(invoice.totalIgtf.toString()) > 0 && (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-right font-bold">
+                    <TableCell colSpan={4} className="text-right font-bold">
                       IGTF (3%)
                     </TableCell>
                     <TableCell className="text-right">
@@ -321,7 +325,7 @@ export function InvoiceDetailsDialog({
                 )}
                 <TableRow>
                   <TableCell
-                    colSpan={3}
+                    colSpan={4}
                     className="text-right font-bold text-lg"
                   >
                     Total

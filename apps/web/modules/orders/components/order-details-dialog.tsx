@@ -83,7 +83,7 @@ export function OrderDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-6xl">
+      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Detalle del Pedido: {order.code}</DialogTitle>
           <DialogDescription>
@@ -144,6 +144,7 @@ export function OrderDetailsDialog({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>SKU</TableHead>
                 <TableHead>Producto</TableHead>
                 <TableHead className="text-right">Cant.</TableHead>
                 <TableHead className="text-right">Precio</TableHead>
@@ -153,6 +154,9 @@ export function OrderDetailsDialog({
             <TableBody>
               {order.items?.map((item) => (
                 <TableRow key={item.id}>
+                  <TableCell className="font-mono text-xs">
+                    {item.product?.sku || "-"}
+                  </TableCell>
                   <TableCell>
                     {item.product?.name || "Producto desconocido"}
                   </TableCell>
@@ -173,7 +177,7 @@ export function OrderDetailsDialog({
                 </TableRow>
               ))}
               <TableRow>
-                <TableCell colSpan={3} className="text-right font-bold">
+                <TableCell colSpan={4} className="text-right font-bold">
                   Total General
                 </TableCell>
                 <TableCell className="text-right font-bold">
@@ -205,13 +209,18 @@ export function OrderDetailsDialog({
               </Button>
             )}
           {order.status === "CONFIRMED" && onGenerateInvoice && (
-            <Button
-              className="bg-indigo-600 hover:bg-indigo-700"
-              onClick={handleGenerateInvoice}
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              Generar Factura
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                className="bg-indigo-600 hover:bg-indigo-700"
+                onClick={handleGenerateInvoice}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Generar Factura Fiscal
+              </Button>
+              <span className="text-[10px] text-muted-foreground">
+                Se emitirá en Bolívares (VES)
+              </span>
+            </div>
           )}
           {order.status === "PENDING" && onConfirm && (
             <Button className="bg-primary" onClick={handleConfirm}>

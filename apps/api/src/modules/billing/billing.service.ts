@@ -19,7 +19,7 @@ import {
 import { eq, sql, desc, inArray, and, gte, lt, like, ne } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import { InventoryService } from '../inventory/inventory.service';
-import { CurrenciesService } from '../finance/currencies/currencies.service';
+import { CurrenciesService } from '../settings/currencies/currencies.service';
 import { CreateInvoiceDto, InvoiceType } from './dto/create-invoice.dto';
 
 @Injectable()

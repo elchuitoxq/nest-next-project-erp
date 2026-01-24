@@ -16,7 +16,7 @@ export function DualCurrencyDisplay({
   const { data: latestRates } = useQuery({
     queryKey: ["exchange-rates", "latest"],
     queryFn: async () => {
-      const { data } = await api.get<any[]>("/finance/currencies/rates/latest");
+      const { data } = await api.get<any[]>("/settings/currencies/rates/latest");
       return data;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -26,7 +26,7 @@ export function DualCurrencyDisplay({
   const { data: currencies } = useQuery({
     queryKey: ["currencies"],
     queryFn: async () => {
-      const { data } = await api.get<any[]>("/finance/currencies");
+      const { data } = await api.get<any[]>("/settings/currencies");
       return data;
     },
     staleTime: 1000 * 60 * 60, // 1 hour

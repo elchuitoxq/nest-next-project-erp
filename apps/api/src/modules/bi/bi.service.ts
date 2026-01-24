@@ -11,7 +11,7 @@ import {
   inventoryMoves,
 } from '@repo/db';
 import { eq, sql, sum, count, and, gte, ne, inArray, lte, desc } from 'drizzle-orm';
-import { CurrenciesService } from '../finance/currencies/currencies.service';
+import { CurrenciesService } from '../settings/currencies/currencies.service';
 
 @Injectable()
 export class BiService {

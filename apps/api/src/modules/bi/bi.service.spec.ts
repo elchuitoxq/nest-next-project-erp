@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BiService } from './bi.service';
-import { CurrenciesService } from '../finance/currencies/currencies.service';
+import { CurrenciesService } from '../settings/currencies/currencies.service';
 
 describe('BiService', () => {
   let service: BiService;

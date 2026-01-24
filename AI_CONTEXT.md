@@ -19,7 +19,10 @@ El sistema opera bajo un modelo de **Multisucursal (Multi-Branch)** por defecto:
 ## 💰 Economía y Tesorería
 - **Estructura Modular:**
   - **Operaciones:** Pagos, Cobros y Cierre de Caja (`/dashboard/treasury/daily-close`).
-  - **Configuración:** Cuentas Bancarias y Métodos de Pago movidos a `/dashboard/treasury/config/`.
+  - **Configuración:**
+    - Cuentas Bancarias: `/dashboard/treasury/accounts`
+    - Métodos de Pago: `/dashboard/treasury/methods`
+    - Monedas y Tasas: `/dashboard/settings/currencies`
 - **Tasa de Cambio:** Módulo centralizado (BCV) con histórico, segregado por sucursal para permitir variaciones regionales si es necesario.
 - **Dualidad Monetaria:** Todo registro guarda monto en moneda origen, tasa aplicada y equivalente en VES. Las monedas (USD/VES) se configuran por sucursal.
 - **Recálculo Dinámico:** Los Pedidos pueden recalcularse (`POST /orders/:id/recalculate`) para actualizar precios según la tasa del día antes de facturar.
@@ -66,3 +69,11 @@ El sistema opera bajo un modelo de **Multisucursal (Multi-Branch)** por defecto:
 - **Esquema DB:** `packages/db/src/schema.ts`
 - **Intercepción de Sucursal:** `apps/api/src/common/interceptors/branch.interceptor.ts`
 - **Store de Autenticación (Web):** `apps/web/stores/use-auth-store.ts`
+
+## 👥 Recursos Humanos (RRHH)
+
+- **Módulo:** `apps/api/src/modules/hr`
+- **Entidades:** `employees` (con datos bancarios), `job_positions` (tabuladores salariales).
+- **Alcance Inicial:** CRUD de empleados y cargos. Planificado motor de nómina quincenal y generación de archivos bancarios.
+- **Relaciones:** Empleados vinculados a Cargos (1:1) y Moneda de Salario (1:1). Cuentas bancarias (1:1 en tabla `employees`).
+

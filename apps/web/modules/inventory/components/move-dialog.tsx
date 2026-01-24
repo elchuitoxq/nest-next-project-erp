@@ -33,12 +33,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import { useInventoryMutations, useWarehouses } from "../hooks/use-inventory";
-import { useProducts } from "../hooks/use-products";
+// Removed useProducts hook usage
 import {
   inventoryMoveSchema,
   InventoryMoveFormValues,
 } from "../schemas/move.schema";
 import { useAuthStore } from "@/stores/use-auth-store";
+import { ProductCombobox } from "./product-combobox";
 
 interface MoveDialogProps {
   open: boolean;
@@ -48,13 +49,13 @@ interface MoveDialogProps {
 export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
   const { createMove } = useInventoryMutations();
   const { data: warehouses } = useWarehouses();
-  const { data: products } = useProducts(); // TODO: Optimize for large lists (async select)
+  // products fetch removed
 
   // Fetch Currencies for display
   const { data: currencies } = useQuery({
     queryKey: ["currencies"],
     queryFn: async () => {
-      const { data } = await api.get<any[]>("/finance/currencies");
+      const { data } = await api.get<any[]>("/settings/currencies");
       return data;
     },
     staleTime: 1000 * 60 * 60, // 1 hour
@@ -75,15 +76,11 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
   });
 
   const type = form.watch("type");
+  const fromWarehouseId = form.watch("fromWarehouseId");
 
   const { user } = useAuthStore();
 
-  const handleProductChange = (index: number, productId: string) => {
-    const product = products?.find((p) => p.id === productId);
-    if (product) {
-      form.setValue(`lines.${index}.cost`, Number(product.cost));
-    }
-  };
+  // handleProductChange removed, logic moved to onSelectObject
 
   const onSubmit = async (data: InventoryMoveFormValues) => {
     // Inject userId from auth store if available
@@ -98,7 +95,7 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Registrar Movimiento</DialogTitle>
           <DialogDescription>
@@ -239,17 +236,7 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
               </div>
 
               {fields.map((field, index) => {
-                const currentProductId = form.watch(`lines.${index}.productId`);
-                const currentProduct = products?.find(
-                  (p) => p.id === currentProductId,
-                );
-                const currentCurrency = currencies?.find(
-                  (c) => c.id === currentProduct?.currencyId,
-                );
-                const currencySymbol = currentCurrency
-                  ? currentCurrency.symbol
-                  : "";
-
+                // Removed invalid watch on non-existent field currencyId
                 return (
                   <div
                     key={field.id}
@@ -260,38 +247,26 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
                         control={form.control}
                         name={`lines.${index}.productId`}
                         render={({ field }) => (
-                          <FormItem>
+                          <FormItem className="flex flex-col">
                             <FormLabel className={index !== 0 ? "sr-only" : ""}>
                               Producto
                             </FormLabel>
-                            <Select
-                              onValueChange={(val) => {
-                                field.onChange(val);
-                                handleProductChange(index, val);
+                            <ProductCombobox
+                              value={field.value}
+                              onChange={field.onChange}
+                              mode={
+                                type === "OUT" || type === "TRANSFER"
+                                  ? "STOCK"
+                                  : "GLOBAL"
+                              }
+                              warehouseId={fromWarehouseId}
+                              onSelectObject={(item) => {
+                                const cost = Number(item.cost || 0);
+                                form.setValue(`lines.${index}.cost`, cost);
+                                // Optional: if we want to track currency
+                                // form.setValue(`lines.${index}.currencyId`, item.currencyId);
                               }}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Seleccionar..." />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {products?.map((p) => {
-                                  const currency = currencies?.find(
-                                    (c) => c.id === p.currencyId,
-                                  );
-                                  const symbol = currency
-                                    ? currency.symbol
-                                    : "??";
-                                  return (
-                                    <SelectItem key={p.id} value={p.id}>
-                                      [{symbol}] {p.sku} - {p.name}
-                                    </SelectItem>
-                                  );
-                                })}
-                              </SelectContent>
-                            </Select>
+                            />
                             <FormMessage />
                           </FormItem>
                         )}
@@ -321,8 +296,7 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel className={index !== 0 ? "sr-only" : ""}>
-                              Costo Unit.{" "}
-                              {currencySymbol ? `(${currencySymbol})` : ""}
+                              Costo Unit.
                             </FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" {...field} />

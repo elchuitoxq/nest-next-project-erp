@@ -108,8 +108,8 @@ const NAV_ITEMS: NavItem[] = [
         url: "/dashboard/treasury/daily-close",
       },
       {
-        title: "Cuentas y Monedas",
-        url: "/dashboard/treasury/config/accounts",
+        title: "Cuentas Bancarias",
+        url: "/dashboard/treasury/accounts",
       },
       {
         title: "Libro de Ventas",
@@ -121,7 +121,23 @@ const NAV_ITEMS: NavItem[] = [
       },
       {
         title: "Métodos de Pago",
-        url: "/dashboard/treasury/config/methods",
+        url: "/dashboard/treasury/methods",
+      },
+    ],
+  },
+  {
+    title: "Recursos Humanos",
+    url: "/dashboard/hr",
+    icon: Users,
+    roles: ["admin", "manager"],
+    items: [
+      {
+        title: "Empleados",
+        url: "/dashboard/hr/employees",
+      },
+      {
+        title: "Cargos",
+        url: "/dashboard/hr/positions",
       },
     ],
   },
@@ -138,6 +154,10 @@ const NAV_ITEMS: NavItem[] = [
       {
         title: "Sucursales",
         url: "/dashboard/branches",
+      },
+      {
+        title: "Monedas y Tasas",
+        url: "/dashboard/settings/currencies",
       },
     ],
   },

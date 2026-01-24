@@ -2,7 +2,7 @@
 description: Use when modifying Billing, Invoices, Orders, or Payments logic to ensure financial integrity and system stability.
 ---
 
-# Maintaining Finance Module
+# Maintaining Treasury & Billing Modules
 
 This skill provides critical context for working with the ERP's financial core (Billing, Treasury, purchases).
 
@@ -43,6 +43,7 @@ const payload = {
   - **Purchase**: Uses the rate to convert Cost (in invoice currency) to Base Cost (for Inventory WAC).
   - **Sale**: Uses the rate to display price in foreign currency.
   - **Conversion Rule**: When creating transactions in Base Currency (VES) from items priced in USD, explicitly multiply: `PriceVES = PriceUSD * ExchangeRate`. Do not rely on implicit DB defaults for critical conversions in seeds.
+  - **Invoice Generation**: Invoices generated from Orders MUST default to the Fiscal Base Currency (VES). The system calculates the conversion automatically.
 
 ## 4. Purchasing Logic (Cuentas por Pagar)
 
@@ -65,6 +66,7 @@ const payload = {
 ## 7. Frontend Structure & Routing
 
 - **Configuration vs Operation**:
-  - **Config**: Static setup like Bank Accounts and Payment Methods lives in `/dashboard/treasury/config/`.
+  - **Treasury Config**: Bank Accounts (`/dashboard/treasury/accounts`) and Payment Methods (`/dashboard/treasury/methods`) are now at the root of the Treasury module.
+  - **General Settings**: Currencies and Exchange Rates are managed in `/dashboard/settings/currencies`.
   - **Operations**: Daily tasks like Payments and Daily Close live in `/dashboard/treasury/`.
 - **Navigation**: Always update `app-sidebar.tsx` when moving modules to preserve menu integrity.

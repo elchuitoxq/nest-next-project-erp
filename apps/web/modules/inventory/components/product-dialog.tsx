@@ -107,7 +107,7 @@ export function ProductDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? "Editar Producto" : "Nuevo Producto"}
@@ -255,7 +255,7 @@ export function ProductDialog({
                     queryKey: ["currencies"],
                     queryFn: async () => {
                       const { data } = await api.get<any[]>(
-                        "/finance/currencies",
+                        "/settings/currencies",
                       );
                       return data;
                     },

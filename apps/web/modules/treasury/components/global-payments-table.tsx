@@ -33,7 +33,7 @@ export function GlobalPaymentsTable() {
   const { data: currencies } = useQuery({
     queryKey: ["currencies"],
     queryFn: async () => {
-      const { data } = await api.get("/finance/currencies");
+      const { data } = await api.get("/settings/currencies");
       return data;
     },
   });

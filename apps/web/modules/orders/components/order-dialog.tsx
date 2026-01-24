@@ -88,7 +88,7 @@ export function OrderDialog({
   const { data: rates } = useQuery({
     queryKey: ["exchange-rates", "latest"],
     queryFn: async () => {
-      const { data } = await api.get<any[]>("/finance/currencies/rates/latest");
+      const { data } = await api.get<any[]>("/settings/currencies/rates/latest");
       return data;
     },
   });
@@ -97,7 +97,7 @@ export function OrderDialog({
   const { data: currencies } = useQuery({
     queryKey: ["currencies"],
     queryFn: async () => {
-      const { data } = await api.get<any[]>("/finance/currencies");
+      const { data } = await api.get<any[]>("/settings/currencies");
       return data;
     },
   });
