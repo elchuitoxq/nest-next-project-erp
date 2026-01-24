@@ -57,14 +57,14 @@ const NAV_ITEMS: NavItem[] = [
     items: [
       {
         title: "Clientes y Socios",
-        url: "/dashboard/partners",
+        url: "/dashboard/operations/partners",
       },
       {
-        title: "Pedidos",
-        url: "/dashboard/orders",
+        title: "Pedidos de Venta",
+        url: "/dashboard/operations/sales",
       },
       {
-        title: "Compras",
+        title: "Órdenes de Compra",
         url: "/dashboard/operations/purchases",
       },
     ],
@@ -109,11 +109,7 @@ const NAV_ITEMS: NavItem[] = [
       },
       {
         title: "Cuentas y Monedas",
-        url: "/dashboard/treasury/accounts",
-      },
-      {
-        title: "Gestión de Impuestos",
-        url: "/dashboard/treasury/taxes",
+        url: "/dashboard/treasury/config/accounts",
       },
       {
         title: "Libro de Ventas",
@@ -125,7 +121,7 @@ const NAV_ITEMS: NavItem[] = [
       },
       {
         title: "Métodos de Pago",
-        url: "/dashboard/treasury/methods",
+        url: "/dashboard/treasury/config/methods",
       },
     ],
   },

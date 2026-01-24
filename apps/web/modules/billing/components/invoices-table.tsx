@@ -39,6 +39,11 @@ const ALL_STATUSES = [
   { id: "VOID", label: "Anulado" },
 ];
 
+const ALL_TYPES = [
+  { id: "SALE", label: "Venta" },
+  { id: "PURCHASE", label: "Compra" },
+];
+
 export function InvoicesTable({
   invoices,
   onViewDetails,
@@ -46,6 +51,7 @@ export function InvoicesTable({
 }: InvoicesTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -64,11 +70,30 @@ export function InvoicesTable({
     }
   };
 
+  const getTypeBadge = (type: string) => {
+    switch (type) {
+      case "SALE":
+        return <Badge className="bg-teal-600 hover:bg-teal-700">Venta</Badge>;
+      case "PURCHASE":
+        return <Badge className="bg-orange-600 hover:bg-orange-700">Compra</Badge>;
+      default:
+        return <Badge variant="outline">{type}</Badge>;
+    }
+  };
+
   const toggleStatus = (statusId: string) => {
     setSelectedStatuses((prev) =>
       prev.includes(statusId)
         ? prev.filter((id) => id !== statusId)
         : [...prev, statusId],
+    );
+  };
+
+  const toggleType = (typeId: string) => {
+    setSelectedTypes((prev) =>
+      prev.includes(typeId)
+        ? prev.filter((id) => id !== typeId)
+        : [...prev, typeId],
     );
   };
 
@@ -80,7 +105,10 @@ export function InvoicesTable({
     const matchesStatus =
       selectedStatuses.length === 0 || selectedStatuses.includes(inv.status);
 
-    return matchesSearch && matchesStatus;
+    const matchesType =
+      selectedTypes.length === 0 || selectedTypes.includes(inv.type);
+
+    return matchesSearch && matchesStatus && matchesType;
   });
 
   return (
@@ -96,46 +124,89 @@ export function InvoicesTable({
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              Estado
-              {selectedStatuses.length > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="ml-1 h-5 px-1.5 rounded-sm"
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Filter className="h-4 w-4" />
+                Tipo
+                {selectedTypes.length > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 h-5 px-1.5 rounded-sm"
+                  >
+                    {selectedTypes.length}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px]">
+              <DropdownMenuLabel>Filtrar por tipo</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {ALL_TYPES.map((t) => (
+                <DropdownMenuCheckboxItem
+                  key={t.id}
+                  checked={selectedTypes.includes(t.id)}
+                  onCheckedChange={() => toggleType(t.id)}
                 >
-                  {selectedStatuses.length}
-                </Badge>
+                  {t.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+              {selectedTypes.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="justify-center text-center cursor-pointer"
+                    onClick={() => setSelectedTypes([])}
+                  >
+                    Limpiar filtros
+                  </DropdownMenuItem>
+                </>
               )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[200px]">
-            <DropdownMenuLabel>Filtrar por estado</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {ALL_STATUSES.map((status) => (
-              <DropdownMenuCheckboxItem
-                key={status.id}
-                checked={selectedStatuses.includes(status.id)}
-                onCheckedChange={() => toggleStatus(status.id)}
-              >
-                {status.label}
-              </DropdownMenuCheckboxItem>
-            ))}
-            {selectedStatuses.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="justify-center text-center cursor-pointer"
-                  onClick={() => setSelectedStatuses([])}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Filter className="h-4 w-4" />
+                Estado
+                {selectedStatuses.length > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 h-5 px-1.5 rounded-sm"
+                  >
+                    {selectedStatuses.length}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px]">
+              <DropdownMenuLabel>Filtrar por estado</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {ALL_STATUSES.map((status) => (
+                <DropdownMenuCheckboxItem
+                  key={status.id}
+                  checked={selectedStatuses.includes(status.id)}
+                  onCheckedChange={() => toggleStatus(status.id)}
                 >
-                  Limpiar filtros
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                  {status.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+              {selectedStatuses.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="justify-center text-center cursor-pointer"
+                    onClick={() => setSelectedStatuses([])}
+                  >
+                    Limpiar filtros
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="rounded-md border">
@@ -143,6 +214,7 @@ export function InvoicesTable({
           <TableHeader>
             <TableRow>
               <TableHead>Código</TableHead>
+              <TableHead>Tipo</TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead>
                 {type === "PURCHASE" ? "Proveedor" : "Cliente"}
@@ -166,6 +238,7 @@ export function InvoicesTable({
               filteredInvoices.map((invoice) => (
                 <TableRow key={invoice.id}>
                   <TableCell className="font-medium">{invoice.code}</TableCell>
+                  <TableCell>{getTypeBadge(invoice.type)}</TableCell>
                   <TableCell>
                     {invoice.date
                       ? format(new Date(invoice.date), "dd/MM/yyyy", {

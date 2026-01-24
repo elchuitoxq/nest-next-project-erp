@@ -33,7 +33,7 @@ import {
 
 export default function PartnersPage() {
   const [search, setSearch] = useState("");
-  const { data: partners, isLoading, isError } = usePartners(search);
+  const { data: partners, isLoading, isError } = usePartners({ search });
   const { deletePartner } = usePartnerMutations();
   const router = useRouter();
 

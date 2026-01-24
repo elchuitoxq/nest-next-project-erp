@@ -4,6 +4,7 @@ export interface PaymentMethod {
   code: string;
   currencyId: string;
   isDigital: boolean;
+  allowedAccounts?: any[];
 }
 
 export interface Payment {

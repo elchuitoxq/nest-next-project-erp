@@ -41,5 +41,8 @@ export interface CreateOrderValues {
     quantity: number;
     price: number;
     productName?: string; // For UI display
+    currencyId?: string;
   }[];
+  type?: "SALE" | "PURCHASE";
+  exchangeRate?: number;
 }

@@ -12,7 +12,7 @@ export function DualCurrencyDisplay({
   value,
   currencyId,
 }: DualCurrencyDisplayProps) {
-  // Fetch Rates (Cached)
+  // Fetch Rates (Global)
   const { data: latestRates } = useQuery({
     queryKey: ["exchange-rates", "latest"],
     queryFn: async () => {
@@ -22,7 +22,7 @@ export function DualCurrencyDisplay({
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Fetch Currencies (Cached)
+  // Fetch Currencies (Global)
   const { data: currencies } = useQuery({
     queryKey: ["currencies"],
     queryFn: async () => {

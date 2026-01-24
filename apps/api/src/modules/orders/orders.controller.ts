@@ -7,6 +7,7 @@ import {
   UseGuards,
   Request,
   UseInterceptors,
+  Query,
 } from '@nestjs/common';
 import { BranchInterceptor } from '../../common/interceptors/branch.interceptor';
 import { OrdersService } from './orders.service';
@@ -20,8 +21,8 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get()
-  findAll(@Request() req: any) {
-    return this.ordersService.findAll(req.branchId);
+  findAll(@Request() req: any, @Query('type') type?: string) {
+    return this.ordersService.findAll(req.branchId, type);
   }
 
   @Get(':id')

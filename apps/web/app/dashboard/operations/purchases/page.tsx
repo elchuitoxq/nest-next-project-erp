@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -19,24 +20,85 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
 
-import { usePurchases } from "@/modules/billing/hooks/use-purchases";
-import { InvoicesTable } from "@/modules/billing/components/invoices-table";
-import { InvoiceDetailsDialog } from "@/modules/billing/components/invoice-details-dialog";
-import { PurchaseDialog } from "@/modules/billing/components/purchase-dialog";
-import { Invoice } from "@/modules/billing/types";
+import {
+  useOrders,
+  useOrderMutations,
+} from "@/modules/orders/hooks/use-orders";
+import { OrdersTable } from "@/modules/orders/components/orders-table";
+import { OrderDialog } from "@/modules/orders/components/order-dialog";
+import { OrderDetailsDialog } from "@/modules/orders/components/order-details-dialog";
+import { Order } from "@/modules/orders/types";
 
-export default function PurchasesPage() {
-  const { data: invoices, isLoading, isError } = usePurchases();
+export default function PurchaseOrdersPage() {
+  // Pass 'PURCHASE' to filter
+  const { data: orders, isLoading, isError } = useOrders("PURCHASE");
+  const { confirmOrder, cancelOrder, generateInvoice, recalculateOrder } =
+    useOrderMutations();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | undefined>(
+    undefined,
+  );
 
-  const activeInvoice = invoices?.find((inv) => inv.id === selectedId);
+  const executeConfirm = async (order: Order) => {
+    if (
+      confirm(
+        "¿Confirmar Orden de Compra? Esto aumentará el inventario en el almacén destino.",
+      )
+    ) {
+      try {
+        await confirmOrder.mutateAsync(order.id);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
 
-  const handleViewDetails = (invoice: Invoice) => {
-    setSelectedId(invoice.id);
+  const executeRecalculate = async (order: Order) => {
+    if (
+      confirm("¿Recalcular orden con la tasa actual? El total se actualizará.")
+    ) {
+      try {
+        await recalculateOrder.mutateAsync(order.id);
+        setIsDetailsOpen(false);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const executeCancel = async (order: Order) => {
+    if (
+      confirm(
+        "¿Cancelar Orden de Compra?" +
+          (order.status === "CONFIRMED"
+            ? " El stock será retirado del almacén (Devolución)."
+            : ""),
+      )
+    ) {
+      try {
+        await cancelOrder.mutateAsync(order.id);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const executeGenerateInvoice = async (order: Order) => {
+    if (
+      confirm("¿Generar Factura de Compra (Cuenta por Pagar) para esta orden?")
+    ) {
+      try {
+        await generateInvoice.mutateAsync(order.id);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
+  const handleViewDetails = (order: Order) => {
+    setSelectedOrder(order);
     setIsDetailsOpen(true);
   };
 
@@ -55,8 +117,12 @@ export default function PurchasesPage() {
                 <BreadcrumbLink href="#">Operaciones</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="#">Compras</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Compras</BreadcrumbPage>
+                <BreadcrumbPage>Órdenes</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -65,14 +131,16 @@ export default function PurchasesPage() {
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between space-y-2 py-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Compras</h2>
+            <h2 className="text-3xl font-bold tracking-tight">
+              Órdenes de Compra
+            </h2>
             <p className="text-muted-foreground">
-              Gestione las facturas de proveedores y cuentas por pagar.
+              Gestión de abastecimiento y pedidos a proveedores.
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <Button onClick={() => setIsCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> Registrar Compra
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Nueva Orden
             </Button>
           </div>
         </div>
@@ -81,7 +149,7 @@ export default function PurchasesPage() {
           <CardHeader>
             <CardTitle>Historial de Compras</CardTitle>
             <CardDescription>
-              Listado de facturas registradas en el sistema.
+              Registro completo de órdenes de compra y recepciones de mercancía.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -91,26 +159,34 @@ export default function PurchasesPage() {
               </div>
             ) : isError ? (
               <div className="text-red-500 py-8 text-center">
-                Error al cargar compras.
+                Error al cargar órdenes.
               </div>
             ) : (
-              <InvoicesTable
-                invoices={invoices || []}
+              // @ts-ignore
+              <OrdersTable
+                orders={orders || []}
                 onViewDetails={handleViewDetails}
-                type="PURCHASE"
+                onConfirm={handleViewDetails}
+                onCancel={handleViewDetails}
               />
             )}
           </CardContent>
         </Card>
 
-        {/* Dialogs */}
-        <InvoiceDetailsDialog
+        <OrderDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          type="PURCHASE"
+        />
+        <OrderDetailsDialog
           open={isDetailsOpen}
           onOpenChange={setIsDetailsOpen}
-          invoice={activeInvoice}
+          order={selectedOrder}
+          onConfirm={executeConfirm}
+          onCancel={executeCancel}
+          onGenerateInvoice={executeGenerateInvoice}
+          onRecalculate={executeRecalculate}
         />
-
-        <PurchaseDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
       </div>
     </SidebarInset>
   );

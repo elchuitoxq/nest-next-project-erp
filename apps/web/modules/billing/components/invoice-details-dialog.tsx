@@ -30,8 +30,13 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Invoice } from "../types";
 import { PaymentDialog } from "@/modules/treasury/components/payment-dialog";
+import { Input } from "@/components/ui/input";
 import { formatCurrency } from "@/lib/utils";
-import { useVoidInvoice, usePostInvoice } from "../hooks/use-invoices";
+import {
+  useVoidInvoice,
+  usePostInvoice,
+  useUpdateInvoice,
+} from "../hooks/use-invoices";
 import { useWarehouses } from "@/modules/inventory/hooks/use-inventory";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -56,8 +61,13 @@ export function InvoiceDetailsDialog({
   const [returnStock, setReturnStock] = useState(false);
   const [targetWarehouseId, setTargetWarehouseId] = useState("");
 
+  // Post Dialog State
+  const [controlNumberDialogOpen, setControlNumberDialogOpen] = useState(false);
+  const [controlNumberInput, setControlNumberInput] = useState("");
+
   const { mutate: voidInvoice, isPending: isVoiding } = useVoidInvoice();
   const { mutate: postInvoice, isPending: isPosting } = usePostInvoice();
+  const { mutate: updateInvoice, isPending: isUpdating } = useUpdateInvoice();
   const { data: warehouses } = useWarehouses();
 
   if (!invoice) return null;
@@ -76,6 +86,17 @@ export function InvoiceDetailsDialog({
         return <Badge variant="destructive">Anulado</Badge>;
       default:
         return <Badge>{status}</Badge>;
+    }
+  };
+
+  const getTypeBadge = (type: string) => {
+    switch (type) {
+      case "SALE":
+        return <Badge className="bg-teal-600 hover:bg-teal-700">Venta</Badge>;
+      case "PURCHASE":
+        return <Badge className="bg-orange-600 hover:bg-orange-700">Compra</Badge>;
+      default:
+        return <Badge variant="outline">{type}</Badge>;
     }
   };
 
@@ -108,6 +129,17 @@ export function InvoiceDetailsDialog({
   };
 
   const handlePost = () => {
+    // If Purchase and missing Control Number, ask for it
+    if (invoice.type === "PURCHASE" && !(invoice as any).invoiceNumber) {
+      setControlNumberInput("");
+      setControlNumberDialogOpen(true);
+      return;
+    }
+
+    executePost();
+  };
+
+  const executePost = () => {
     postInvoice(invoice.id, {
       onSuccess: () => {
         toast.success("Factura emitida correctamente");
@@ -120,6 +152,32 @@ export function InvoiceDetailsDialog({
     });
   };
 
+  const handleSaveControlNumber = () => {
+    if (!controlNumberInput.trim()) {
+      toast.error("El número de control es obligatorio");
+      return;
+    }
+
+    updateInvoice(
+      {
+        id: invoice.id,
+        data: { invoiceNumber: controlNumberInput },
+      },
+      {
+        onSuccess: () => {
+          setControlNumberDialogOpen(false);
+          // After saving, proceed to Post
+          // We need to wait for invalidation or optimistically proceed.
+          // Since invalidation happens, invoice prop might update?
+          // Ideally we re-trigger. But let's verify if `postInvoice` will see the updated data in DB.
+          // Yes, backend fetches invoice.
+          executePost();
+        },
+        onError: () => toast.error("Error al guardar número de control"),
+      },
+    );
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -127,6 +185,7 @@ export function InvoiceDetailsDialog({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               Factura {invoice.code}
+              {getTypeBadge(invoice.type)}
               {getStatusBadge(invoice.status)}
             </DialogTitle>
             <DialogDescription>Detalle de la factura.</DialogDescription>
@@ -396,18 +455,25 @@ export function InvoiceDetailsDialog({
               />
               <div className="grid gap-1.5 leading-none">
                 <Label htmlFor="returnStock" className="font-medium">
-                  Devolver mercancía al inventario
+                  {invoice.type === "PURCHASE"
+                    ? "Revertir ingreso de inventario"
+                    : "Devolver mercancía al inventario"}
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Si se activa, se creará un movimiento de entrada
-                  ("Devolución").
+                  {invoice.type === "PURCHASE"
+                    ? "Si se activa, se creará una salida (reverso) de inventario."
+                    : "Si se activa, se creará una entrada (devolución) de inventario."}
                 </p>
               </div>
             </div>
 
             {returnStock && (
               <div className="space-y-2">
-                <Label>Almacén de destino</Label>
+                <Label>
+                  {invoice.type === "PURCHASE"
+                    ? "Almacén de Origen (donde estaba la mercancía)"
+                    : "Almacén de Destino (donde entra la devolución)"}
+                </Label>
                 <Select
                   value={targetWarehouseId}
                   onValueChange={setTargetWarehouseId}
@@ -454,6 +520,42 @@ export function InvoiceDetailsDialog({
           onOpenChange={setIsCreditNoteDialogOpen}
         />
       )}
+
+      {/* Control Number Dialog */}
+      <Dialog
+        open={controlNumberDialogOpen}
+        onOpenChange={setControlNumberDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Número de Control</DialogTitle>
+            <DialogDescription>
+              Para emitir una factura de compra, debe registrar el número de
+              control (Factura del Proveedor).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Número de Factura / Control</Label>
+            <Input
+              value={controlNumberInput}
+              onChange={(e) => setControlNumberInput(e.target.value)}
+              placeholder="Ej: 00012345"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setControlNumberDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveControlNumber} disabled={isUpdating}>
+              {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Guardar y Emitir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   db,
   invoices,
@@ -12,7 +16,7 @@ import {
   creditNotes,
   users,
 } from '@repo/db';
-import { eq, sql, desc, inArray, and, gte, lt, like } from 'drizzle-orm';
+import { eq, sql, desc, inArray, and, gte, lt, like, ne } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import { InventoryService } from '../inventory/inventory.service';
 import { CurrenciesService } from '../finance/currencies/currencies.service';
@@ -24,28 +28,6 @@ export class BillingService {
     private readonly inventoryService: InventoryService,
     private readonly currenciesService: CurrenciesService,
   ) {}
-
-  async postInvoice(id: string, userId: string) {
-    return await db.transaction(async (tx) => {
-      const invoice = await db.query.invoices.findFirst({
-        where: eq(invoices.id, id),
-      });
-
-      if (!invoice) throw new BadRequestException('Factura no encontrada');
-      if (invoice.status !== 'DRAFT')
-        throw new BadRequestException(
-          'Solo las facturas en borrador pueden ser emitidas',
-        );
-
-      const [updatedInvoice] = await tx
-        .update(invoices)
-        .set({ status: 'POSTED' })
-        .where(eq(invoices.id, id))
-        .returning();
-
-      return updatedInvoice;
-    });
-  }
 
   async voidInvoice(
     id: string,
@@ -61,11 +43,16 @@ export class BillingService {
       if (invoice.status === 'VOID')
         throw new BadRequestException('La factura ya está anulada');
 
-      // 1. Return Stock if requested
+      // 1. Return/Reverse Stock if requested
       if (options.returnStock) {
-        if (!options.warehouseId) {
+        // If Purchase, we need to REVERSE the entry (OUT)
+        // If Sale, we need to RETURN the items (IN)
+
+        const targetWarehouseId = options.warehouseId || invoice.warehouseId; // Fallback to invoice warehouse if available
+
+        if (!targetWarehouseId) {
           throw new BadRequestException(
-            'Se requiere almacén para retornar el stock',
+            'Se requiere almacén para revertir el inventario',
           );
         }
 
@@ -80,13 +67,27 @@ export class BillingService {
           cost: parseFloat(item.price), // Using price as cost for return value approximation
         }));
 
-        await this.inventoryService.createMove({
-          type: 'IN',
-          lines: moveLines,
-          toWarehouseId: options.warehouseId,
-          note: `Anulación Factura #${invoice.code}`,
-          userId,
-        });
+        if (invoice.type === InvoiceType.PURCHASE) {
+          // Reverse Purchase -> OUT
+          await this.inventoryService.createMove({
+            type: 'OUT',
+            lines: moveLines,
+            fromWarehouseId: targetWarehouseId,
+            branchId: invoice.branchId,
+            note: `Anulación Compra #${invoice.invoiceNumber || invoice.code}`,
+            userId,
+          });
+        } else {
+          // Reverse Sale -> IN (Return)
+          await this.inventoryService.createMove({
+            type: 'IN',
+            lines: moveLines,
+            toWarehouseId: targetWarehouseId,
+            branchId: invoice.branchId,
+            note: `Anulación Factura #${invoice.code}`,
+            userId,
+          });
+        }
       }
 
       // 2. Void Invoice
@@ -113,12 +114,11 @@ export class BillingService {
         .where(eq(currencies.id, data.currencyId));
       if (!currency) throw new BadRequestException('Moneda inválida');
 
-      // Fetch latest exchange rate
+      // Fetch latest exchange rate (or use provided)
       const exchangeRate =
-        (await this.currenciesService.getLatestRate(
-          data.currencyId,
-          data.branchId,
-        )) || '1.0000000000';
+        data.exchangeRate?.toString() ||
+        (await this.currenciesService.getLatestRate(data.currencyId)) ||
+        '1.0000000000';
 
       let totalBase = new Decimal(0);
       let totalTax = new Decimal(0);
@@ -127,7 +127,14 @@ export class BillingService {
       const type = data.type || InvoiceType.SALE;
 
       // Validation for Purchase
-      if (type === InvoiceType.PURCHASE && !data.invoiceNumber) {
+      // Only require invoiceNumber (Control Logic) if NOT Draft.
+      // When generating from Order, it is Draft initially, so we don't have it yet.
+      const status = data.status || 'DRAFT';
+      if (
+        type === InvoiceType.PURCHASE &&
+        status !== 'DRAFT' &&
+        !data.invoiceNumber
+      ) {
         throw new BadRequestException(
           'El número de factura (Control) es requerido para compras',
         );
@@ -175,22 +182,39 @@ export class BillingService {
 
       const total = totalBase.plus(totalTax).plus(totalIgtf);
 
-      // Generate Code
-      const lastInvoice = await tx.query.invoices.findFirst({
-        where: eq(invoices.type, type),
-        orderBy: desc(invoices.code),
-      });
+      // Generate Code Strategy
+      // 1. If Purchase, user might provide external invoiceNumber (Control Number)
+      // 2. If Sale, we generate internal sequential code.
+      // 3. POLICY: If Draft, generate temporary code. If Posted, generate sequence.
 
-      let nextCode = type === InvoiceType.SALE ? 'A-00001' : 'C-00001';
-      const prefix = type === InvoiceType.SALE ? 'A' : 'C';
+      let nextCode = `DRAFT-${Date.now()}`; // Default temporary
 
-      if (lastInvoice && lastInvoice.code) {
-        const parts = lastInvoice.code.split('-');
-        if (parts.length === 2) {
-          const num = parseInt(parts[1]) + 1;
-          nextCode = `${prefix}-${num.toString().padStart(5, '0')}`;
+      if (status === 'POSTED') {
+        // Generate Sequential ONLY if creating directly as POSTED (which shouldn't happen often)
+        const lastInvoice = await tx.query.invoices.findFirst({
+          where: and(eq(invoices.type, type), ne(invoices.status, 'DRAFT')),
+          orderBy: desc(invoices.code),
+        });
+
+        let prefix = type === InvoiceType.SALE ? 'A' : 'C'; // A = Sale, C = Compra (Internal)
+        let nextNum = 1;
+
+        if (lastInvoice && lastInvoice.code) {
+          // Try to parse A-00001
+          const match = lastInvoice.code.match(/([A-Z]+)-(\d+)/);
+          if (match) {
+            // If prefix matches, increment.
+            // But careful, if we had DRAFTS before, lastInvoice query filters them out.
+            nextNum = parseInt(match[2]) + 1;
+          }
         }
+        nextCode = `${prefix}-${nextNum.toString().padStart(5, '0')}`;
       }
+
+      // For Purchases, we store the Vendor's Invoice Number in `invoiceNumber`
+      // But our internal `code` is still needed for uniqueness.
+      // User wanted "No correlativo fiscal" until posted.
+      // If Purchase, we use Internal Draft until posted.
 
       const [invoice] = await tx
         .insert(invoices)
@@ -210,6 +234,7 @@ export class BillingService {
           invoiceNumber: data.invoiceNumber, // External for Purchase, Optional for Sale
           userId: data.userId,
           orderId: data.orderId,
+          warehouseId: data.warehouseId, // Persist warehouse for future posting logic
         })
         .returning();
 
@@ -220,35 +245,132 @@ export class BillingService {
         });
       }
 
-      // Handle Inventory for Purchases
-      if (type === InvoiceType.PURCHASE && data.warehouseId) {
-        const rate = new Decimal(exchangeRate as string);
-
-        await this.inventoryService.createMove({
-          type: 'IN',
-          branchId: data.branchId, // Ensure branch context
-          fromWarehouseId: undefined, // Not needed for IN
-          toWarehouseId: data.warehouseId,
-          date: data.date,
-          note: `Compra Factura #${data.invoiceNumber || nextCode}`,
-          userId: data.userId,
-          lines: data.items.map((item) => {
-            const itemPrice = item.price
-              ? new Decimal(item.price)
-              : new Decimal(0);
-            const costInBase = itemPrice.div(rate).toNumber();
-
-            return {
-              productId: item.productId,
-              quantity: item.quantity,
-              cost: costInBase,
-            };
-          }),
-        });
-      }
+      // Inventory is NOT handled here anymore for Purchases.
+      // It is handled in postInvoice (when confirmed).
 
       return invoice;
     });
+  }
+
+  async postInvoice(id: string, userId: string) {
+    return await db.transaction(async (tx) => {
+      const invoice = await tx.query.invoices.findFirst({
+        where: eq(invoices.id, id),
+        with: {
+          items: true,
+        },
+      });
+
+      if (!invoice) throw new NotFoundException('Factura no encontrada');
+      if (invoice.status !== 'DRAFT')
+        throw new BadRequestException(
+          'Solo se pueden emitir facturas en borrador',
+        );
+
+      // 1. Generate Sequential Code (Now that we are Posting)
+
+      // Validation for Purchase Posting
+      if (invoice.type === InvoiceType.PURCHASE && !invoice.invoiceNumber) {
+        throw new BadRequestException(
+          'Debe asignar el número de control (Factura Proveedor) antes de emitir la compra.',
+        );
+      }
+
+      const lastInvoice = await tx.query.invoices.findFirst({
+        where: and(
+          eq(invoices.type, invoice.type || InvoiceType.SALE),
+          ne(invoices.status, 'DRAFT'),
+        ),
+        orderBy: desc(invoices.code),
+      });
+
+      let nextCode = invoice.type === InvoiceType.SALE ? 'A-00001' : 'C-00001';
+      const prefix = invoice.type === InvoiceType.SALE ? 'A' : 'C';
+
+      if (lastInvoice && lastInvoice.code) {
+        const match = lastInvoice.code.match(/([A-Z]+)-(\d+)/);
+        if (match) {
+          const num = parseInt(match[2]) + 1;
+          nextCode = `${prefix}-${num.toString().padStart(5, '0')}`;
+        }
+      }
+
+      // 2. Inventory Logic (Conditional)
+      // Check if this invoice comes from an Order.
+      // If YES -> Stock was already moved (IN/OUT) during Order Confirmation. Do NOT move again.
+      // If NO -> This is a Direct Invoice. Move Stock now.
+      if (!invoice.orderId) {
+        if (!invoice.warehouseId) {
+          throw new BadRequestException(
+            'Se requiere almacén para facturas directas',
+          );
+        }
+
+        const moveLines = invoice.items.map((item) => ({
+          productId: item.productId,
+          quantity: parseFloat(item.quantity),
+          cost: parseFloat(item.price),
+        }));
+
+        if (invoice.type === InvoiceType.PURCHASE) {
+          // Direct Purchase -> IN
+          await this.inventoryService.createMove({
+            type: 'IN',
+            lines: moveLines,
+            toWarehouseId: invoice.warehouseId,
+            branchId: invoice.branchId,
+            note: `Compra Directa #${nextCode}`,
+            userId,
+          });
+        } else {
+          // Direct Sale -> OUT
+          await this.inventoryService.createMove({
+            type: 'OUT',
+            lines: moveLines,
+            fromWarehouseId: invoice.warehouseId,
+            branchId: invoice.branchId,
+            note: `Venta Directa #${nextCode}`,
+            userId,
+          });
+        }
+      }
+
+      // 3. Update Invoice
+      const [updatedInvoice] = await tx
+        .update(invoices)
+        .set({
+          status: 'POSTED',
+          code: nextCode,
+        })
+        .where(eq(invoices.id, id))
+        .returning();
+
+      return updatedInvoice;
+    });
+  }
+
+  async updateInvoice(id: string, updates: any, userId: string) {
+    const invoice = await db.query.invoices.findFirst({
+      where: eq(invoices.id, id),
+    });
+
+    if (!invoice) throw new NotFoundException('Factura no encontrada');
+    if (invoice.status !== 'DRAFT') {
+      throw new BadRequestException(
+        'Solo se pueden editar facturas en estado Borrador (DRAFT)',
+      );
+    }
+
+    const [updated] = await db
+      .update(invoices)
+      .set({
+        invoiceNumber: updates.invoiceNumber ?? invoice.invoiceNumber,
+        date: updates.date ?? invoice.date,
+      })
+      .where(eq(invoices.id, id))
+      .returning();
+
+    return updated;
   }
 
   async findAll(branchId?: string, type?: string) {

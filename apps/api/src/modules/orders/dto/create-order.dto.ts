@@ -22,6 +22,14 @@ class CreateOrderItemDto {
   @IsNotEmpty()
   @Type(() => Number)
   price: number;
+
+  @IsString()
+  @IsOptional()
+  currencyId?: string;
+
+  @IsNumber()
+  @IsOptional()
+  maxQuantity?: number;
 }
 
 export class CreateOrderDto {
@@ -46,4 +54,7 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+  @IsString()
+  @IsOptional()
+  type?: 'SALE' | 'PURCHASE';
 }

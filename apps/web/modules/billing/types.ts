@@ -20,6 +20,7 @@ export interface Invoice {
   branchId: string;
   currencyId: string;
   status: string;
+  type: string; // "SALE" | "PURCHASE"
   totalBase: string | number;
   totalTax: string | number;
   totalIgtf: string | number;

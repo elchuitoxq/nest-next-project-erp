@@ -130,10 +130,9 @@ export const currencies = pgTable(
     name: text("name").notNull(),
     symbol: text("symbol").notNull(),
     isBase: boolean("is_base").default(false),
-    branchId: uuid("branch_id").references(() => branches.id), // Made per branch
   },
   (t) => ({
-    unq: uniqueIndex("currencies_code_branch_unq").on(t.code, t.branchId),
+    unq: uniqueIndex("currencies_code_unq").on(t.code),
   }),
 );
 
@@ -144,7 +143,6 @@ export const exchangeRates = pgTable("exchange_rates", {
   currencyId: uuid("currency_id")
     .references(() => currencies.id)
     .notNull(),
-  branchId: uuid("branch_id").references(() => branches.id),
   rate: numeric("rate", { precision: 20, scale: 10 }).notNull(),
   date: timestamp("date").defaultNow(),
   source: text("source").default("MANUAL"), // BCV, MANUAL
@@ -433,6 +431,8 @@ export const invoices = pgTable("invoices", {
 
   date: timestamp("date").defaultNow(),
   dueDate: timestamp("due_date"),
+
+  warehouseId: uuid("warehouse_id").references(() => warehouses.id), // Added for Purchases stock logic
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -874,10 +874,6 @@ export const usersBranchesRelations = relations(usersBranches, ({ one }) => ({
 }));
 
 export const currenciesRelations = relations(currencies, ({ one, many }) => ({
-  branch: one(branches, {
-    fields: [currencies.branchId],
-    references: [branches.id],
-  }),
   exchangeRates: many(exchangeRates),
   bankAccounts: many(bankAccounts),
 }));
@@ -886,9 +882,5 @@ export const exchangeRatesRelations = relations(exchangeRates, ({ one }) => ({
   currency: one(currencies, {
     fields: [exchangeRates.currencyId],
     references: [currencies.id],
-  }),
-  branch: one(branches, {
-    fields: [exchangeRates.branchId],
-    references: [branches.id],
   }),
 }));

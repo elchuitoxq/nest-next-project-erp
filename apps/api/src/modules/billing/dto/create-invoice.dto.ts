@@ -82,4 +82,12 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsUUID('all', { message: 'ID de almacén inválido' })
   warehouseId?: string;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'La tasa de cambio debe ser un número' })
+  exchangeRate?: number;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
 }

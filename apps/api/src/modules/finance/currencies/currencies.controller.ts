@@ -18,18 +18,22 @@ export class CurrenciesController {
   constructor(private readonly currenciesService: CurrenciesService) {}
 
   @Get()
-  findAll(@Req() req: any) {
-    return this.currenciesService.findAll(req.branchId);
+  @Get()
+  findAll() {
+    return this.currenciesService.findAll();
   }
 
   @Post()
-  create(@Body() body: any, @Req() req: any) {
-    return this.currenciesService.create({ ...body, branchId: req.branchId });
+  @Post()
+  create(@Body() body: any) {
+    // Remove branchId from creation
+    const { branchId, ...data } = body;
+    return this.currenciesService.create(data);
   }
 
   @Get('rates/latest')
-  getLatestRates(@Req() req: any) {
-    return this.currenciesService.getLatestRates(req.branchId);
+  getLatestRates() {
+    return this.currenciesService.getLatestRates();
   }
 
   @Post('rates')
@@ -40,7 +44,6 @@ export class CurrenciesController {
     return this.currenciesService.addRate(
       body.currencyId,
       body.rate,
-      req.branchId,
       body.source,
     );
   }

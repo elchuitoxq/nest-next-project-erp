@@ -29,6 +29,11 @@ export class BillingController {
     });
   }
 
+  @Post('invoices/:id') // Using POST as Patch for simplicity or strict PATCH
+  updateInvoice(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+    return this.billingService.updateInvoice(id, body, req.user.userId);
+  }
+
   @Get('invoices')
   findAll(@Req() req: any, @Query('type') type?: string) {
     return this.billingService.findAll(req.branchId, type);

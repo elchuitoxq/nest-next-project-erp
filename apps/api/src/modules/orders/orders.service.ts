@@ -12,9 +12,11 @@ import {
   stock,
   currencies,
   exchangeRates,
+  warehouses,
 } from '@repo/db';
 import { eq, desc, and } from 'drizzle-orm';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { InvoiceType } from '../billing/dto/create-invoice.dto';
 import Decimal from 'decimal.js';
 import { CurrenciesService } from '../finance/currencies/currencies.service';
 
@@ -25,8 +27,13 @@ export class OrdersService {
     private readonly billingService: BillingService,
     private readonly currenciesService: CurrenciesService,
   ) {}
-  async findAll(branchId?: string) {
-    const whereClause = branchId ? eq(orders.branchId, branchId) : undefined;
+  async findAll(branchId?: string, type?: string) {
+    const conditions = [];
+    if (branchId) conditions.push(eq(orders.branchId, branchId));
+    if (type) conditions.push(eq(orders.type, type));
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     return await db.query.orders.findMany({
       where: whereClause,
       orderBy: desc(orders.date),
@@ -77,8 +84,24 @@ export class OrdersService {
         new Decimal(0),
       );
 
-      // Validate Stock if warehouse is selected
-      if (data.warehouseId) {
+      // Validate Stock if warehouse is selected AND it is a SALE
+      // For Purchase, we don't check stock (we are adding it)
+      if (data.warehouseId && data.type !== 'PURCHASE') {
+        // Validation: Warehouse MUST belong to the active branch
+        const warehouse = await db.query.warehouses.findFirst({
+          where: eq(warehouses.id, data.warehouseId),
+        });
+
+        if (!warehouse) {
+          throw new BadRequestException('Almacén no encontrado');
+        }
+
+        if (warehouse.branchId !== data.branchId) {
+          throw new BadRequestException(
+            'El almacén seleccionado no pertenece a la sucursal activa',
+          );
+        }
+
         for (const item of data.items) {
           const stockItem = await db.query.stock.findFirst({
             where: and(
@@ -110,6 +133,7 @@ export class OrdersService {
           status: 'PENDING',
           total: total.toString(),
           exchangeRate: data.exchangeRate?.toString() || '1',
+          type: data.type || 'SALE',
         })
         .returning();
 
@@ -149,19 +173,24 @@ export class OrdersService {
         throw new BadRequestException('El pedido no tiene almacén asignado');
       }
 
-      // Create Inventory Move (OUT)
-      // We map order items to inventory move lines
+      // Create Inventory Move
+      // If PURCHASE -> IN (Restocking/Reception)
+      // If SALE -> OUT (Delivery)
+      const isPurchase = order.type === 'PURCHASE';
+      const moveType = isPurchase ? 'IN' : 'OUT';
+
       const moveLines = order.items.map((item) => ({
         productId: item.productId,
         quantity: parseFloat(item.quantity),
-        cost: 0, // Cost will be calculated by inventory service or is irrelevant for OUT
+        cost: 0, // Cost logic should ideally come from order price for Purchases
       }));
 
       await this.inventoryService.createMove({
-        type: 'OUT',
+        type: moveType,
         lines: moveLines,
-        fromWarehouseId: order.warehouseId,
-        note: `Pedido Confirmado #${order.code}`,
+        fromWarehouseId: !isPurchase ? order.warehouseId : undefined,
+        toWarehouseId: isPurchase ? order.warehouseId : undefined,
+        note: `Pedido Confirmado #${order.code} (${isPurchase ? 'Compra' : 'Venta'})`,
         userId,
       });
 
@@ -201,7 +230,10 @@ export class OrdersService {
 
       // If Confirmed, we need to return stock
       if (order.status === 'CONFIRMED') {
-        // Create Inventory Move (IN - Restocking)
+        const isPurchase = order.type === 'PURCHASE';
+        // Reverse Logic: Sale -> IN (Return), Purchase -> OUT (Return to Vendor)
+        const moveType = isPurchase ? 'OUT' : 'IN';
+
         const moveLines = order.items.map((item) => ({
           productId: item.productId,
           quantity: parseFloat(item.quantity),
@@ -209,9 +241,10 @@ export class OrdersService {
         }));
 
         await this.inventoryService.createMove({
-          type: 'IN', // Treating as return/entry
+          type: moveType,
           lines: moveLines,
-          toWarehouseId: order.warehouseId!, // Return to same warehouse
+          toWarehouseId: !isPurchase ? order.warehouseId! : undefined,
+          fromWarehouseId: isPurchase ? order.warehouseId! : undefined,
           note: `Cancelación Pedido #${order.code}`,
           userId,
         });
@@ -265,20 +298,19 @@ export class OrdersService {
 
       // Fetch latest exchange rate for VES (Target)
       const exchangeRateStr =
-        (await this.currenciesService.getLatestRate(
-          defaultCurrencyId,
-          order.branchId,
-        )) || '1.0000000000';
+        (await this.currenciesService.getLatestRate(defaultCurrencyId)) ||
+        '1.0000000000';
       const exchangeRate = new Decimal(exchangeRateStr);
 
       const invoiceItemsInput = order.items.map((item) => {
         const product = item.product;
-        let finalPrice = new Decimal(product.price || '0');
+        // FIX: Use the price from the Order Item (which holds Cost for Purchases or Negotiated Price for Sales)
+        // Do NOT use product.price (List Price)
+        let finalPrice = new Decimal(item.price || '0');
 
-        // Logic: Convert Product Base Price -> Invoice Currency (VES)
-        if (product.currencyId && product.currencyId !== defaultCurrencyId) {
-          finalPrice = finalPrice.times(exchangeRate);
-        }
+        // Logic: item.price is already converted to the Target Currency (VES) by the frontend OrderDialog.
+        // So we do NOT need to convert it again.
+        // The previous logic assumed item.price was in product.currencyId, which is incorrect for Orders.
 
         return {
           productId: item.productId,
@@ -294,6 +326,11 @@ export class OrdersService {
         date: new Date().toISOString(),
         items: invoiceItemsInput,
         userId,
+        type:
+          order.type === 'PURCHASE' ? InvoiceType.PURCHASE : InvoiceType.SALE,
+        orderId: order.id,
+        warehouseId: order.warehouseId || undefined,
+        status: 'DRAFT', // Explicitly DRAFT
       });
 
       // 2. Update Order Status to COMPLETED
@@ -335,10 +372,8 @@ export class OrdersService {
       const defaultCurrencyId = currency.id;
 
       const currentRateStr =
-        (await this.currenciesService.getLatestRate(
-          defaultCurrencyId,
-          order.branchId,
-        )) || '1.0000000000';
+        (await this.currenciesService.getLatestRate(defaultCurrencyId)) ||
+        '1.0000000000';
       const currentRate = new Decimal(currentRateStr);
 
       // 2. Recalculate Items

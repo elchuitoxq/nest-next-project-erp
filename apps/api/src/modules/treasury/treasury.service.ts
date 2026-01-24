@@ -95,10 +95,8 @@ export class TreasuryService {
       // Fetch latest exchange rate
       // Fetch latest exchange rate
       const exchangeRate =
-        (await this.currenciesService.getLatestRate(
-          data.currencyId,
-          data.branchId!,
-        )) || '1.0000000000';
+        (await this.currenciesService.getLatestRate(data.currencyId)) ||
+        '1.0000000000';
 
       // Determine type based on invoice
       let paymentType = 'INCOME';

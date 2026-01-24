@@ -82,38 +82,36 @@ async function main() {
       });
     }
 
-    // 4. Per Branch Financial Data
+    // 4. Global Currencies & Rates
+    console.log("💰 Seeding Global Financial Data...");
+    const [usd, ves] = await db
+      .insert(currencies)
+      .values([
+        {
+          code: "USD",
+          name: "Dólar Estadounidense",
+          symbol: "$",
+          isBase: false,
+        },
+        {
+          code: "VES",
+          name: "Bolívar Digital",
+          symbol: "Bs.",
+          isBase: true,
+        },
+      ])
+      .returning();
+
+    // 4.1 Initial Exchange Rate
+    await db.insert(exchangeRates).values({
+      currencyId: usd.id,
+      rate: "45.5000000000",
+      source: "BCV",
+    });
+
+    // 4.2 Per Branch Financial Data
     for (const branch of seededBranches) {
-      console.log(`💰 Seeding Financial Data for ${branch.name}...`);
-
-      // 4.1 Currencies
-      const [usd, ves] = await db
-        .insert(currencies)
-        .values([
-          {
-            code: "USD",
-            name: "Dólar Estadounidense",
-            symbol: "$",
-            isBase: false,
-            branchId: branch.id,
-          },
-          {
-            code: "VES",
-            name: "Bolívar Digital",
-            symbol: "Bs.",
-            isBase: true,
-            branchId: branch.id,
-          },
-        ])
-        .returning();
-
-      // 4.2 Initial Exchange Rate
-      await db.insert(exchangeRates).values({
-        currencyId: usd.id,
-        branchId: branch.id,
-        rate: "45.5000000000",
-        source: "BCV",
-      });
+      console.log(`🏦 Seeding Branch Data for ${branch.name}...`);
 
       // 4.3 Payment Methods
       await db.insert(paymentMethods).values([

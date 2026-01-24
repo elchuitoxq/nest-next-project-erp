@@ -167,9 +167,9 @@ export function PurchaseDialog({ open, onOpenChange }: PurchaseDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Registrar Factura de Compra</DialogTitle>
+          <DialogTitle>Registrar Compra</DialogTitle>
           <DialogDescription>
-            Ingrese los detalles de la factura del proveedor.
+            Registre una nueva factura de compra de proveedores.
           </DialogDescription>
         </DialogHeader>
 
@@ -253,7 +253,7 @@ export function PurchaseDialog({ open, onOpenChange }: PurchaseDialogProps) {
                 name="warehouseId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Almacén (Recepcion)</FormLabel>
+                    <FormLabel>Almacén de Destino</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}

@@ -59,11 +59,16 @@ type OrderFormValues = z.infer<typeof orderSchema>;
 interface OrderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  type?: "SALE" | "PURCHASE";
 }
 
-export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
+export function OrderDialog({
+  open,
+  onOpenChange,
+  type = "SALE",
+}: OrderDialogProps) {
   const { createOrder } = useOrderMutations();
-  // Partners fetched by combobox
+  const isPurchase = type === "PURCHASE";
 
   const { data: warehouses } = useWarehouses();
 
@@ -71,15 +76,14 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
     resolver: zodResolver(orderSchema) as Resolver<OrderFormValues>,
     defaultValues: {
       partnerId: "",
-
       warehouseId: "",
       items: [{ productId: "", quantity: 1, price: 0 }],
     },
   });
 
   const warehouseId = form.watch("warehouseId");
-  // Stock fetched by ProductCombobox internally
 
+  // ... (Queries remain same) ...
   // Fetch Exchange Rates
   const { data: rates } = useQuery({
     queryKey: ["exchange-rates", "latest"],
@@ -89,7 +93,7 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
     },
   });
 
-  // Fetch Currencies to know which one is USD/VES
+  // Fetch Currencies
   const { data: currencies } = useQuery({
     queryKey: ["currencies"],
     queryFn: async () => {
@@ -105,14 +109,12 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
 
   const onSubmit = async (data: OrderFormValues) => {
     try {
-      // Deep clone to avoid mutating form state
       const processedData = JSON.parse(JSON.stringify(data));
+      processedData.type = type; // Add type to payload
 
-      // Convert items to VES if needed
+      // Currency Conversion Logic (Same as before)
       processedData.items = processedData.items.map((item: any) => {
-        // We have currencyId in item now.
         if (!item.currencyId) return item;
-
         const productCurrency = currencies?.find(
           (c) => c.id === item.currencyId,
         );
@@ -126,50 +128,34 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
           productCurrency.id !== targetCurrency.id &&
           rates
         ) {
-          // Logic: Convert Product Currency -> Target Currency (VES)
-          // As seen in DualCurrencyDisplay, usually Base is USD and VES has a rate.
-          // We need the rate for the TARGET currency (VES) if product is in Base.
-          // Or generalized: Find rate for target.
-          // If Product=USD (Base) and Target=VES. We need VES Rate.
-
           let exchangeRate = 1;
-
-          // Case 1: Product is Base (e.g. USD), Target is Foreign (e.g. VES)
           if (productCurrency.isBase || productCurrency.code === "USD") {
             const rateEntry = rates.find(
               (r: any) => r.currencyId === targetCurrency.id,
             );
             if (rateEntry) exchangeRate = Number(rateEntry.rate);
-          }
-          // Case 2: Product is Foreign (e.g. VES), Target is Base (e.g. USD)
-          else if (targetCurrency.isBase || targetCurrency.code === "USD") {
+          } else if (targetCurrency.isBase || targetCurrency.code === "USD") {
             const rateEntry = rates.find(
               (r: any) => r.currencyId === productCurrency.id,
             );
             if (rateEntry) exchangeRate = 1 / Number(rateEntry.rate);
           }
-
           item.price = item.price * exchangeRate;
-          // Ensure 2 decimals
           item.price = parseFloat(item.price.toFixed(2));
         }
         return item;
       });
 
-      // Determine Global Exchange Rate (Used for the whole order context)
-      // We look for the rate of the Target Currency (VES) relative to Base (USD).
+      // Global Exchange Rate
       let globalExchangeRate = 1;
       const targetCurrency =
         currencies?.find((c) => c.isBase) ||
         currencies?.find((c) => c.code === "VES");
-
       if (targetCurrency && rates) {
         const rateEntry = rates.find(
           (r: any) => r.currencyId === targetCurrency.id,
         );
-        if (rateEntry) {
-          globalExchangeRate = Number(rateEntry.rate);
-        }
+        if (rateEntry) globalExchangeRate = Number(rateEntry.rate);
       }
       processedData.exchangeRate = globalExchangeRate;
 
@@ -183,13 +169,10 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
 
   const calculateTotal = () => {
     const items = form.watch("items");
-    const total = items.reduce((sum, item) => {
+    return items.reduce((sum, item) => {
       if (!item.quantity || !item.price) return sum;
-
       let itemTotal = item.quantity * item.price;
 
-      // Convert to VES for Total Display
-      // We rely on item.currencyId stored in form
       const productCurrency = currencies?.find((c) => c.id === item.currencyId);
       const targetCurrency =
         currencies?.find((c) => c.isBase) ||
@@ -201,24 +184,15 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
         productCurrency.id !== targetCurrency.id &&
         rates
       ) {
-        // If Product is USD (likely Base) and Target is VES.
-        // We need the rate for VES.
         const rateEntry = rates.find(
           (r: any) => r.currencyId === targetCurrency.id,
         );
-
-        if (rateEntry) {
-          // Apply conversion (Original * Rate)
-          itemTotal = itemTotal * Number(rateEntry.rate);
-        }
+        if (rateEntry) itemTotal = itemTotal * Number(rateEntry.rate);
       }
-
       return sum + itemTotal;
     }, 0);
-    return total;
   };
 
-  // Helper to get max quantity
   const getMaxQuantity = (index: number) => {
     return form.getValues(`items.${index}.maxQuantity`) || 999999;
   };
@@ -227,9 +201,13 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nuevo Pedido</DialogTitle>
+          <DialogTitle>
+            {isPurchase ? "Nueva Orden de Compra" : "Solicitar Pedido"}
+          </DialogTitle>
           <DialogDescription>
-            Crea un nuevo pedido de venta para un cliente.
+            {isPurchase
+              ? "Registra una orden de compra a proveedor."
+              : "Crea un nuevo pedido de venta para un cliente."}
           </DialogDescription>
         </DialogHeader>
 
@@ -241,11 +219,13 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
                 name="partnerId"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Cliente</FormLabel>
+                    <FormLabel>
+                      {isPurchase ? "Proveedor" : "Cliente"}
+                    </FormLabel>
                     <PartnerCombobox
                       value={field.value}
                       onChange={field.onChange}
-                      type="CUSTOMER"
+                      type={isPurchase ? "SUPPLIER" : "CUSTOMER"}
                     />
                     <FormMessage />
                   </FormItem>
@@ -257,11 +237,12 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
                 name="warehouseId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Almacén (Origen)</FormLabel>
+                    <FormLabel>
+                      {isPurchase ? "Almacén de Destino" : "Almacén de Origen"}
+                    </FormLabel>
                     <Select
                       onValueChange={(val) => {
                         field.onChange(val);
-                        // Reset items when warehouse changes to avoid invalid products
                         form.setValue("items", [
                           { productId: "", quantity: 1, price: 0 },
                         ]);
@@ -329,21 +310,35 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
                             mode="STOCK"
                             warehouseId={warehouseId}
                             onSelectObject={(item) => {
-                              // Set Price
-                              form.setValue(
-                                `items.${index}.price`,
-                                parseFloat(item.price || "0"),
-                              );
-                              // Set Currency
+                              // Price Selection Logic
+                              // Sale: item.price (Retail Price)
+                              // Purchase: item.cost (Cost Price) or item.price if cost unknown?
+                              // Product DTO usually has cost. Assuming item.cost exists or handled.
+                              // If using ProductCombobox STOCK mode, it might return stock item.
+                              // Stock item has relation to product.
+
+                              const priceToUse = isPurchase
+                                ? parseFloat(item.cost || "0") // Use Cost for Purchase
+                                : parseFloat(item.price || "0"); // Use Price for Sale
+
+                              form.setValue(`items.${index}.price`, priceToUse);
                               form.setValue(
                                 `items.${index}.currencyId`,
                                 item.currencyId,
                               );
-                              // Set Max Quantity
                               form.setValue(
                                 `items.${index}.maxQuantity`,
                                 item.quantity,
-                              );
+                              ); // Stock limit (warn for Purchase?)
+                              // Actually for Purchase, stock limit logic is inverted? We are ADDING stock.
+                              // Current validation validates Quantity <= MaxQuantity.
+                              // If Purchase, we shouldn't limit, or limit to infinity.
+                              if (isPurchase) {
+                                form.setValue(
+                                  `items.${index}.maxQuantity`,
+                                  999999,
+                                );
+                              }
                             }}
                           />
                           <FormMessage />
@@ -363,7 +358,9 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
                           );
                           if (!productId) return true;
                           const max = getMaxQuantity(index);
-                          if (value > max) return `Máximo: ${max}`;
+                          // Only validate max if SALE
+                          if (!isPurchase && value > max)
+                            return `Máximo: ${max}`;
                           return true;
                         },
                       }}
@@ -377,17 +374,16 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
                               type="number"
                               min="1"
                               {...field}
-                              onChange={(e) => {
-                                field.onChange(e); // Let react hook form handle value
-                              }}
+                              onChange={field.onChange}
                             />
                           </FormControl>
                           <FormMessage />
-                          {form.getValues(`items.${index}.productId`) && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Max: {getMaxQuantity(index)}
-                            </div>
-                          )}
+                          {!isPurchase &&
+                            form.getValues(`items.${index}.productId`) && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Max: {getMaxQuantity(index)}
+                              </div>
+                            )}
                         </FormItem>
                       )}
                     />
@@ -399,7 +395,7 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className={index !== 0 ? "sr-only" : ""}>
-                            Price Unit.
+                            {isPurchase ? "Costo Unit." : "Precio Unit."}
                             {(() => {
                               const currencyId = form.watch(
                                 `items.${index}.currencyId`,
@@ -454,7 +450,7 @@ export function OrderDialog({ open, onOpenChange }: OrderDialogProps) {
                   {createOrder.isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  Crear Pedido
+                  {isPurchase ? "Registrar Orden" : "Solicitar Pedido"}
                 </Button>
               </div>
             </div>

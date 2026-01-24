@@ -3,11 +3,13 @@ import api from "@/lib/api";
 import { Order, CreateOrderValues } from "../types";
 import { toast } from "sonner";
 
-export function useOrders() {
+export function useOrders(type?: string) {
   return useQuery({
-    queryKey: ["orders"],
+    queryKey: ["orders", type],
     queryFn: async () => {
-      const { data } = await api.get<Order[]>("/orders");
+      const { data } = await api.get<Order[]>("/orders", {
+        params: { type },
+      });
       return data;
     },
   });
@@ -67,7 +69,7 @@ export function useOrderMutations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      // Invalidate invoices queries if we had them
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast.success("Factura generada y pedido completado.");
     },
     onError: (error: any) => {

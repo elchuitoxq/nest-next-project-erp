@@ -61,7 +61,7 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
   });
 
   const form = useForm<InventoryMoveFormValues>({
-    resolver: zodResolver(inventoryMoveSchema),
+    resolver: zodResolver(inventoryMoveSchema) as any,
     defaultValues: {
       type: "IN",
       note: "",

@@ -30,11 +30,16 @@ Venezuela opera bajo una economía dual. Reglas críticas:
 - **Retenciones:** Manejo automático de comprobantes de retención de IVA e ISLR según perfil de contribuyente (Ordinario vs Especial).
 - **Libros Legales:** Generación de Libros de Compra y Venta filtrados por sucursal.
 
-## 🛒 Módulo de Compras (Purchases)
+## 🛒 Módulo de Operaciones (Ventas y Compras)
 
-- **Flujo**: Pedido (Opcional) -> Factura (Borrador) -> Publicada (Afecta Stock).
-- **Inventario**: La entrada de mercancía se registra al crear la factura si se selecciona un almacén. El costo se convierte a la moneda base automáticamente.
-- **Validación Especial**: Sanitizar payloads para evitar envíos de strings vacíos en campos UUID opcionales (`warehouseId`, `currencyId`).
+- **Segregación de Pedidos (`Orders`)**:
+  - **Ventas (`SALE`)**: Generan Salida de Stock (OUT). Gestión de Clientes.
+  - **Compras (`PURCHASE`)**: Generan Entrada de Stock (IN). Gestión de Proveedores y Costos.
+- **Flujo de Facturación (`Invoicing`)**:
+  - **Borrador (`DRAFT`)**: Nace con código temporal (`DRAFT-{timestamp}`). No requiere número de control.
+  - **Publicación (`POSTED`)**: Asigna correlativo fiscal secuencial (`A-0000X` Ventas / `C-0000X` Compras).
+  - **Inventario**: Si la factura viene de una Orden Confirmada, **NO** impacta inventario (ya lo hizo la orden). Si es directa, genera el movimiento.
+- **Validación de Compras**: Para emitir una factura de compra (`POSTED`), es obligatorio registrar el Número de Control (Factura del Proveedor).
 
 ## 📦 Inventario y Logística
 

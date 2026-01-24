@@ -31,7 +31,7 @@ import { OrderDetailsDialog } from "@/modules/orders/components/order-details-di
 import { Order } from "@/modules/orders/types";
 
 export default function OrdersPage() {
-  const { data: orders, isLoading, isError } = useOrders();
+  const { data: orders, isLoading, isError } = useOrders("SALE");
   const { confirmOrder, cancelOrder, generateInvoice, recalculateOrder } =
     useOrderMutations();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -130,9 +130,11 @@ export default function OrdersPage() {
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between space-y-2 py-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Pedidos</h2>
+            <h2 className="text-3xl font-bold tracking-tight">
+              Pedidos de Venta
+            </h2>
             <p className="text-muted-foreground">
-              Gestiona los pedidos de venta.
+              Gestión y seguimiento de pedidos de clientes.
             </p>
           </div>
           <div className="flex items-center space-x-2">
@@ -144,9 +146,10 @@ export default function OrdersPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Listado de Pedidos</CardTitle>
+            <CardTitle>Historial de Pedidos</CardTitle>
             <CardDescription>
-              Visualiza y gestiona los pedidos realizados.
+              Visualiza y administra todos los pedidos de venta registrados en
+              el sistema.
             </CardDescription>
           </CardHeader>
           <CardContent>
