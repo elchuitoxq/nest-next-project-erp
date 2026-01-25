@@ -62,7 +62,7 @@ export function ActivityFeed({ data, isLoading }: ActivityFeedProps) {
                 {item.total && item.total !== "0" ? (
                   <div className="flex items-center gap-1">
                     {getAmountPrefix(item)}
-                    {formatCurrency(Number(item.total))}
+                    {formatCurrency(Number(item.total), item.currencyCode)}
                   </div>
                 ) : (
                   <Badge variant="outline" className="text-xs">

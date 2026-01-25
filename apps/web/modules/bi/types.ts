@@ -20,5 +20,6 @@ export interface ActivityItem {
   code: string;
   date: string;
   total: string;
+  currencyCode?: string;
   status: string;
 }

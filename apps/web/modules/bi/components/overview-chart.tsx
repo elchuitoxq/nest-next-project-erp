@@ -9,6 +9,7 @@ import {
   Tooltip,
 } from "recharts";
 import { ChartData } from "../types";
+import { formatCurrency } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -58,7 +59,7 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
               fontSize={12}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(value) => `$${value}`}
+              tickFormatter={(value) => formatCurrency(value)}
             />
             <Tooltip
               cursor={{ fill: "transparent" }}
@@ -72,6 +73,7 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
                   month: "long",
                   day: "numeric",
               })}
+              formatter={(value: any) => [formatCurrency(value), ""]}
             />
             <Bar
               dataKey="income"

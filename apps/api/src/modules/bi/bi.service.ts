@@ -9,6 +9,7 @@ import {
   payments,
   paymentMethods,
   inventoryMoves,
+  currencies,
 } from '@repo/db';
 import { eq, sql, sum, count, and, gte, ne, inArray, lte, desc } from 'drizzle-orm';
 import { CurrenciesService } from '../settings/currencies/currencies.service';
@@ -195,9 +196,11 @@ export class BiService {
         code: invoices.code,
         date: invoices.date,
         total: invoices.total,
+        currencyCode: currencies.code,
         status: invoices.status,
       })
       .from(invoices)
+      .innerJoin(currencies, eq(invoices.currencyId, currencies.id))
       .where(
         and(
             branchId ? eq(invoices.branchId, branchId) : undefined,
@@ -215,9 +218,11 @@ export class BiService {
         code: payments.reference, // or method code
         date: payments.date,
         total: payments.amount,
+        currencyCode: currencies.code,
         status: payments.type, // INCOME / EXPENSE
       })
       .from(payments)
+      .innerJoin(currencies, eq(payments.currencyId, currencies.id))
       .where(branchId ? eq(payments.branchId, branchId) : undefined)
       .orderBy(desc(payments.date))
       .limit(limit);

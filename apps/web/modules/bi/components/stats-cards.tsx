@@ -3,6 +3,7 @@ import { DollarSign, Package, ShoppingCart, Users } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { KpiData } from "../types";
 import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
 
 interface StatsCardsProps {
   data?: KpiData;
@@ -24,73 +25,81 @@ export function StatsCards({ data, isLoading }: StatsCardsProps) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Ventas Totales
-          </CardTitle>
-          <DollarSign className="text-teal-600 h-4 w-4" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {formatCurrency(data.totalSales)}
-          </div>
-          <p className="text-muted-foreground text-xs">
-            Ingresos brutos del periodo
-          </p>
-        </CardContent>
-      </Card>
+      <Link href="/dashboard/operations/sales">
+        <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Ventas Totales
+            </CardTitle>
+            <DollarSign className="text-teal-600 h-4 w-4" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(data.totalSales)}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Ingresos brutos del periodo
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Gastos Totales
-          </CardTitle>
-          <ShoppingCart className="text-orange-600 h-4 w-4" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {formatCurrency(data.totalPurchases)}
-          </div>
-          <p className="text-muted-foreground text-xs">
-            Compras registradas
-          </p>
-        </CardContent>
-      </Card>
+      <Link href="/dashboard/operations/purchases">
+        <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Gastos Totales
+            </CardTitle>
+            <ShoppingCart className="text-orange-600 h-4 w-4" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(data.totalPurchases)}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Compras registradas
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Cuentas por Cobrar
-          </CardTitle>
-          <Users className="text-muted-foreground h-4 w-4" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {formatCurrency(data.accountsReceivable)}
-          </div>
-          <p className="text-muted-foreground text-xs">
-            Facturas pendientes de pago
-          </p>
-        </CardContent>
-      </Card>
+      <Link href="/dashboard/billing/invoices">
+        <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Cuentas por Cobrar
+            </CardTitle>
+            <Users className="text-muted-foreground h-4 w-4" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(data.accountsReceivable)}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Facturas pendientes de pago
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
       
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Valor Inventario
-          </CardTitle>
-          <Package className="text-muted-foreground h-4 w-4" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {formatCurrency(data.inventoryValue)}
-          </div>
-          <p className="text-muted-foreground text-xs">
-            {data.activeProducts} productos activos
-          </p>
-        </CardContent>
-      </Card>
+      <Link href="/dashboard/inventory/products">
+        <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Valor Inventario
+            </CardTitle>
+            <Package className="text-muted-foreground h-4 w-4" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(data.inventoryValue)}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              {data.activeProducts} productos activos
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
     </div>
   );
 }
