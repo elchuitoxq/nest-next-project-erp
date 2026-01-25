@@ -1,3 +1,4 @@
+import "./load-env";
 import { client } from "./src";
 
 async function reset() {

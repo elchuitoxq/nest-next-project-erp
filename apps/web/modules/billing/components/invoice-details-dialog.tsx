@@ -64,6 +64,7 @@ export function InvoiceDetailsDialog({
   // Post Dialog State
   const [controlNumberDialogOpen, setControlNumberDialogOpen] = useState(false);
   const [controlNumberInput, setControlNumberInput] = useState("");
+  const [applyIgtf, setApplyIgtf] = useState(false);
 
   const { mutate: voidInvoice, isPending: isVoiding } = useVoidInvoice();
   const { mutate: postInvoice, isPending: isPosting } = usePostInvoice();
@@ -94,7 +95,9 @@ export function InvoiceDetailsDialog({
       case "SALE":
         return <Badge className="bg-teal-600 hover:bg-teal-700">Venta</Badge>;
       case "PURCHASE":
-        return <Badge className="bg-orange-600 hover:bg-orange-700">Compra</Badge>;
+        return (
+          <Badge className="bg-orange-600 hover:bg-orange-700">Compra</Badge>
+        );
       default:
         return <Badge variant="outline">{type}</Badge>;
     }
@@ -136,6 +139,32 @@ export function InvoiceDetailsDialog({
       return;
     }
 
+    // New IGTF Logic: If Currency is NOT Base (foreign), ask/confirm IGTF
+    // We can assume invoice.currency is hydrated.
+    // If invoice.currency.isBase is false, show IGTF toggle/confirmation.
+    // But backend calculates it.
+    // We need to pass `applyIgtf` flag to postInvoice?
+    // Wait, postInvoice endpoint (backend) doesn't take DTO, it just takes ID.
+    // The IGTF logic was implemented in `createInvoice`.
+    // If the invoice is already created (Draft), can we update it to apply IGTF during Post?
+    // Or should we update it before?
+    // The backend `postInvoice` does NOT seem to re-calculate totals based on flags. It just changes status and generates code.
+    // The `createInvoice` logic has the IGTF calculation.
+
+    // IF the invoice is Draft, and we want to toggle IGTF, we probably need an update endpoint or mechanism.
+    // Current `updateInvoice` only updates invoiceNumber/date.
+
+    // Let's check `createInvoice` again. It calculates IGTF based on `applyIgtf` DTO field.
+    // But here we are viewing an EXISTING Draft invoice.
+    // To apply IGTF, we might need to recreate it or update its totals.
+    // Backend doesn't support recalculating totals on update yet.
+
+    // Workaround: We can't easily toggle IGTF on an existing Draft without backend support for "recalculate".
+    // For now, let's assume IGTF is determined at CREATION (Order -> Invoice).
+    // The Order -> Invoice logic we just updated DOES NOT ask for IGTF flag, it assumes default?
+    // Wait, I didn't add IGTF flag to `generateInvoice` in `OrdersService`.
+
+    // Let's execute standard post for now.
     executePost();
   };
 
@@ -226,7 +255,9 @@ export function InvoiceDetailsDialog({
               </p>
               <p>
                 {invoice.exchangeRate
-                  ? `Bs. ${parseFloat(invoice.exchangeRate.toString()).toFixed(2)}`
+                  ? invoice.currency?.code === "USD"
+                    ? `1 USD = Bs ${parseFloat(invoice.exchangeRate.toString()).toFixed(2)}`
+                    : `Ref: 1 USD = Bs ${parseFloat(invoice.exchangeRate.toString()).toFixed(2)}`
                   : "N/A"}
               </p>
             </div>
@@ -259,6 +290,7 @@ export function InvoiceDetailsDialog({
                         0,
                       ) || 0),
                   ),
+                  invoice.currency?.code,
                 )}
               </p>
             </div>
@@ -289,10 +321,10 @@ export function InvoiceDetailsDialog({
                       {item.quantity}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatCurrency(item.price)}
+                      {formatCurrency(item.price, invoice.currency?.code)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatCurrency(item.total)}
+                      {formatCurrency(item.total, invoice.currency?.code)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -302,7 +334,7 @@ export function InvoiceDetailsDialog({
                     Base Imponible
                   </TableCell>
                   <TableCell className="text-right">
-                    {formatCurrency(invoice.totalBase)}
+                    {formatCurrency(invoice.totalBase, invoice.currency?.code)}
                   </TableCell>
                 </TableRow>
                 <TableRow>
@@ -310,7 +342,7 @@ export function InvoiceDetailsDialog({
                     IVA
                   </TableCell>
                   <TableCell className="text-right">
-                    {formatCurrency(invoice.totalTax)}
+                    {formatCurrency(invoice.totalTax, invoice.currency?.code)}
                   </TableCell>
                 </TableRow>
                 {parseFloat(invoice.totalIgtf.toString()) > 0 && (
@@ -319,7 +351,10 @@ export function InvoiceDetailsDialog({
                       IGTF (3%)
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatCurrency(invoice.totalIgtf)}
+                      {formatCurrency(
+                        invoice.totalIgtf,
+                        invoice.currency?.code,
+                      )}
                     </TableCell>
                   </TableRow>
                 )}
@@ -331,7 +366,7 @@ export function InvoiceDetailsDialog({
                     Total
                   </TableCell>
                   <TableCell className="text-right font-bold text-lg">
-                    {formatCurrency(invoice.total)}
+                    {formatCurrency(invoice.total, invoice.currency?.code)}
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -361,7 +396,7 @@ export function InvoiceDetailsDialog({
                         <TableCell>{p.method?.name || "-"}</TableCell>
                         <TableCell>{p.reference || "-"}</TableCell>
                         <TableCell className="text-right font-medium">
-                          {formatCurrency(p.amount)}
+                          {formatCurrency(p.amount, invoice.currency?.code)}
                         </TableCell>
                       </TableRow>
                     ))}

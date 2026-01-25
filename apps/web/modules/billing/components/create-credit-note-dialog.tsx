@@ -247,7 +247,7 @@ export function CreateCreditNoteDialog({
                         <TableCell className="text-right">
                           {formatCurrency(
                             Number(item.price),
-                            invoice.currency?.symbol || "$",
+                            invoice.currency?.code,
                           )}
                         </TableCell>
                         <TableCell className="text-right">

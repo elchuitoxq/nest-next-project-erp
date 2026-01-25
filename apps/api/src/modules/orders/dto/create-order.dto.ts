@@ -34,7 +34,7 @@ class CreateOrderItemDto {
 
 export class CreateOrderDto {
   @IsString()
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'El cliente es requerido' })
   partnerId: string;
 
   @IsString()
@@ -42,8 +42,8 @@ export class CreateOrderDto {
   branchId?: string;
 
   @IsString()
-  @IsOptional()
-  warehouseId?: string;
+  @IsNotEmpty({ message: 'El almacén es requerido' })
+  warehouseId: string;
 
   @IsNumber()
   @IsOptional()
@@ -54,7 +54,12 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+
   @IsString()
   @IsOptional()
   type?: 'SALE' | 'PURCHASE';
+
+  @IsString()
+  @IsNotEmpty({ message: 'La moneda es requerida' })
+  currencyId: string;
 }

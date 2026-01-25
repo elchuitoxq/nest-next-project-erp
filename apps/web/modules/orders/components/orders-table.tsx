@@ -155,6 +155,7 @@ export function OrdersTable({ orders, onViewDetails }: OrdersTableProps) {
                 <TableCell className="font-medium">
                   {formatCurrency(
                     parseFloat(order.total.toString()).toFixed(2),
+                    order.currency?.code,
                   )}
                 </TableCell>
                 <TableCell>{getStatusBadge(order.status)}</TableCell>

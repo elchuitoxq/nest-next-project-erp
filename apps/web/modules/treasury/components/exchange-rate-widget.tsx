@@ -74,7 +74,7 @@ export function ExchangeRateWidget() {
           ) : (
             <span>
               {currentRate
-                ? `Bs. ${Number(currentRate).toFixed(2)}`
+                ? `Bs ${Number(currentRate).toFixed(2)}`
                 : "Sin Tasa"}
             </span>
           )}

@@ -1,3 +1,4 @@
+import "./load-db-env";
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import { OrdersService } from '../modules/orders/orders.service';
@@ -8,9 +9,6 @@ import { db, users, invoices, payments, paymentAllocations, orders, orderItems, 
 import { eq, desc } from 'drizzle-orm';
 import { faker } from '@faker-js/faker';
 import Decimal from 'decimal.js';
-import * as dotenv from 'dotenv';
-
-dotenv.config({ path: 'packages/db/src/.env' });
 
 async function seedTransactions() {
   console.log('🚀 Starting Transaction Seed (API Logic Mode)...');
@@ -33,6 +31,11 @@ async function seedTransactions() {
     const allWarehouses = await db.query.warehouses.findMany();
     const allMethods = await db.query.paymentMethods.findMany();
     const allAccounts = await db.query.bankAccounts.findMany();
+
+    // Fetch currencies and find VES (non-base currency for transactions)
+    const allCurrencies = await currenciesService.findAll();
+    const vesCurrency = allCurrencies.find(c => !c.isBase); // VES is not the base currency
+    if (!vesCurrency) throw new Error('VES currency not found. Run basic seed first.');
 
     const suppliers = allPartners.filter(p => p.type === 'SUPPLIER');
     const customers = allPartners.filter(p => p.type === 'CUSTOMER');
@@ -92,6 +95,7 @@ async function seedTransactions() {
                 partnerId: customer.id,
                 branchId: branch.id,
                 warehouseId: warehouse.id,
+                currencyId: vesCurrency.id,
                 items: items,
                 type: 'SALE',
                 exchangeRate: Number(dailyRate)
@@ -150,7 +154,7 @@ async function seedTransactions() {
                 }
             }
 
-            console.log(`   ✅ Sale ${postedInvoice.code} ($${order.total}) -> Bs. ${postedInvoice.total}`);
+            console.log(`   ✅ Sale ${postedInvoice.code} ($${order.total}) -> Bs ${postedInvoice.total}`);
 
         } catch (e) {
             console.error(`   ❌ Failed Sale: ${e.message}`);
@@ -193,6 +197,7 @@ async function seedTransactions() {
                 partnerId: supplier.id,
                 branchId: branch.id,
                 warehouseId: warehouse.id,
+                currencyId: vesCurrency.id,
                 items: items,
                 type: 'PURCHASE',
                 exchangeRate: Number(dailyRate)
@@ -218,7 +223,7 @@ async function seedTransactions() {
 
             // Post
             const postedInvoice = await billingService.postInvoice(invoice.id, adminUser.id);
-            console.log(`   ✅ Purchase ${postedInvoice.code} (Bs. ${postedInvoice.total})`);
+            console.log(`   ✅ Purchase ${postedInvoice.code} (Bs ${postedInvoice.total})`);
 
         } catch (e) {
             console.error(`   ❌ Failed Purchase: ${e.message}`);

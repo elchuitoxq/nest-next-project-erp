@@ -29,7 +29,7 @@ npm install
 ### Running the App
 
 ```bash
-# Development mode (port 3000)
+# Development mode (port 3004)
 npm run dev
 ```
 

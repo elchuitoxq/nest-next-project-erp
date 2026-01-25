@@ -39,21 +39,6 @@ export class BillingController {
     return this.billingService.findAll(req.branchId, type);
   }
 
-  @Get('fiscal-book')
-  getFiscalBook(
-    @Query('month') month: string,
-    @Query('year') year: string,
-    @Query('type') type: string,
-    @Req() req: any,
-  ) {
-    return this.billingService.getFiscalBook(
-      Number(month || new Date().getMonth() + 1),
-      Number(year || new Date().getFullYear()),
-      req.branchId,
-      type,
-    );
-  }
-
   @Post('invoices/:id/post')
   postInvoice(@Param('id') id: string, @Req() req: any) {
     return this.billingService.postInvoice(id, req.user.userId);

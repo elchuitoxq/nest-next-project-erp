@@ -75,8 +75,8 @@ npm run db:setup
 npm run dev
 ```
 
-- **Frontend:** [http://localhost:3000](http://localhost:3000)
-- **API:** [http://localhost:3001](http://localhost:3001)
+- **Frontend:** [http://localhost:3004](http://localhost:3004)
+- **API:** [http://localhost:4000](http://localhost:4000)
 
 ## 📖 Documentación
 

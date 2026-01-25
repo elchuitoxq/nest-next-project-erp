@@ -128,7 +128,7 @@ export function PaymentDialog({
 
     // IGTF applies if the Payment Method Currency is NOT the Base Currency (Foreign)
     // Assuming `isBase` is true for VES.
-    if (methodCurrency && !methodCurrency.isBase) {
+    if (methodCurrency && methodCurrency.code !== 'VES') {
       // Calculate 3%
       const val = parseFloat(amount);
       if (!isNaN(val)) {
@@ -487,7 +487,10 @@ export function PaymentDialog({
             <Button type="submit" disabled={isPending}>
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {igtfAmount > 0
-                ? `Pagar ${formatCurrency(Number(amount) + igtfAmount)}`
+                ? `Pagar ${formatCurrency(
+                    Number(amount) + igtfAmount,
+                    invoice.currency?.symbol,
+                  )}`
                 : "Registrar Pago"}
             </Button>
           </DialogFooter>

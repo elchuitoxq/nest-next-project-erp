@@ -19,10 +19,11 @@ export const formatCurrency = (
 
   try {
     if (code === "VES") {
-      return new Intl.NumberFormat("es-VE", {
-        style: "currency",
-        currency: "VES",
+      const formatted = new Intl.NumberFormat("es-VE", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
       }).format(value);
+      return `Bs ${formatted}`;
     }
     if (code === "USD") {
       return new Intl.NumberFormat("en-US", {

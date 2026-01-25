@@ -17,6 +17,7 @@ El sistema opera bajo un modelo de **Multisucursal (Multi-Branch)** por defecto:
 - **Contexto Activo:** El frontend envía el encabezado `x-branch-id`. El backend usa `BranchInterceptor` para validar el acceso y filtrar datos automáticamente, incluyendo saldos y disponibilidad de tesorería por sucursal.
 
 ## 💰 Economía y Tesorería
+
 - **Estructura Modular:**
   - **Operaciones:** Pagos, Cobros y Cierre de Caja (`/dashboard/treasury/daily-close`).
   - **Configuración:**
@@ -25,13 +26,43 @@ El sistema opera bajo un modelo de **Multisucursal (Multi-Branch)** por defecto:
     - Monedas y Tasas: `/dashboard/settings/currencies`
 - **Tasa de Cambio:** Módulo centralizado (BCV) con histórico, segregado por sucursal para permitir variaciones regionales si es necesario.
 - **Dualidad Monetaria:** Todo registro guarda monto en moneda origen, tasa aplicada y equivalente en VES. Las monedas (USD/VES) se configuran por sucursal.
+- **Pedidos Multimoneda:** Los pedidos (`Orders`) tienen una `currencyId` explícita.
+  - Al crear, se define si es Venta en USD o VES.
+  - Al facturar, se respeta esa moneda.
+  - **Recálculo:** Convierte precios de productos (generalmente en USD) a la moneda del pedido usando la tasa del día si es necesario.
 - **Recálculo Dinámico:** Los Pedidos pueden recalcularse (`POST /orders/:id/recalculate`) para actualizar precios según la tasa del día antes de facturar.
 
 ## ⚖️ Cumplimiento Fiscal (SENIAT)
 
 - **Impuestos:** IVA (General 16%, Reducido, Exento) + IGTF (3% sobre pagos en divisas).
+  - **Lógica IGTF:** El impuesto grava el pago en divisa extranjera. Si la factura se emite en divisa (ej. USD), el sistema sugiere aplicar el 3% sobre el total (Base + IVA). Es configurable por transacción (switch "Aplicar IGTF") para cubrir casos de pago mixto o pago en Bs al cambio.
 - **Retenciones:** Manejo automático. El módulo visual dedicado de "Gestión de Impuestos" fue eliminado en favor de reportes integrados.
 - **Libros Legales:** Generación de Libros de Compra y Venta filtrados por sucursal.
+
+## 🇻🇪 Cumplimiento Legal Venezuela (Strict)
+
+> [!IMPORTANT]
+> Ver reglas detalladas en `venezuelan-tax-compliance/SKILL.md`
+
+1. **Digitalización (Providencia 0102):** Todo desarrollo de facturación debe soportar "Imprentas Digitales" (Seriales de Control) y exportación XML/JSON.
+2. **Retenciones (Agente de Retención):**
+   - **IVA (75%/100%):** Debe ser calculada automáticamente en Compras.
+   - **ISLR (Decreto 1.808):** Requiere tabla de conceptos y sustraendo (U.T.).
+   - **Comprobantes:** Obligatorio generar PDF+XML al momento del pago/abono.
+   - **Automatización:** Se dispara automáticamente en `TreasuryService.registerPayment` cuando el proveedor es Contribuyente Especial (tasa defecto 75%) o tiene tasa configurada.
+   - **Tablas:** `tax_retentions`, `tax_retention_lines`, `tax_concepts`.
+3. **IGTF (3%):**
+   - Aplicable a pagos en divisa (USD/EUR).
+   - Discriminación obligatoria en factura (`totalIgtf`).
+4. **Tasa BCV (Automatizada):**
+   - ** Servicio:** `BCVScraperService` (Cron jobs/daily 08:00 AM).
+   - **Fuente:** Scraping directo a `bcv.org.ve`.
+   - **Persistencia:** Tabla `exchange_rates` con fuente `BCV_SCRAPER`.
+5. **Pensiones:** Cálculo de contribución especial sobre nómina integral.
+6. **Reportes Fiscales:**
+   - **Ubicación Frontend:** `/dashboard/reports`.
+   - **Formatos:** Excel/PDF con estructura estricta SENIAT (control secuncial).
+   - **Lógica Backend:** `FiscalReportsService` (Generación de Libros).
 
 ## 🛒 Módulo de Operaciones (Ventas y Compras)
 
@@ -76,4 +107,3 @@ El sistema opera bajo un modelo de **Multisucursal (Multi-Branch)** por defecto:
 - **Entidades:** `employees` (con datos bancarios), `job_positions` (tabuladores salariales).
 - **Alcance Inicial:** CRUD de empleados y cargos. Planificado motor de nómina quincenal y generación de archivos bancarios.
 - **Relaciones:** Empleados vinculados a Cargos (1:1) y Moneda de Salario (1:1). Cuentas bancarias (1:1 en tabla `employees`).
-

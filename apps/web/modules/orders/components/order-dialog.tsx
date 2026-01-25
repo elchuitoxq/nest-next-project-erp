@@ -39,8 +39,8 @@ import api from "@/lib/api";
 
 const orderSchema = z.object({
   partnerId: z.string().min(1, "Seleccione un cliente"),
-
-  warehouseId: z.string().optional(),
+  currencyId: z.string().min(1, "Seleccione una moneda"),
+  warehouseId: z.string().min(1, "Seleccione un almacén"),
   items: z
     .array(
       z.object({
@@ -77,6 +77,7 @@ export function OrderDialog({
     defaultValues: {
       partnerId: "",
       warehouseId: "",
+      currencyId: "", // Default empty (will force selection or default to base)
       items: [{ productId: "", quantity: 1, price: 0 }],
     },
   });
@@ -112,16 +113,22 @@ export function OrderDialog({
       const processedData = JSON.parse(JSON.stringify(data));
       processedData.type = type; // Add type to payload
 
-      // Currency Conversion Logic (Same as before)
+      // Currency Conversion Logic (Fixed)
+      // Determine Target Currency based on USER SELECTION, fallback to Base
+      let targetCurrency = currencies?.find((c) => c.id === processedData.currencyId);
+      
+      if (!targetCurrency) {
+          targetCurrency = currencies?.find((c) => c.isBase) || currencies?.find((c) => c.code === "VES");
+      }
+
       processedData.items = processedData.items.map((item: any) => {
         if (!item.currencyId) return item;
         const productCurrency = currencies?.find(
           (c) => c.id === item.currencyId,
         );
-        const targetCurrency =
-          currencies?.find((c) => c.isBase) ||
-          currencies?.find((c) => c.code === "VES");
 
+        // Conversion Logic:
+        // Convert FROM ProductCurrency TO TargetCurrency (Order Currency)
         if (
           productCurrency &&
           targetCurrency &&
@@ -129,17 +136,19 @@ export function OrderDialog({
           rates
         ) {
           let exchangeRate = 1;
+          // Case 1: Product is Base (USD) -> Order is Foreign (Multiply)
           if (productCurrency.isBase || productCurrency.code === "USD") {
-            const rateEntry = rates.find(
-              (r: any) => r.currencyId === targetCurrency.id,
-            );
-            if (rateEntry) exchangeRate = Number(rateEntry.rate);
-          } else if (targetCurrency.isBase || targetCurrency.code === "USD") {
-            const rateEntry = rates.find(
-              (r: any) => r.currencyId === productCurrency.id,
-            );
-            if (rateEntry) exchangeRate = 1 / Number(rateEntry.rate);
+             const rateEntry = rates.find((r: any) => r.currencyId === targetCurrency.id);
+             if (rateEntry) exchangeRate = Number(rateEntry.rate);
+          } 
+          // Case 2: Order is Base (USD) -> Product is Foreign (Divide)
+          else if (targetCurrency.isBase || targetCurrency.code === "USD") {
+             const rateEntry = rates.find((r: any) => r.currencyId === productCurrency.id);
+             if (rateEntry) exchangeRate = 1 / Number(rateEntry.rate);
           }
+          // Case 3: Foreign to Foreign (USD to EUR) -> Cross Rate (Not fully implemented, assuming 1 for now or skip)
+          // For now, only Base<->Foreign is critical.
+          
           item.price = item.price * exchangeRate;
           item.price = parseFloat(item.price.toFixed(2));
         }
@@ -147,16 +156,26 @@ export function OrderDialog({
       });
 
       // Global Exchange Rate
+      // Store the VES rate for accounting purposes (always relative to USD)
       let globalExchangeRate = 1;
-      const targetCurrency =
-        currencies?.find((c) => c.isBase) ||
-        currencies?.find((c) => c.code === "VES");
+      
+      const vesCurrency = currencies?.find(c => c.code === "VES");
+      
       if (targetCurrency && rates) {
-        const rateEntry = rates.find(
-          (r: any) => r.currencyId === targetCurrency.id,
-        );
-        if (rateEntry) globalExchangeRate = Number(rateEntry.rate);
+          if (targetCurrency.isBase || targetCurrency.code === "USD") {
+               // USD -> Store VES Rate (e.g. 45.00)
+               const rateEntry = rates.find((r: any) => r.currencyId === vesCurrency?.id);
+               if (rateEntry) globalExchangeRate = Number(rateEntry.rate);
+          } else if (targetCurrency.code === "VES") {
+               // VES -> Store 1 (1 Bs = 1 Bs)
+               globalExchangeRate = 1;
+          } else {
+               // Other currencies -> Store their rate relative to base
+               const rateEntry = rates.find((r: any) => r.currencyId === targetCurrency.id);
+               if (rateEntry) globalExchangeRate = Number(rateEntry.rate);
+          }
       }
+      
       processedData.exchangeRate = globalExchangeRate;
 
       await createOrder.mutateAsync(processedData);
@@ -169,27 +188,43 @@ export function OrderDialog({
 
   const calculateTotal = () => {
     const items = form.watch("items");
+    const selectedCurrencyId = form.watch("currencyId");
+    
+    // Determine Target Currency based on USER SELECTION
+    let targetCurrency = currencies?.find((c) => c.id === selectedCurrencyId);
+    if (!targetCurrency) {
+       targetCurrency = currencies?.find((c) => c.isBase) || currencies?.find((c) => c.code === "VES");
+    }
+
     return items.reduce((sum, item) => {
       if (!item.quantity || !item.price) return sum;
-      let itemTotal = item.quantity * item.price;
+      let itemPrice = item.price;
 
       const productCurrency = currencies?.find((c) => c.id === item.currencyId);
-      const targetCurrency =
-        currencies?.find((c) => c.isBase) ||
-        currencies?.find((c) => c.code === "VES");
 
+      // Conversion Logic (Visual)
       if (
         productCurrency &&
         targetCurrency &&
         productCurrency.id !== targetCurrency.id &&
         rates
       ) {
-        const rateEntry = rates.find(
-          (r: any) => r.currencyId === targetCurrency.id,
-        );
-        if (rateEntry) itemTotal = itemTotal * Number(rateEntry.rate);
+         let exchangeRate = 1;
+          // Case 1: Product Base -> Order Foreign (Multiply)
+          if (productCurrency.isBase || productCurrency.code === "USD") {
+             const rateEntry = rates.find((r: any) => r.currencyId === targetCurrency.id);
+             if (rateEntry) exchangeRate = Number(rateEntry.rate);
+          } 
+          // Case 2: Order Base -> Product Foreign (Divide)
+          else if (targetCurrency.isBase || targetCurrency.code === "USD") {
+             const rateEntry = rates.find((r: any) => r.currencyId === productCurrency.id);
+             if (rateEntry) exchangeRate = 1 / Number(rateEntry.rate);
+          }
+          
+          itemPrice = itemPrice * exchangeRate;
       }
-      return sum + itemTotal;
+      
+      return sum + (item.quantity * itemPrice);
     }, 0);
   };
 
@@ -258,6 +293,34 @@ export function OrderDialog({
                         {warehouses?.map((warehouse) => (
                           <SelectItem key={warehouse.id} value={warehouse.id}>
                             {warehouse.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="currencyId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Moneda de Transacción</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Moneda" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {currencies?.map((currency) => (
+                          <SelectItem key={currency.id} value={currency.id}>
+                            {currency.code} ({currency.symbol})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -436,7 +499,11 @@ export function OrderDialog({
 
             <div className="flex justify-end items-center gap-4 pt-4 border-t">
               <div className="text-lg font-bold">
-                Total Estimado: {formatCurrency(calculateTotal().toFixed(2))}
+                Total Estimado: {(() => {
+                    const selectedId = form.watch("currencyId");
+                    const currency = currencies?.find(c => c.id === selectedId) || currencies?.find(c => c.isBase);
+                    return formatCurrency(calculateTotal().toFixed(2), currency?.code);
+                })()}
               </div>
               <div className="flex gap-2">
                 <Button

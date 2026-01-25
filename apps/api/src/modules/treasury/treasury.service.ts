@@ -11,15 +11,20 @@ import {
   bankAccounts,
   paymentMethodAccounts,
   users,
+  partners,
 } from '@repo/db';
 
 import { eq, sql, and, desc } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import { CurrenciesService } from '../settings/currencies/currencies.service';
+import { RetentionsService } from '../accounting/retentions.service';
 
 @Injectable()
 export class TreasuryService {
-  constructor(private readonly currenciesService: CurrenciesService) {}
+  constructor(
+    private readonly currenciesService: CurrenciesService,
+    private readonly retentionsService: RetentionsService,
+  ) {}
 
   // ... (existing code) ...
 
@@ -137,6 +142,80 @@ export class TreasuryService {
             currentBalance: sql`${bankAccounts.currentBalance} + ${data.amount}`,
           })
           .where(eq(bankAccounts.id, data.bankAccountId));
+      }
+
+      // --- AUTOMATIC RETENTION GENERATION (VENEZUELA) ---
+      if (paymentType === 'EXPENSE' && data.invoiceId) {
+        // Fetch Partner and Invoice details
+        const partner = await tx.query.partners.findFirst({
+          where: eq(partners.id, data.partnerId),
+        });
+
+        const invoice = await tx.query.invoices.findFirst({
+          where: eq(invoices.id, data.invoiceId),
+        });
+
+        // Trigger if Partner is Special Taxpayer OR has specific retention rate > 0
+        // And invoice has tax
+        if (partner && invoice && Number(invoice.totalTax) > 0) {
+          const retentionRate = Number(partner.retentionRate || 0);
+          // Special Taxpayers usually retain 75% or 100%
+          // If rate is 0 but is special, default to 75%? Or explicit rate required?
+          // Let's rely on explicit rate or default to 75 if special.
+          let rateToApply = retentionRate;
+          if (rateToApply === 0 && partner.isSpecialTaxpayer) {
+            rateToApply = 75;
+          }
+
+          if (rateToApply > 0) {
+            // Calculate Proportion of Tax paid
+            // If partial payment, we retain proportional tax?
+            // SENIAT: "La retención se debe realizar cuando se efectúe el pago o abono en cuenta".
+            // Usually calculated on the base of the payment.
+
+            // Base = PaymentAmount / (1 + (TaxRate/100)) ??? No, payment amount includes tax.
+            // Formula: Payment is Total (Base + Tax).
+            // Tax Portion = Payment - (Payment / (1+TaxRate))
+            // Retention = Tax Portion * (RetentionRate/100)
+
+            // We need the tax rate from the invoice items... complex if mixed rates.
+            // Simplified: Assume average tax rate from Invoice TotalTax / TotalBase
+
+            const invBase = new Decimal(invoice.totalBase || 0);
+            const invTax = new Decimal(invoice.totalTax || 0);
+            const invTotal = new Decimal(invoice.total || 0);
+
+            if (invTotal.gt(0)) {
+              const paymentAmount = new Decimal(data.amount);
+
+              // Proportional Base and Tax covered by this payment
+              const ratio = paymentAmount.div(invTotal);
+              const baseCovered = invBase.times(ratio);
+              const taxCovered = invTax.times(ratio);
+
+              const retainedAmount = taxCovered.times(rateToApply).div(100);
+
+              if (retainedAmount.gt(0)) {
+                await this.retentionsService.createRetention({
+                  partnerId: data.partnerId,
+                  branchId: data.branchId || invoice.branchId,
+                  userId: data.userId || invoice.userId || 'SYSTEM',
+                  type: 'IVA',
+                  period: new Date().toISOString().slice(0, 7).replace('-', ''), // YYYYMM
+                  items: [
+                    {
+                      invoiceId: invoice.id,
+                      baseAmount: baseCovered.toFixed(2),
+                      taxAmount: taxCovered.toFixed(2),
+                      retainedAmount: retainedAmount.toFixed(2),
+                      paymentId: payment.id,
+                    },
+                  ],
+                });
+              }
+            }
+          }
+        }
       }
 
       // Handle Allocations

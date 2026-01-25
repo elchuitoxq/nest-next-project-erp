@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { FileDown, Loader2 } from "lucide-react";
+import { FileDown, FileJson, FileText, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -20,6 +20,7 @@ interface RetentionsTableProps {
 }
 
 export function RetentionsTable({ type }: RetentionsTableProps) {
+  const [exporting, setExporting] = useState(false);
   const { data: retentions, isLoading } = useQuery({
     queryKey: ["retentions", type],
     queryFn: async () => {
@@ -29,19 +30,31 @@ export function RetentionsTable({ type }: RetentionsTableProps) {
   });
 
   const handleDownload = async (id: string, ref: string) => {
+    // ...
+  };
+
+  const handleDownloadXml = async (id: string, ref: string) => {
+    // ...
+  };
+
+  const handleExportTxt = async () => {
     try {
-      const response = await api.get(`/treasury/retentions/${id}/pdf`, {
+      setExporting(true);
+      const period = format(new Date(), "yyyyMM"); // Current period as default or let user choose
+      const response = await api.get(`/treasury/retentions/export/txt?period=${period}`, {
         responseType: "blob",
       });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `comprobante-${ref || id}.pdf`);
+      link.setAttribute("download", `retenciones_${period}.txt`);
       document.body.appendChild(link);
       link.click();
       link.remove();
     } catch (error) {
-      toast.error("Error al descargar comprobante");
+      toast.error("Error al exportar TXT");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -54,8 +67,28 @@ export function RetentionsTable({ type }: RetentionsTableProps) {
   }
 
   return (
-    <div className="border rounded-md">
-      <Table>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        {type === "IVA" && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportTxt}
+            disabled={exporting || retentions?.length === 0}
+            className="gap-2"
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="h-4 w-4" />
+            )}
+            Exportar TXT SENIAT (Mes Actual)
+          </Button>
+        )}
+      </div>
+
+      <div className="border rounded-md">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Fecha</TableHead>
@@ -95,7 +128,7 @@ export function RetentionsTable({ type }: RetentionsTableProps) {
                 <TableCell className="text-right font-medium">
                   {formatCurrency(Number(row.amount))}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right space-x-2">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -103,12 +136,22 @@ export function RetentionsTable({ type }: RetentionsTableProps) {
                   >
                     <FileDown className="h-4 w-4 mr-2" /> PDF
                   </Button>
+                  {type === "IVA" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDownloadXml(row.id, row.reference)}
+                    >
+                      <FileJson className="h-4 w-4 mr-2" /> XML
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))
           )}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 }

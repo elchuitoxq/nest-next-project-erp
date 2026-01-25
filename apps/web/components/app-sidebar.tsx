@@ -108,16 +108,16 @@ const NAV_ITEMS: NavItem[] = [
         url: "/dashboard/treasury/daily-close",
       },
       {
+        title: "Retenciones",
+        url: "/dashboard/treasury/retentions",
+      },
+      {
         title: "Cuentas Bancarias",
         url: "/dashboard/treasury/accounts",
       },
       {
-        title: "Libro de Ventas",
-        url: "/dashboard/billing/fiscal-book",
-      },
-      {
-        title: "Libro de Compras",
-        url: "/dashboard/billing/fiscal-purchase-book",
+        title: "Reportes Fiscales",
+        url: "/dashboard/treasury/reports",
       },
       {
         title: "Métodos de Pago",
@@ -154,6 +154,10 @@ const NAV_ITEMS: NavItem[] = [
       {
         title: "Sucursales",
         url: "/dashboard/branches",
+      },
+      {
+        title: "Conceptos ISLR",
+        url: "/dashboard/settings/tax-concepts",
       },
       {
         title: "Monedas y Tasas",

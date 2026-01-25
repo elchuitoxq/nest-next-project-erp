@@ -180,6 +180,18 @@ export class BillingService {
       //   totalIgtf = totalBase.times(0.03);
       // }
 
+      // New IGTF Logic: Only apply if requested (or default logic can be improved)
+      // IGTF applies to the Amount Paid in Foreign Currency.
+      // Usually calculated as 3% of the Total Payment.
+      // If we are issuing the invoice in Foreign Currency, we often add it to the total payable.
+
+      if (data.applyIgtf && currency.code !== 'VES') {
+        // IGTF Base is the Total Amount to Pay (Base + Tax).
+        // Formula: (Base + IVA) * 0.03
+        const subtotalWithTax = totalBase.plus(totalTax);
+        totalIgtf = subtotalWithTax.times(0.03);
+      }
+
       const total = totalBase.plus(totalTax).plus(totalIgtf);
 
       // Generate Code Strategy
@@ -272,33 +284,33 @@ export class BillingService {
       // Validation for Purchase Posting
       if (invoice.type === InvoiceType.PURCHASE && !invoice.invoiceNumber) {
         throw new BadRequestException(
-          'Debe asignar el número de control (Factura Proveedor) antes de emitir la compra.',
+          'El número de factura es requerido para confirmar compras',
         );
       }
 
-      const lastInvoice = await tx.query.invoices.findFirst({
-        where: and(
-          eq(invoices.type, invoice.type || InvoiceType.SALE),
-          ne(invoices.status, 'DRAFT'),
-        ),
-        orderBy: desc(invoices.code),
-      });
+      // Generate Code Strategy for Posting
+      const type = invoice.type || InvoiceType.SALE;
+      let nextCode = invoice.code;
 
-      let nextCode = invoice.type === InvoiceType.SALE ? 'A-00001' : 'C-00001';
-      const prefix = invoice.type === InvoiceType.SALE ? 'A' : 'C';
+      // Always generate sequence on Post if it's currently a Draft code
+      if (invoice.code.startsWith('DRAFT')) {
+        const lastInvoice = await tx.query.invoices.findFirst({
+          where: and(eq(invoices.type, type), ne(invoices.status, 'DRAFT')),
+          orderBy: desc(invoices.code),
+        });
 
-      if (lastInvoice && lastInvoice.code) {
-        const match = lastInvoice.code.match(/([A-Z]+)-(\d+)/);
-        if (match) {
-          const num = parseInt(match[2]) + 1;
-          nextCode = `${prefix}-${num.toString().padStart(5, '0')}`;
+        let prefix = type === InvoiceType.SALE ? 'A' : 'C';
+        let nextNum = 1;
+
+        if (lastInvoice && lastInvoice.code) {
+          const match = lastInvoice.code.match(/([A-Z]+)-(\d+)/);
+          if (match) {
+            nextNum = parseInt(match[2]) + 1;
+          }
         }
+        nextCode = `${prefix}-${nextNum.toString().padStart(5, '0')}`;
       }
 
-      // 2. Inventory Logic (Conditional)
-      // Check if this invoice comes from an Order.
-      // If YES -> Stock was already moved (IN/OUT) during Order Confirmation. Do NOT move again.
-      // If NO -> This is a Direct Invoice. Move Stock now.
       if (!invoice.orderId) {
         if (!invoice.warehouseId) {
           throw new BadRequestException(
@@ -519,114 +531,6 @@ export class BillingService {
       items: itemsByInvoice.get(inv.id) || [],
       payments: paymentsByInvoice.get(inv.id) || [],
       creditNotes: creditNotesByInvoice.get(inv.id) || [],
-    }));
-  }
-
-  async getFiscalBook(
-    month: number,
-    year: number,
-    branchId?: string,
-    type: string = 'SALE',
-  ) {
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 1); // First day of next month
-
-    // 1. Fetch Invoices (POSTED, PAID)
-    const invoiceWhere = and(
-      inArray(invoices.status, ['POSTED', 'PAID']),
-      gte(invoices.date, startDate),
-      lt(invoices.date, endDate),
-      lt(invoices.date, endDate),
-      branchId ? eq(invoices.branchId, branchId) : undefined,
-      eq(invoices.type, type),
-    );
-
-    const periodInvoices = await db.query.invoices.findMany({
-      where: invoiceWhere,
-      with: {
-        partner: true,
-        payments: {
-          with: {
-            method: true,
-          },
-        },
-      },
-      orderBy: desc(invoices.code),
-    });
-
-    // 2. Fetch Credit Notes (POSTED)
-    const cnWhere = and(
-      eq(creditNotes.status, 'POSTED'),
-      gte(creditNotes.date, startDate),
-      lt(creditNotes.date, endDate),
-      branchId ? eq(creditNotes.branchId, branchId) : undefined,
-    );
-
-    const periodCreditNotes = await db.query.creditNotes.findMany({
-      where: cnWhere,
-      with: {
-        partner: true,
-      },
-      orderBy: desc(creditNotes.code),
-    });
-
-    const rows = [];
-
-    // Process Invoices
-    for (const inv of periodInvoices) {
-      // Calculate Retention
-      // Filter payments that are "Retention" type (code starts with RET_)
-      const retentionPayments = inv.payments.filter((p) =>
-        p.method.code.startsWith('RET_'),
-      );
-      const retentionAmount = retentionPayments.reduce(
-        (sum, p) => sum + Number(p.amount),
-        0,
-      );
-
-      rows.push({
-        date: inv.date,
-        type: 'FAC', // TODO: Map Credit Note if needed
-        number: type === 'PURCHASE' ? inv.invoiceNumber : inv.code,
-        controlNumber: inv.code, // Internal Control
-        customer: inv.partner?.name || 'N/A', // Or Supplier
-        partnerName: inv.partner.name,
-        partnerTaxId: inv.partner.taxId,
-        totalExempt: 0, // Simplified: Assume all taxable for now unless flagged?
-        // Actually we do have totalBase and totalTax.
-        // Let's rely on totalBase as taxable base.
-        totalTaxable: Number(inv.totalBase),
-        taxRate: 16, // Fixed for standard
-        taxAmount: Number(inv.totalTax),
-        retentionAmount: retentionAmount,
-        total: Number(inv.total),
-      });
-    }
-
-    // Process Credit Notes
-    for (const cn of periodCreditNotes) {
-      // Credit Notes reduce sales
-      rows.push({
-        date: cn.date,
-        type: 'NC',
-        number: cn.code,
-        controlNumber: cn.code,
-        partnerName: cn.partner.name,
-        partnerTaxId: cn.partner.taxId,
-        totalExempt: 0,
-        totalTaxable: -Number(cn.totalBase),
-        taxRate: 16,
-        taxAmount: -Number(cn.totalTax),
-        retentionAmount: 0, // Usually CN doesn't have retention unless reversed?
-        total: -Number(cn.total),
-      });
-    }
-
-    // Sort by Date then Number
-    return rows.sort((a, b) => {
-      const dateA = a.date ? new Date(a.date).getTime() : 0;
-      const dateB = b.date ? new Date(b.date).getTime() : 0;
-      return dateA - dateB;
-    });
+      }));
   }
 }

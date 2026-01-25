@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsDateString,
   IsEnum,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -90,4 +91,8 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  applyIgtf?: boolean;
 }

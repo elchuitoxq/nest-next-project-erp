@@ -81,6 +81,8 @@ export function OrderDetailsDialog({
     }
   };
 
+  const currencyCode = order.currency?.code || "VES";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -112,7 +114,9 @@ export function OrderDetailsDialog({
             </p>
             <p>
               {order.exchangeRate
-                ? `Bs. ${parseFloat(order.exchangeRate.toString()).toFixed(2)}`
+                ? order.currency?.code === "USD"
+                  ? `1 USD = Bs ${parseFloat(order.exchangeRate.toString()).toFixed(2)}`
+                  : `Ref: 1 USD = Bs ${parseFloat(order.exchangeRate.toString()).toFixed(2)}`
                 : "N/A"}
             </p>
           </div>
@@ -164,6 +168,7 @@ export function OrderDetailsDialog({
                   <TableCell className="text-right">
                     {formatCurrency(
                       parseFloat(item.price.toString()).toFixed(2),
+                      currencyCode,
                     )}
                   </TableCell>
                   <TableCell className="text-right">
@@ -172,6 +177,7 @@ export function OrderDetailsDialog({
                         parseFloat(item.quantity.toString()) *
                         parseFloat(item.price.toString())
                       ).toFixed(2),
+                      currencyCode,
                     )}
                   </TableCell>
                 </TableRow>
@@ -183,6 +189,7 @@ export function OrderDetailsDialog({
                 <TableCell className="text-right font-bold">
                   {formatCurrency(
                     parseFloat(order.total.toString()).toFixed(2),
+                    currencyCode,
                   )}
                 </TableCell>
               </TableRow>
@@ -218,7 +225,7 @@ export function OrderDetailsDialog({
                 Generar Factura Fiscal
               </Button>
               <span className="text-[10px] text-muted-foreground">
-                Se emitirá en Bolívares (VES)
+                Se emitirá en {order.currency?.code || "Bolívares (VES)"}
               </span>
             </div>
           )}

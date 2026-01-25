@@ -249,7 +249,7 @@ export function InvoicesTable({
                   <TableCell>{invoice.partner?.name || "N/A"}</TableCell>
                   <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                   <TableCell className="text-right">
-                    {formatCurrency(invoice.total)}
+                    {formatCurrency(invoice.total, invoice.currency?.code)}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>

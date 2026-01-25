@@ -42,6 +42,7 @@ export class OrdersService {
         branch: true,
         warehouse: true,
         user: true,
+        currency: true,
         items: {
           with: {
             product: true,
@@ -59,6 +60,7 @@ export class OrdersService {
         branch: true,
         warehouse: true,
         user: true,
+        currency: true,
         items: {
           with: {
             product: true,
@@ -122,6 +124,18 @@ export class OrdersService {
       }
 
       // 1. Create Header
+      // New Logic: Always fetch and save the Global VES Rate
+      const vesCurrency = await db.query.currencies.findFirst({
+        where: eq(currencies.code, 'VES'),
+      });
+
+      let exchangeRateToSave = '1.0000000000';
+      if (vesCurrency) {
+        exchangeRateToSave =
+          (await this.currenciesService.getLatestRate(vesCurrency.id)) ||
+          '1.0000000000';
+      }
+
       const [order] = await tx
         .insert(orders)
         .values({
@@ -132,8 +146,10 @@ export class OrdersService {
           userId: userId,
           status: 'PENDING',
           total: total.toString(),
-          exchangeRate: data.exchangeRate?.toString() || '1',
+          exchangeRate: exchangeRateToSave, // Use the fetched VES Rate
           type: data.type || 'SALE',
+          // @ts-ignore
+          currencyId: data.currencyId, // Save Transaction Currency
         })
         .returning();
 
@@ -283,63 +299,55 @@ export class OrdersService {
       }
 
       // 1. Create Invoice
-      // Fetch default currency (VES) to get its UUID
-      const currency = await db.query.currencies.findFirst({
-        where: eq(currencies.code, 'VES'),
-      });
+      // Use Order Currency as Invoice Currency
+      // @ts-ignore
+      let targetCurrencyId = order.currencyId;
 
-      if (!currency) {
-        throw new BadRequestException(
-          'No se encontró la moneda base (VES) para facturar.',
-        );
+      if (!targetCurrencyId) {
+        // Fallback to VES logic if not set on order
+        const currency = await db.query.currencies.findFirst({
+          where: eq(currencies.code, 'VES'),
+        });
+        if (!currency)
+          throw new BadRequestException('Moneda VES no encontrada');
+        targetCurrencyId = currency.id;
       }
 
-      const defaultCurrencyId = currency.id;
+      const invoiceCurrencyId = targetCurrencyId;
 
-      // Fetch latest exchange rate for VES (Target)
-      const exchangeRateStr =
-        (await this.currenciesService.getLatestRate(defaultCurrencyId)) ||
-        '1.0000000000';
+      // Fetch Rate for accounting purposes (always VES rate for fiscal reporting)
+      // If Invoice is USD: Rate = VES Rate (e.g. 45.00)
+      // If Invoice is VES: Rate = 1
+      const vesCurrency = await db.query.currencies.findFirst({
+        where: eq(currencies.code, 'VES'),
+      });
+      const invoiceCurrency = await db.query.currencies.findFirst({
+        where: eq(currencies.id, invoiceCurrencyId),
+      });
+
+      let exchangeRateStr = '1.0000000000';
+      // Always fetch global VES rate (USD -> VES parity)
+      if (vesCurrency) {
+        exchangeRateStr =
+          (await this.currenciesService.getLatestRate(vesCurrency.id)) ||
+          '1.0000000000';
+      }
       const exchangeRate = new Decimal(exchangeRateStr);
 
       const invoiceItemsInput = order.items.map((item) => {
-        const product = item.product;
-        let finalPrice = new Decimal(item.price || '0');
-
-        // FORCE CONVERSION TO VES IF ITEM IS IN USD (or other currency)
-        // Check if the item price is stored in a foreign currency (e.g. USD)
-        // Usually, 'item.price' in OrderItems might be in the original currency of the transaction.
-        // We compare against defaultCurrencyId (VES).
-        
-        // However, schema doesn't store currencyId on OrderItem directly, it relies on Order header or Product.
-        // But Order header stores 'total' in a specific currency (VES in our seed logic).
-        // If order.type is SALE/PURCHASE, we need to be careful.
-        
-        // STRICT RULE: If the order was created with an exchange rate > 1, 
-        // it implies the original values might be in USD but stored as VES, OR stored as USD.
-        // Let's assume Order Items are stored in the Transaction Currency.
-        
-        // If we want to invoice in VES, and the order logic is "Total in USD", we convert.
-        // BUT, our previous seed fix established that Order Items are stored in VES.
-        // Let's add a safety check:
-        // If the order has a currencyId (not currently in schema, implicitly VES based on seed), we trust it.
-        
-        // What if we add explicit conversion logic here just in case?
-        // No, double conversion is dangerous.
-        // Let's stick to the mandate: "The invoice is ALWAYS VES".
-        // We trust the Order Item price is the correct base value.
-        
+        // Items are already priced in Order Currency (due to recalculate logic or creation logic)
+        // So we just pass them 1:1.
         return {
           productId: item.productId,
           quantity: new Decimal(item.quantity).toNumber(),
-          price: finalPrice.toNumber(),
+          price: new Decimal(item.price).toNumber(),
         };
       });
 
       const invoice = await this.billingService.createInvoice({
         partnerId: order.partnerId,
         branchId: order.branchId,
-        currencyId: defaultCurrencyId,
+        currencyId: invoiceCurrencyId,
         date: new Date().toISOString(),
         items: invoiceItemsInput,
         userId,
@@ -348,6 +356,7 @@ export class OrdersService {
         orderId: order.id,
         warehouseId: order.warehouseId || undefined,
         status: 'DRAFT', // Explicitly DRAFT
+        exchangeRate: exchangeRate.toNumber(),
       });
 
       // 2. Update Order Status to COMPLETED
@@ -381,28 +390,100 @@ export class OrdersService {
         );
       }
 
-      // 1. Fetch Latest Exchange Rate (VES) for this branch
-      const currency = await db.query.currencies.findFirst({
+      // Determine Target Currency (Order Currency or Branch Default)
+      // @ts-ignore
+      let targetCurrencyId = order.currencyId;
+      if (!targetCurrencyId) {
+        // Fallback to VES if not set
+        const ves = await db.query.currencies.findFirst({
+          where: eq(currencies.code, 'VES'),
+        });
+        targetCurrencyId = ves?.id || null;
+      }
+
+      if (!targetCurrencyId)
+        throw new BadRequestException('Moneda de referencia no encontrada');
+
+      // Fetch Exchange Rate for accounting purposes
+      // Always store the VES rate (market rate) for fiscal reporting
+      // If Order is USD: Rate = VES Rate (e.g. 45.00)
+      // If Order is VES: Rate = 1
+
+      // Get VES currency for rate lookup
+      const vesCurrency = await db.query.currencies.findFirst({
         where: eq(currencies.code, 'VES'),
       });
-      if (!currency) throw new BadRequestException('Moneda VES no encontrada');
-      const defaultCurrencyId = currency.id;
 
-      const currentRateStr =
-        (await this.currenciesService.getLatestRate(defaultCurrencyId)) ||
-        '1.0000000000';
-      const currentRate = new Decimal(currentRateStr);
+      // Get target currency info
+      const targetCurrency = await db.query.currencies.findFirst({
+        where: eq(currencies.id, targetCurrencyId),
+      });
 
-      // 2. Recalculate Items
+      let orderRateStr = '1';
+      // Always fetch global VES rate (USD -> VES parity)
+      if (vesCurrency) {
+        orderRateStr =
+          (await this.currenciesService.getLatestRate(vesCurrency.id)) || '1';
+      }
+      const orderRate = new Decimal(orderRateStr);
+
       let newTotal = new Decimal(0);
 
       for (const item of order.items) {
         const product = item.product;
-        let finalPrice = new Decimal(product.price || '0');
+        // Product Price is usually stored in product.currencyId (e.g., USD)
+        // If product.currencyId is missing, assume it matches the product.price context (e.g. USD).
 
-        // Convert if Product is USD (or different from VES)
-        if (product.currencyId && product.currencyId !== defaultCurrencyId) {
-          finalPrice = finalPrice.times(currentRate);
+        const productPrice = new Decimal(product.price || '0');
+        const productCurrencyId = product.currencyId;
+
+        let finalPrice = productPrice;
+
+        // Conversion Logic:
+        // Case 1: Product USD -> Order USD => No Change
+        // Case 2: Product USD -> Order VES => Price * Rate
+        // Case 3: Product VES -> Order USD => Price / Rate
+        // Case 4: Product VES -> Order VES => No Change
+
+        // We assume 'orderRate' is price of 1 Unit of OrderCurrency in VES (e.g. 1 USD = 45 VES).
+        // Wait, 'getLatestRate' usually returns VES per Currency (e.g. 45.00 for USD).
+
+        // If Product is USD and Order is VES:
+        // PriceUSD * Rate = PriceVES
+        if (
+          productCurrencyId !== targetCurrencyId &&
+          productCurrencyId &&
+          targetCurrencyId
+        ) {
+          // Check if Product is Foreign (USD) and Order is Base (VES)
+          // How do we know which is base? We query currencies.isBase
+          const productCurrency = await db.query.currencies.findFirst({
+            where: eq(currencies.id, productCurrencyId),
+          });
+          const orderCurrency = await db.query.currencies.findFirst({
+            where: eq(currencies.id, targetCurrencyId),
+          });
+
+          if (!productCurrency || !orderCurrency) continue;
+
+          if (!productCurrency.isBase && orderCurrency.isBase) {
+            // USD -> VES
+            // We need Rate of ProductCurrency.
+            // But 'orderRate' above was fetched for TargetCurrency (VES), which is 1.
+            // We need Rate of ProductCurrency (USD).
+            const prodRateStr =
+              (await this.currenciesService.getLatestRate(productCurrencyId)) ||
+              '1';
+            const prodRate = new Decimal(prodRateStr);
+            finalPrice = productPrice.times(prodRate);
+          } else if (productCurrency.isBase && !orderCurrency.isBase) {
+            // VES -> USD
+            // We need Rate of OrderCurrency (USD).
+            // 'orderRate' is 45.
+            finalPrice = productPrice.div(orderRate);
+          } else if (!productCurrency.isBase && !orderCurrency.isBase) {
+            // USD -> EUR (Cross Rate) - Not supported yet, assume 1:1 or handle later
+          }
         }
 
         // Update Item Price in DB
@@ -419,7 +500,9 @@ export class OrdersService {
         .update(orders)
         .set({
           total: newTotal.toFixed(2),
-          exchangeRate: currentRate.toFixed(10),
+          exchangeRate: orderRate.toFixed(10),
+          // @ts-ignore
+          currencyId: targetCurrencyId, // Ensure it is set
         })
         .where(eq(orders.id, id))
         .returning();

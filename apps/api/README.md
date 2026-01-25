@@ -29,7 +29,7 @@ npm install
 ### Running the API
 
 ```bash
-# Watch mode (automatically starts on port 3333/3001)
+# Watch mode (automatically starts on port 4000)
 npm run start:dev
 ```
 

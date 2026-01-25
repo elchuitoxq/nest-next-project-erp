@@ -24,6 +24,13 @@ export interface Order {
   exchangeRate?: string | number;
   date: string;
   userId?: string;
+  currencyId?: string;
+  currency?: {
+    id: string;
+    code: string;
+    symbol: string;
+    isBase: boolean;
+  };
 
   partner?: Partner;
   warehouse?: Warehouse;

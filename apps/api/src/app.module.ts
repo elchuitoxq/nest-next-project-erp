@@ -16,11 +16,16 @@ import { UsersModule } from './modules/users/users.module';
 import { BranchesModule } from './modules/branches/branches.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { CreditNotesModule } from './modules/credit-notes/credit-notes.module';
+import { CronModule } from './modules/cron/cron.module';
+import { AccountingModule } from './modules/accounting/accounting.module';
+import { FiscalReportsModule } from './modules/reports/fiscal-reports.module';
+import { TaxConceptsModule } from './modules/settings/tax-concepts/tax-concepts.module';
 
 @Module({
   imports: [
     AuthModule,
     CurrenciesModule,
+    TaxConceptsModule,
     PartnersModule,
     ProductsModule,
     InventoryModule,
@@ -34,6 +39,9 @@ import { CreditNotesModule } from './modules/credit-notes/credit-notes.module';
     BranchesModule,
     OrdersModule,
     CreditNotesModule,
+    CronModule,
+    AccountingModule,
+    FiscalReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
