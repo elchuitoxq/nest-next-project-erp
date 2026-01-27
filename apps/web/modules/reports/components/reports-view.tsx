@@ -12,9 +12,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Loader2, Download } from "lucide-react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
+import { formatCurrency } from "@/lib/utils";
 
 export function ReportsView() {
   const [type, setType] = useState<"ventas" | "compras">("ventas");
@@ -150,52 +159,65 @@ export function ReportsView() {
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : (
-            <div className="relative overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs uppercase bg-gray-100">
-                  <tr>
-                    <th className="px-4 py-2">#</th>
-                    <th className="px-4 py-2">Fecha</th>
-                    <th className="px-4 py-2">RIF</th>
-                    <th className="px-4 py-2">Nombre</th>
-                    <th className="px-4 py-2">Factura</th>
-                    <th className="px-4 py-2">Control</th>
-                    <th className="px-4 py-2 text-right">Total</th>
-                    <th className="px-4 py-2 text-right">Base</th>
-                    <th className="px-4 py-2 text-right">IVA</th>
-                    <th className="px-4 py-2 text-right">IGTF</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>RIF</TableHead>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Factura</TableHead>
+                    <TableHead>Control</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Base</TableHead>
+                    <TableHead className="text-right">IVA</TableHead>
+                    <TableHead className="text-right">IGTF</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {data?.map((row: any, i: number) => (
-                    <tr key={i} className="border-b">
-                      <td className="px-4 py-2">{row.nro_operacion}</td>
-                      <td className="px-4 py-2">
+                    <TableRow key={i}>
+                      <TableCell>{row.nro_operacion}</TableCell>
+                      <TableCell>
                         {new Date(row.fecha).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-2">{row.rif}</td>
-                      <td className="px-4 py-2">{row.nombre}</td>
-                      <td className="px-4 py-2">{row.numero_factura}</td>
-                      <td className="px-4 py-2">{row.numero_control}</td>
-                      <td className="px-4 py-2 text-right">
-                        {Number(
+                      </TableCell>
+                      <TableCell>{row.rif}</TableCell>
+                      <TableCell className="max-w-[200px] truncate" title={row.nombre}>
+                        {row.nombre}
+                      </TableCell>
+                      <TableCell>{row.numero_factura}</TableCell>
+                      <TableCell>{row.numero_control}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(
                           row.total_ventas_incluyendo_iva ||
                             row.total_compras_incluyendo_iva,
-                        ).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {Number(row.base_imponible).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {Number(row.impuesto).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {Number(row.igtf_percibido || 0).toFixed(2)}
-                      </td>
-                    </tr>
+                          "Bs",
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(row.base_imponible, "Bs")}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(row.impuesto, "Bs")}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(row.igtf_percibido || 0, "Bs")}
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                  {(!data || data.length === 0) && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={10}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No hay movimientos registrados en este período.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>

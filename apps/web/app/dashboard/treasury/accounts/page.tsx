@@ -52,7 +52,6 @@ import {
 export default function BankAccountsPage() {
   const [open, setOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<any>(null);
-  const [search, setSearch] = useState("");
 
   const { data: accounts, isLoading } = useBankAccounts();
   const { mutate: createAccount, isPending: isCreating } =
@@ -61,16 +60,6 @@ export default function BankAccountsPage() {
     useUpdateBankAccount();
 
   const isPending = isCreating || isUpdating;
-
-  // Client-side filtering
-  const filteredAccounts = accounts?.filter((acc) => {
-    const term = search.toLowerCase();
-    return (
-      acc.name.toLowerCase().includes(term) ||
-      acc.accountNumber?.toLowerCase().includes(term) ||
-      acc.currency?.code.toLowerCase().includes(term)
-    );
-  }) || [];
 
   // Form State
   const [name, setName] = useState("");
@@ -272,13 +261,6 @@ export default function BankAccountsPage() {
               <CardDescription>
                 Visualiza y gestiona las cuentas de tesorería.
               </CardDescription>
-              <div className="w-[300px]">
-                <Input
-                  placeholder="Buscar por nombre, cuenta o moneda..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -288,7 +270,7 @@ export default function BankAccountsPage() {
               </div>
             ) : (
               <BankAccountsTable
-                accounts={filteredAccounts}
+                accounts={accounts || []}
                 onEdit={handleEdit}
               />
             )}

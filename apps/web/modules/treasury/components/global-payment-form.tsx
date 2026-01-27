@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { usePartners } from "@/modules/partners/hooks/use-partners";
 import { useInvoices } from "@/modules/billing/hooks/use-invoices";
 import {
@@ -26,13 +26,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency, cn } from "@/lib/utils";
-import { Loader2, Plus, Search } from "lucide-react";
+import { Loader2, Calculator } from "lucide-react";
 import { toast } from "sonner";
-// Imports removed
-
 import { useBankAccounts } from "@/modules/treasury/hooks/use-bank-accounts";
+import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
+
+interface Currency {
+  id: string;
+  code: string;
+  symbol: string;
+  isBase: boolean;
+}
 
 export function GlobalPaymentForm() {
   const { data: partners } = usePartners();
@@ -41,14 +47,31 @@ export function GlobalPaymentForm() {
   const { data: bankAccounts } = useBankAccounts();
   const { mutate: registerPayment, isPending } = useRegisterPayment();
 
+  // Fetch currencies and rates
+  const { data: currencies } = useQuery({
+    queryKey: ["currencies"],
+    queryFn: async () => {
+      const { data } = await api.get<Currency[]>("/settings/currencies");
+      return data;
+    },
+  });
+
+  const { data: latestRates } = useQuery({
+    queryKey: ["exchange-rates", "latest"],
+    queryFn: async () => {
+      const { data } = await api.get<any[]>("/settings/currencies/rates/latest");
+      return data;
+    },
+  });
+
   // Form State
   const [partnerId, setPartnerId] = useState("");
   const [methodId, setMethodId] = useState("");
   const [bankAccountId, setBankAccountId] = useState("");
-  const [currencyId, setCurrencyId] = useState(""); // Should depend on method or invoice?
+  const [currencyId, setCurrencyId] = useState("");
   const [amount, setAmount] = useState("");
   const [reference, setReference] = useState("");
-  const [openPartner, setOpenPartner] = useState(false);
+  const [exchangeRateInput, setExchangeRateInput] = useState(""); // Custom rate
 
   // Allocations State: Map<InvoiceId, Amount>
   const [allocations, setAllocations] = useState<Record<string, number>>({});
@@ -61,18 +84,56 @@ export function GlobalPaymentForm() {
         (inv) =>
           inv.partnerId === partnerId &&
           (inv.status === "POSTED" || inv.status === "PARTIALLY_PAID") &&
-          Number(inv.total) > 0, // Safety check
+          Number(inv.total) > 0,
       )
       .sort(
         (a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime(),
-      ); // Oldest first
+      );
   }, [allInvoices, partnerId]);
 
+  // Determine effective exchange rate
+  const effectiveRate = useMemo(() => {
+    if (exchangeRateInput) return Number(exchangeRateInput);
+    
+    // Find rate for VES (assuming Base is USD)
+    const vesCurrency = currencies?.find(c => c.code === "VES");
+    if (!vesCurrency) return 1;
+
+    const rateObj = latestRates?.find(r => r.currencyId === vesCurrency.id);
+    return rateObj ? Number(rateObj.rate) : 1;
+  }, [exchangeRateInput, latestRates, currencies]);
+
   // Derived Values
+  const selectedMethod = methods?.find((m) => m.id === methodId);
+  const paymentCurrency = currencies?.find(c => c.id === currencyId);
+  const isForeignCurrency = paymentCurrency?.code !== "VES"; // Simplified assumption
+
+  // Filter accounts by selected currency
+  const filteredAccounts = useMemo(() => {
+    if (!currencyId) return bankAccounts;
+    return bankAccounts?.filter((acc) => acc.currencyId === currencyId);
+  }, [bankAccounts, currencyId]);
+
+  // Effect: Auto-set currency if method has restricted currency
+  useEffect(() => {
+    if (selectedMethod?.currencyId) {
+      setCurrencyId(selectedMethod.currencyId);
+    }
+  }, [selectedMethod]);
+
+  // Effect: Auto-set exchange rate from system if available
+  useEffect(() => {
+    if (latestRates && currencies && !exchangeRateInput) {
+       const vesCurrency = currencies.find(c => c.code === "VES");
+       const rateObj = latestRates.find(r => r.currencyId === vesCurrency?.id);
+       if (rateObj) setExchangeRateInput(rateObj.rate);
+    }
+  }, [latestRates, currencies]);
+
+
   const totalAllocated = Object.values(allocations).reduce((a, b) => a + b, 0);
   const remainingAmount = Math.max(0, Number(amount) - totalAllocated);
 
-  // Auto Allocate Handler
   const handleAutoDistribute = () => {
     if (!amount) return;
     let available = Number(amount);
@@ -83,37 +144,47 @@ export function GlobalPaymentForm() {
 
       const paidAlready =
         inv.payments?.reduce((s, p) => s + Number(p.amount), 0) || 0;
-      const pending = Number(inv.total) - paidAlready;
+      const pending = Number(inv.total) - paidAlready; // Pending in Invoice Currency (usually Base/USD)
 
-      // We also need to check currency consistency if we want strictly correct math
-      // For now assuming 1:1 if currency matches.
+      // Conversion Logic:
+      // If Payment is USD and Invoice is USD -> 1:1
+      // If Payment is VES and Invoice is USD -> Convert Payment to USD (Amount / Rate)
+      // If Payment is USD and Invoice is VES -> Convert Payment to VES (Amount * Rate)
+      
+      // Ideally, the backend handles multi-currency. 
+      // For this form, we assume:
+      // - Invoices are tracked in Base Currency (USD) usually.
+      // - Payment Amount is entered in Payment Currency.
+      
+      // Let's keep it simple: The allocation amount is in PAYMENT CURRENCY units for now,
+      // and we let the backend handle the cross-rate if they differ.
+      // OR better: We display pending in Payment Currency equivalence.
 
-      const toPay = Math.min(available, pending);
-      if (toPay > 0) {
-        newAllocations[inv.id] = toPay;
+      // If Payment is VES (Rate 352) and Invoice is $10.
+      // Pending in VES = 10 * 352 = 3520 VES.
+      // If I pay 2000 VES, I allocate 2000.
+      
+      // Determination of "Pending in Payment Currency":
+      let pendingInPaymentCurrency = pending;
+      
+      const invCurrencyCode = inv.currency?.code || "USD"; // Default to base
+      const payCurrencyCode = paymentCurrency?.code || "USD";
+
+      if (invCurrencyCode === "USD" && payCurrencyCode === "VES") {
+         pendingInPaymentCurrency = pending * effectiveRate;
+      } else if (invCurrencyCode === "VES" && payCurrencyCode === "USD") {
+         pendingInPaymentCurrency = pending / effectiveRate;
+      }
+
+      const toPay = Math.min(available, pendingInPaymentCurrency);
+      
+      if (toPay > 0.001) { // Epsilon check
+        newAllocations[inv.id] = Number(toPay.toFixed(2));
         available -= toPay;
       }
     }
     setAllocations(newAllocations);
   };
-
-  const selectedMethod = methods?.find((m) => m.id === methodId);
-
-  // Filter accounts by selected currency (if set)
-  const filteredAccounts = useMemo(() => {
-    if (!currencyId) return bankAccounts;
-    return bankAccounts?.filter((acc) => acc.currencyId === currencyId);
-  }, [bankAccounts, currencyId]);
-
-  // Effect: Auto-select account if only one matches currency
-  // (Optional, maybe annoying if user wants to change)
-
-  // Effect: Auto-set currency if method has restricted currency
-  useMemo(() => {
-    if (selectedMethod?.currencyId) {
-      setCurrencyId(selectedMethod.currencyId);
-    }
-  }, [selectedMethod]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +193,7 @@ export function GlobalPaymentForm() {
       return;
     }
 
-    if (totalAllocated > Number(amount)) {
+    if (totalAllocated > Number(amount) + 0.01) { // Tolerance
       toast.error("El monto asignado supera el pago total");
       return;
     }
@@ -138,12 +209,13 @@ export function GlobalPaymentForm() {
       {
         partnerId,
         methodId,
-        currencyId: currencyId || clientInvoices[0]?.currencyId, // Fallback to invoice currency if mixed
+        currencyId: currencyId || clientInvoices[0]?.currencyId,
         amount,
         reference,
-        bankAccountId, // New Field
+        bankAccountId,
         allocations: payloadAllocations,
-        // Legacy invoiceId is omitted, implying Pure Allocation mode
+        // We might want to send the exchange rate used
+        // exchangeRate: effectiveRate 
       },
       {
         onSuccess: () => {
@@ -186,6 +258,17 @@ export function GlobalPaymentForm() {
                     ))}
                   </SelectContent>
                 </Select>
+                {clientInvoices.length > 0 && (
+                  <p className="text-xs text-muted-foreground text-right">
+                    Deuda total:{" "}
+                    {formatCurrency(
+                      clientInvoices.reduce((acc, inv) => {
+                         const paid = inv.payments?.reduce((s, p) => s + Number(p.amount), 0) || 0;
+                         return acc + (Number(inv.total) - paid);
+                      }, 0)
+                    )}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -224,23 +307,42 @@ export function GlobalPaymentForm() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Referencia</Label>
-                <Input
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                  placeholder="Ref. Bancaria"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                    <Label>Referencia</Label>
+                    <Input
+                      value={reference}
+                      onChange={(e) => setReference(e.target.value)}
+                      placeholder="Ref. Bancaria"
+                    />
+                 </div>
+                 <div className="space-y-2">
+                    <Label>Tasa de Cambio (Bs/$)</Label>
+                    <div className="relative">
+                      <Input 
+                        type="number" 
+                        value={exchangeRateInput} 
+                        onChange={(e) => setExchangeRateInput(e.target.value)}
+                        placeholder="0.00"
+                        className="pl-8"
+                      />
+                      <Calculator className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    </div>
+                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Monto Total Recibido</Label>
+                <div className="flex justify-between">
+                  <Label>Monto Total Recibido</Label>
+                  {paymentCurrency && <span className="text-xs font-bold text-primary">{paymentCurrency.code}</span>}
+                </div>
                 <Input
                   type="number"
                   step="0.01"
                   className="text-lg font-bold"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
                 />
               </div>
 
@@ -249,19 +351,19 @@ export function GlobalPaymentForm() {
                 <div className="flex justify-between text-sm">
                   <span>Monto Recibido:</span>
                   <span className="font-medium">
-                    {formatCurrency(Number(amount))}
+                    {formatCurrency(Number(amount), paymentCurrency?.symbol)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Asignado:</span>
                   <span className="font-medium text-green-600">
-                    {formatCurrency(totalAllocated)}
+                    {formatCurrency(totalAllocated, paymentCurrency?.symbol)}
                   </span>
                 </div>
                 <div className="border-t pt-2 flex justify-between font-bold">
                   <span>Por Asignar (Crédito):</span>
                   <span className={remainingAmount > 0 ? "text-blue-600" : ""}>
-                    {formatCurrency(remainingAmount)}
+                    {formatCurrency(remainingAmount, paymentCurrency?.symbol)}
                   </span>
                 </div>
               </div>
@@ -281,13 +383,11 @@ export function GlobalPaymentForm() {
             <div className="border rounded-md flex flex-col h-[500px]">
               <div className="p-3 border-b bg-muted/40 font-medium text-sm flex justify-between items-center">
                 <span>Facturas Pendientes ({clientInvoices.length})</span>
-                {selectedMethod?.currencyId ? (
+                {paymentCurrency && (
                   <span className="text-xs text-muted-foreground">
-                    Moneda Fija:{" "}
-                    {methods?.find((m) => m.id === selectedMethod.currencyId)
-                      ?.code || "..."}
+                    Pagando en: {paymentCurrency.code}
                   </span>
-                ) : null}
+                )}
               </div>
 
               <div className="flex-1 overflow-auto p-0">
@@ -297,8 +397,8 @@ export function GlobalPaymentForm() {
                       <TableHead className="w-[100px]">Factura</TableHead>
                       <TableHead>Fecha</TableHead>
                       <TableHead className="text-right">Pendiente</TableHead>
-                      <TableHead className="text-right w-[120px]">
-                        Abonar
+                      <TableHead className="text-right w-[130px]">
+                        Abonar ({paymentCurrency?.symbol || "$"})
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -319,8 +419,19 @@ export function GlobalPaymentForm() {
                             (s, p) => s + Number(p.amount),
                             0,
                           ) || 0;
-                        const pending = Number(inv.total) - paid;
+                        const pendingBase = Number(inv.total) - paid;
                         const currentAlloc = allocations[inv.id] || 0;
+
+                        // Calculate equivalent pending in PAYMENT currency
+                        let pendingEquiv = pendingBase;
+                        const invCurrencyCode = inv.currency?.code || "USD";
+                        const payCurrencyCode = paymentCurrency?.code || "USD";
+
+                        if (invCurrencyCode === "USD" && payCurrencyCode === "VES") {
+                           pendingEquiv = pendingBase * effectiveRate;
+                        } else if (invCurrencyCode === "VES" && payCurrencyCode === "USD") {
+                           pendingEquiv = pendingBase / effectiveRate;
+                        }
 
                         return (
                           <TableRow key={inv.id}>
@@ -333,7 +444,14 @@ export function GlobalPaymentForm() {
                                 : "-"}
                             </TableCell>
                             <TableCell className="text-right text-xs">
-                              {formatCurrency(pending, inv.currency?.symbol)}
+                              <div className="flex flex-col items-end">
+                                <span>{formatCurrency(pendingBase, inv.currency?.symbol)}</span>
+                                {payCurrencyCode !== invCurrencyCode && (
+                                   <span className="text-[10px] text-muted-foreground">
+                                     ~ {formatCurrency(pendingEquiv, paymentCurrency?.symbol)}
+                                   </span>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell className="p-2">
                               <Input
@@ -344,7 +462,7 @@ export function GlobalPaymentForm() {
                                 onChange={(e) => {
                                   const val = Math.min(
                                     Number(e.target.value),
-                                    pending,
+                                    Number(pendingEquiv.toFixed(2)) + 0.05, // Slight tolerance
                                   );
                                   setAllocations((prev) => ({
                                     ...prev,
