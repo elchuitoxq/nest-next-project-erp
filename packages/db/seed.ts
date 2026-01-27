@@ -25,7 +25,7 @@ export async function seed(isClean = true) {
       // Clean DB
       console.log("🧹 Cleaning tables...");
       await db.execute(
-        sql`TRUNCATE TABLE users_roles, users, currencies, payment_methods, payment_method_accounts, employees, partners, branches, roles, organization_modules, user_app_settings, exchange_rates, warehouses, product_categories, products, stock, inventory_moves, inventory_move_lines, invoices, invoice_items, payments, loans, loan_items, payroll_runs, payroll_items, credit_notes, credit_note_items, bank_accounts, payment_allocations, users_branches, tax_concepts, tax_retentions, tax_retention_lines, job_positions, orders, order_items CASCADE`,
+        sql`TRUNCATE TABLE users_roles, users, currencies, payment_methods, payment_method_accounts, employees, partners, branches, roles, organization_modules, user_app_settings, exchange_rates, warehouses, product_categories, products, stock, inventory_moves, inventory_move_lines, invoices, invoice_items, payments, loans, loan_items, payroll_runs, payroll_items, credit_notes, credit_note_items, bank_accounts, payment_allocations, users_branches, tax_concepts, tax_retentions, tax_retention_lines, job_positions, orders, order_items, banks CASCADE`,
       );
     }
 

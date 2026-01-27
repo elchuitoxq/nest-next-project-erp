@@ -1,9 +1,13 @@
 "use client";
 
 import {
-  SidebarInset,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import {
   Breadcrumb,
@@ -29,11 +33,13 @@ import { useEmployees, Employee } from "@/modules/hr/hooks/use-employees";
 import { EmployeeDialog } from "@/modules/hr/components/employee-dialog";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 
 export default function EmployeesPage() {
   const { data: employees, isLoading } = useEmployees();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | undefined>();
+  const [search, setSearch] = useState("");
 
   const handleEdit = (emp: Employee) => {
     setSelectedEmployee(emp);
@@ -44,6 +50,17 @@ export default function EmployeesPage() {
     setSelectedEmployee(undefined);
     setDialogOpen(true);
   };
+
+  // Client-side filtering
+  const filteredEmployees = employees?.filter((emp) => {
+    const term = search.toLowerCase();
+    return (
+      emp.firstName.toLowerCase().includes(term) ||
+      emp.lastName.toLowerCase().includes(term) ||
+      emp.identityCard.toLowerCase().includes(term) ||
+      emp.position?.name.toLowerCase().includes(term)
+    );
+  });
 
   return (
     <SidebarInset>
@@ -65,9 +82,9 @@ export default function EmployeesPage() {
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between py-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Empleados</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Empleados</h1>
             <p className="text-muted-foreground">Gestión de personal y nómina.</p>
           </div>
           <Button onClick={handleCreate}>
@@ -75,60 +92,79 @@ export default function EmployeesPage() {
           </Button>
         </div>
 
-        <div className="border rounded-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Cargo</TableHead>
-                <TableHead>Salario Base</TableHead>
-                <TableHead>Frecuencia</TableHead>
-                <TableHead>Estado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
-                    <Skeleton className="h-4 w-[250px] mx-auto" />
-                  </TableCell>
-                </TableRow>
-              ) : employees?.map((emp) => (
-                <TableRow
-                  key={emp.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => handleEdit(emp)}
-                >
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{emp.firstName} {emp.lastName}</span>
-                      <span className="text-xs text-muted-foreground">{emp.identityCard}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{emp.position?.name || "-"}</TableCell>
-                  <TableCell>
-                    {formatCurrency(emp.baseSalary, emp.salaryCurrency?.code)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{emp.payFrequency}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={emp.status === 'ACTIVE' ? 'bg-green-600' : 'bg-gray-500'}>
-                        {emp.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!isLoading && (!employees || employees.length === 0) && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    No hay empleados registrados.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Listado de Personal</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardDescription>
+                Gestión de nómina y datos laborales
+              </CardDescription>
+              <div className="w-[300px]">
+                <Input
+                  placeholder="Buscar por nombre, cédula o cargo..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Cargo</TableHead>
+                    <TableHead>Salario Base</TableHead>
+                    <TableHead>Frecuencia</TableHead>
+                    <TableHead>Estado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center">
+                        <Skeleton className="h-4 w-[250px] mx-auto" />
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredEmployees?.map((emp) => (
+                    <TableRow
+                      key={emp.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleEdit(emp)}
+                    >
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{emp.firstName} {emp.lastName}</span>
+                          <span className="text-xs text-muted-foreground">{emp.identityCard}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{emp.position?.name || "-"}</TableCell>
+                      <TableCell>
+                        {formatCurrency(emp.baseSalary, emp.salaryCurrency?.code)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{emp.payFrequency}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={emp.status === 'ACTIVE' ? 'bg-green-600' : 'bg-gray-500'}>
+                            {emp.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!isLoading && (!filteredEmployees || filteredEmployees.length === 0) && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                        No se encontraron empleados.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
 
         <EmployeeDialog
           open={dialogOpen}

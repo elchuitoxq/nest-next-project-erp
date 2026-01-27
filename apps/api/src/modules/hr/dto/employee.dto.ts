@@ -34,7 +34,11 @@ export class CreateEmployeeDto {
 
   @IsOptional()
   @IsString()
-  bankName?: string;
+  paymentMethod?: string; // BANK_TRANSFER, CASH
+
+  @IsOptional()
+  @IsUUID()
+  bankId?: string;
 
   @IsOptional()
   @IsString()

@@ -20,12 +20,14 @@ import { CronModule } from './modules/cron/cron.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { FiscalReportsModule } from './modules/reports/fiscal-reports.module';
 import { TaxConceptsModule } from './modules/settings/tax-concepts/tax-concepts.module';
+import { BanksModule } from './modules/settings/banks/banks.module';
 
 @Module({
   imports: [
     AuthModule,
     CurrenciesModule,
     TaxConceptsModule,
+    BanksModule,
     PartnersModule,
     ProductsModule,
     InventoryModule,

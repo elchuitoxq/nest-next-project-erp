@@ -11,7 +11,8 @@ export class EmployeesService {
       orderBy: desc(employees.hireDate),
       with: {
         position: true,
-        salaryCurrency: true
+        salaryCurrency: true,
+        bank: true
       }
     });
   }
@@ -21,7 +22,8 @@ export class EmployeesService {
       where: eq(employees.id, id),
       with: {
         position: true,
-        salaryCurrency: true
+        salaryCurrency: true,
+        bank: true
       }
     });
     if (!employee) throw new NotFoundException('Empleado no encontrado');
@@ -46,7 +48,8 @@ export class EmployeesService {
       salaryCurrencyId: data.salaryCurrencyId,
       baseSalary: data.baseSalary.toString(),
       payFrequency: data.payFrequency,
-      bankName: data.bankName,
+      paymentMethod: data.paymentMethod,
+      bankId: data.bankId,
       accountNumber: data.accountNumber,
       accountType: data.accountType,
       status: 'ACTIVE'
@@ -67,7 +70,8 @@ export class EmployeesService {
         salaryCurrencyId: data.salaryCurrencyId,
         baseSalary: data.baseSalary.toString(),
         payFrequency: data.payFrequency,
-        bankName: data.bankName,
+        paymentMethod: data.paymentMethod,
+        bankId: data.bankId,
         accountNumber: data.accountNumber,
         accountType: data.accountType,
       })

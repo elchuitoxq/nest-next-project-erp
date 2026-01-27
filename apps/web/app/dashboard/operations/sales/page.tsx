@@ -30,6 +30,8 @@ import { OrderDialog } from "@/modules/orders/components/order-dialog";
 import { OrderDetailsDialog } from "@/modules/orders/components/order-details-dialog";
 import { Order } from "@/modules/orders/types";
 
+import { Input } from "@/components/ui/input";
+
 export default function OrdersPage() {
   const { data: orders, isLoading, isError } = useOrders("SALE");
   const { confirmOrder, cancelOrder, generateInvoice, recalculateOrder } =
@@ -39,6 +41,15 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | undefined>(
     undefined,
   );
+  const [search, setSearch] = useState("");
+
+  const filteredOrders = orders?.filter((order) => {
+    const term = search.toLowerCase();
+    return (
+      order.code.toLowerCase().includes(term) ||
+      order.partner?.name.toLowerCase().includes(term)
+    );
+  }) || [];
 
   const executeConfirm = async (order: Order) => {
     if (
@@ -147,10 +158,19 @@ export default function OrdersPage() {
         <Card>
           <CardHeader>
             <CardTitle>Historial de Pedidos</CardTitle>
-            <CardDescription>
-              Visualiza y administra todos los pedidos de venta registrados en
-              el sistema.
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <CardDescription>
+                Visualiza y administra todos los pedidos de venta registrados en
+                el sistema.
+              </CardDescription>
+              <div className="w-[300px]">
+                <Input
+                  placeholder="Buscar por código o cliente..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -164,7 +184,7 @@ export default function OrdersPage() {
             ) : (
               // @ts-ignore
               <OrdersTable
-                orders={orders || []}
+                orders={filteredOrders}
                 onViewDetails={handleViewDetails}
                 onConfirm={handleViewDetails}
                 onCancel={handleViewDetails}

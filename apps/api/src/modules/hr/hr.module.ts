@@ -7,18 +7,26 @@ import { PayrollService } from './services/payroll.service';
 import { PayrollController } from './controllers/payroll.controller';
 import { CurrenciesModule } from '../../modules/settings/currencies/currencies.module';
 import { TreasuryModule } from '../treasury/treasury.module';
+import { PayrollConceptsController } from './concepts/payroll-concepts.controller';
+import { PayrollConceptsService } from './concepts/payroll-concepts.service';
+import { PayrollIncidentsController } from './incidents/payroll-incidents.controller';
+import { PayrollIncidentsService } from './incidents/payroll-incidents.service';
 
 @Module({
   imports: [CurrenciesModule, TreasuryModule],
   controllers: [
     JobPositionsController, 
     EmployeesController, 
-    PayrollController
+    PayrollController,
+    PayrollConceptsController,
+    PayrollIncidentsController
   ],
   providers: [
     JobPositionsService, 
     EmployeesService, 
-    PayrollService
+    PayrollService,
+    PayrollConceptsService,
+    PayrollIncidentsService
   ],
   exports: [EmployeesService]
 })

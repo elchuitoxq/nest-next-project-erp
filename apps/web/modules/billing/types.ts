@@ -16,6 +16,7 @@ export interface InvoiceItem {
 export interface Invoice {
   id: string;
   code: string;
+  invoiceNumber?: string; // External number
   partnerId: string;
   branchId: string;
   currencyId: string;

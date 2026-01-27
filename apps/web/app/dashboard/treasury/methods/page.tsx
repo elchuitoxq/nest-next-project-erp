@@ -43,10 +43,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useBankAccounts } from "@/modules/treasury/hooks/use-treasury";
 
+import { Input } from "@/components/ui/input";
+
 export default function MethodsPage() {
   const queryClient = useQueryClient();
   const [editingMethod, setEditingMethod] = useState<any>(null);
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
 
   const { data: methods, isLoading } = useQuery({
     queryKey: ["payment-methods"],
@@ -55,6 +58,15 @@ export default function MethodsPage() {
       return data;
     },
   });
+
+  // Client-side filtering
+  const filteredMethods = methods?.filter((m: any) => {
+    const term = search.toLowerCase();
+    return (
+      m.name.toLowerCase().includes(term) ||
+      m.code.toLowerCase().includes(term)
+    );
+  }) || [];
 
   const { data: accounts } = useBankAccounts();
 
@@ -132,9 +144,18 @@ export default function MethodsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Listado de Métodos</CardTitle>
-            <CardDescription>
-              Define restricciones operativas para evitar errores en caja.
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <CardDescription>
+                Define restricciones operativas para evitar errores en caja.
+              </CardDescription>
+              <div className="w-[300px]">
+                <Input
+                  placeholder="Buscar método..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -152,7 +173,7 @@ export default function MethodsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {methods?.map((m: any) => (
+                  {filteredMethods?.map((m: any) => (
                     <TableRow key={m.id}>
                       <TableCell className="font-medium">{m.name}</TableCell>
                       <TableCell className="font-mono text-xs">
@@ -182,6 +203,16 @@ export default function MethodsPage() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {filteredMethods?.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        No se encontraron métodos.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             )}

@@ -21,10 +21,28 @@ export const employeeSchema = z.object({
   baseSalary: z.coerce.number().min(0, "Salario debe ser mayor o igual a 0").default(0),
   payFrequency: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]).default("BIWEEKLY"),
   
-  // Banking
-  bankName: z.string().optional(),
-  accountNumber: z.string().regex(/^\d{20}$/, "Debe tener 20 dígitos numéricos").optional().or(z.literal("")),
+  // Payment Config
+  paymentMethod: z.enum(["BANK_TRANSFER", "CASH", "MOBILE_PAYMENT"]).default("BANK_TRANSFER"),
+  bankId: z.string().uuid().optional().or(z.literal("")),
+  accountNumber: z.string().optional(),
   accountType: z.enum(["CHECKING", "SAVINGS"]).default("CHECKING"),
+}).superRefine((data, ctx) => {
+  if (data.paymentMethod === "BANK_TRANSFER") {
+    if (!data.bankId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Banco requerido para transferencia",
+        path: ["bankId"],
+      });
+    }
+    if (!data.accountNumber || !/^\d{20}$/.test(data.accountNumber)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Cuenta de 20 dígitos requerida",
+        path: ["accountNumber"],
+      });
+    }
+  }
 });
 
 export type EmployeeFormValues = z.infer<typeof employeeSchema>;

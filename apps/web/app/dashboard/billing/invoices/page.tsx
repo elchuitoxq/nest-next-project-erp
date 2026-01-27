@@ -25,12 +25,24 @@ import { InvoicesTable } from "@/modules/billing/components/invoices-table";
 import { InvoiceDetailsDialog } from "@/modules/billing/components/invoice-details-dialog";
 import { Invoice } from "@/modules/billing/types";
 
+import { Input } from "@/components/ui/input";
+
 export default function InvoicesPage() {
   const { data: invoices, isLoading, isError } = useInvoices();
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const activeInvoice = invoices?.find((inv) => inv.id === selectedId);
+
+  const filteredInvoices = invoices?.filter((invoice) => {
+    const term = search.toLowerCase();
+    return (
+      invoice.code.toLowerCase().includes(term) ||
+      invoice.partner?.name.toLowerCase().includes(term) ||
+      invoice.invoiceNumber?.toLowerCase().includes(term)
+    );
+  }) || [];
 
   const handleViewDetails = (invoice: Invoice) => {
     setSelectedId(invoice.id);
@@ -72,9 +84,18 @@ export default function InvoicesPage() {
         <Card>
           <CardHeader>
             <CardTitle>Listado de Facturas</CardTitle>
-            <CardDescription>
-              Visualiza y gestiona las facturas emitidas.
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <CardDescription>
+                Visualiza y gestiona las facturas emitidas.
+              </CardDescription>
+              <div className="w-[300px]">
+                <Input
+                  placeholder="Buscar por código, número o cliente..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -87,7 +108,7 @@ export default function InvoicesPage() {
               </div>
             ) : (
               <InvoicesTable
-                invoices={invoices || []}
+                invoices={filteredInvoices}
                 onViewDetails={handleViewDetails}
               />
             )}

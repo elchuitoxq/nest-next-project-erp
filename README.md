@@ -16,6 +16,7 @@ Un sistema ERP modular y completo diseñado específicamente para el mercado ven
 - **Núcleo Bimonetario:** manejo fluido de USD (Base/Ancla) y VES (Fiscal/Legal) con actualizaciones automatizadas de tasas BCV.
 - **Inventario y Logística:** gestión multi-almacén, seguimiento de stock en tiempo real y préstamos de activos (comodatos).
 - **Cumplimiento Fiscal:** soporte integrado para IVA, IGTF (3%) y gestión automatizada de retenciones (IVA/ISLR).
+- **Recursos Humanos:** Gestión de empleados, nómina y maestro de bancos (códigos SUDEBAN) para pagos masivos.
 - **Inteligencia de Negocios:** KPIs en tiempo real y análisis de ventas integrados en el panel ejecutivo.
 
 ## 📂 Estructura del Proyecto

@@ -20,6 +20,14 @@ export interface Employee {
     symbol: string;
     code: string;
   };
+  paymentMethod?: "BANK_TRANSFER" | "CASH" | "MOBILE_PAYMENT";
+  bankId?: string;
+  bank?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  // Deprecated: bankName
   bankName?: string;
   accountNumber?: string;
   accountType?: string;
@@ -35,7 +43,8 @@ export interface CreateEmployeeValues {
   salaryCurrencyId?: string;
   baseSalary: number;
   payFrequency?: string;
-  bankName?: string;
+  paymentMethod?: string;
+  bankId?: string;
   accountNumber?: string;
   accountType?: string;
 }

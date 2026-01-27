@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect, useMemo } from "react";
 import { useAccountStatement } from "@/modules/treasury/hooks/use-treasury";
 import { usePartner } from "@/modules/partners/hooks/use-partners";
 import { format } from "date-fns";
@@ -34,6 +35,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 
 export default function AccountStatementPage() {
   const router = useRouter();
@@ -43,6 +46,15 @@ export default function AccountStatementPage() {
   );
   const { data: statement, isLoading: isLoadingStatement } =
     useAccountStatement(params.partnerId);
+
+  const [selectedCurrency, setSelectedCurrency] = useState("VES");
+  const [search, setSearch] = useState("");
+
+  const currenciesList = statement?.summary ? Object.keys(statement.summary) : [];
+  // Auto-select logic: Use selected if valid, otherwise first available, otherwise VES
+  const effectiveCurrency = currenciesList.includes(selectedCurrency) 
+    ? selectedCurrency 
+    : (currenciesList[0] || "VES");
 
   const getTypeBadge = (type: string) => {
     switch (type) {
@@ -64,18 +76,21 @@ export default function AccountStatementPage() {
     }
   };
 
-  const getTranslatedType = (type: string) => {
-    switch (type) {
-      case "INVOICE":
-        return "Factura";
-      case "PAYMENT":
-        return "Pago";
-      case "CREDIT_NOTE":
-        return "Nota de Crédito";
-      default:
-        return type;
-    }
-  };
+  const processedTransactions = useMemo(() => {
+    if (!statement?.transactions) return [];
+
+    // Filter and Sort Chronologically
+    const filtered = statement.transactions
+      .filter((t: any) => t.currency === selectedCurrency)
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Calculate Accumulated Balance
+    let runningBalance = 0;
+    return filtered.map((t: any) => {
+      runningBalance += t.debit - t.credit;
+      return { ...t, balance: runningBalance };
+    });
+  }, [statement, selectedCurrency]);
 
   if (isLoadingPartner || isLoadingStatement) {
     return (
@@ -88,6 +103,22 @@ export default function AccountStatementPage() {
   if (!partner) {
     return <div>Cliente no encontrado</div>;
   }
+
+  const currentSummary = statement?.summary?.[selectedCurrency] || {
+    balance: 0,
+    unusedBalance: 0,
+  };
+
+  // Apply Search and Reverse for Display
+  const displayTransactions = processedTransactions
+    .filter((t: any) => {
+      const term = search.toLowerCase();
+      return (
+        t.reference.toLowerCase().includes(term) ||
+        t.description.toLowerCase().includes(term)
+      );
+    })
+    .reverse();
 
   return (
     <SidebarInset>
@@ -106,7 +137,8 @@ export default function AccountStatementPage() {
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem className="hidden md:block">
                 <BreadcrumbLink
-                  onClick={() => router.push("/dashboard/partners")}
+                  onClick={() => router.push("/dashboard/operations/partners")}
+                  className="cursor-pointer"
                 >
                   Clientes
                 </BreadcrumbLink>
@@ -121,18 +153,32 @@ export default function AccountStatementPage() {
       </header>
 
       <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
-        <div className="flex items-center gap-4 py-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">
-              {partner.name}
-            </h2>
-            <p className="text-muted-foreground flex items-center gap-2">
-              <Wallet className="w-4 h-4" /> Estado de Cuenta
-            </p>
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">
+                {partner.name}
+              </h2>
+              <p className="text-muted-foreground flex items-center gap-2">
+                <Wallet className="w-4 h-4" /> Billetera Multimoneda
+              </p>
+            </div>
           </div>
+          
+          {currenciesList.length > 0 && (
+            <Tabs value={selectedCurrency} onValueChange={setSelectedCurrency}>
+              <TabsList>
+                {currenciesList.map((curr) => (
+                  <TabsTrigger key={curr} value={curr}>
+                    {curr}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          )}
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
@@ -146,15 +192,13 @@ export default function AccountStatementPage() {
               <div
                 className={cn(
                   "text-3xl font-bold",
-                  statement?.balance > 0 ? "text-red-600" : "text-green-600",
+                  currentSummary.balance > 0 ? "text-red-600" : "text-green-600",
                 )}
               >
-                {statement?.balance
-                  ? formatCurrency(statement.balance)
-                  : formatCurrency(0)}
+                {formatCurrency(currentSummary.balance, selectedCurrency)}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                {statement?.balance > 0
+                {currentSummary.balance > 0
                   ? "Cuentas por Cobrar"
                   : "Pasivo (Saldo a Favor)"}
               </p>
@@ -169,9 +213,7 @@ export default function AccountStatementPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-blue-600">
-                {statement?.unusedBalance
-                  ? formatCurrency(statement.unusedBalance)
-                  : formatCurrency(0)}
+                {formatCurrency(currentSummary.unusedBalance, selectedCurrency)}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
                 Disponible para cruce
@@ -182,78 +224,88 @@ export default function AccountStatementPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Historial de Movimientos</CardTitle>
-            <CardDescription>
-              Detalle de facturas, pagos y notas de crédito ordenados
-              cronológicamente.
-            </CardDescription>
+            <CardTitle>Historial de Movimientos ({selectedCurrency})</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardDescription>
+                Detalle cronológico de operaciones en {selectedCurrency}.
+              </CardDescription>
+              <div className="w-[300px]">
+                <Input
+                  placeholder="Buscar referencia o descripción..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Referencia</TableHead>
-                  <TableHead>Descripción</TableHead>
-                  <TableHead className="text-right">Debe (Cargo)</TableHead>
-                  <TableHead className="text-right">Haber (Abono)</TableHead>
-                  <TableHead className="text-right">Saldo</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {statement?.transactions.map((t: any) => (
-                  <TableRow key={t.type + t.id}>
-                    <TableCell className="font-medium">
-                      {format(new Date(t.date), "dd/MM/yyyy HH:mm", {
-                        locale: es,
-                      })}
-                    </TableCell>
-                    <TableCell>{getTypeBadge(t.type)}</TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {t.reference}
-                    </TableCell>
-                    <TableCell>{t.description}</TableCell>
-                    <TableCell className="text-right text-red-600 font-medium whitespace-nowrap">
-                      {t.debit > 0 ? formatCurrency(t.debit) : "-"}
-                    </TableCell>
-                    <TableCell className="text-right text-green-600 font-medium whitespace-nowrap">
-                      {t.credit > 0 ? (
-                        formatCurrency(t.credit)
-                      ) : t.realAmount > 0 && t.type === "PAYMENT" ? (
-                        <span
-                          className="text-muted-foreground italic"
-                          title="Uso de Saldo a Favor"
-                        >
-                          {formatCurrency(t.realAmount)}*
-                        </span>
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "text-right font-bold whitespace-nowrap",
-                        t.balance > 0 ? "text-red-600" : "text-gray-900",
-                        t.credit === 0 && t.realAmount > 0 && "opacity-50",
-                      )}
-                    >
-                      {formatCurrency(t.balance)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {!statement?.transactions.length && (
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="text-center py-12 text-muted-foreground"
-                    >
-                      No hay movimientos registrados para este cliente.
-                    </TableCell>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Referencia</TableHead>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead className="text-right">Debe (Cargo)</TableHead>
+                    <TableHead className="text-right">Haber (Abono)</TableHead>
+                    <TableHead className="text-right">Saldo</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {displayTransactions.map((t: any) => (
+                    <TableRow key={t.type + t.id}>
+                      <TableCell className="font-medium">
+                        {format(new Date(t.date), "dd/MM/yyyy", {
+                          locale: es,
+                        })}
+                      </TableCell>
+                      <TableCell>{getTypeBadge(t.type)}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {t.reference}
+                      </TableCell>
+                      <TableCell>{t.description}</TableCell>
+                      <TableCell className="text-right text-red-600 font-medium whitespace-nowrap">
+                        {t.debit > 0 ? formatCurrency(t.debit, selectedCurrency) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right text-green-600 font-medium whitespace-nowrap">
+                        {t.credit > 0 ? (
+                          formatCurrency(t.credit, selectedCurrency)
+                        ) : t.realAmount > 0 && t.type === "PAYMENT" ? (
+                          <span
+                            className="text-muted-foreground italic"
+                            title="Uso de Saldo a Favor"
+                          >
+                            {formatCurrency(t.realAmount, selectedCurrency)}*
+                          </span>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          "text-right font-bold whitespace-nowrap",
+                          t.balance > 0 ? "text-red-600" : "text-gray-900",
+                          t.credit === 0 && t.realAmount > 0 && "opacity-50",
+                        )}
+                      >
+                        {formatCurrency(t.balance, selectedCurrency)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!displayTransactions.length && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center py-12 text-muted-foreground"
+                      >
+                        No hay movimientos registrados en {selectedCurrency}.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

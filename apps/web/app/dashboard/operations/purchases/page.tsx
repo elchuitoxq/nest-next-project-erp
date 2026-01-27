@@ -30,6 +30,8 @@ import { OrderDialog } from "@/modules/orders/components/order-dialog";
 import { OrderDetailsDialog } from "@/modules/orders/components/order-details-dialog";
 import { Order } from "@/modules/orders/types";
 
+import { Input } from "@/components/ui/input";
+
 export default function PurchaseOrdersPage() {
   // Pass 'PURCHASE' to filter
   const { data: orders, isLoading, isError } = useOrders("PURCHASE");
@@ -40,6 +42,15 @@ export default function PurchaseOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | undefined>(
     undefined,
   );
+  const [search, setSearch] = useState("");
+
+  const filteredOrders = orders?.filter((order) => {
+    const term = search.toLowerCase();
+    return (
+      order.code.toLowerCase().includes(term) ||
+      order.partner?.name.toLowerCase().includes(term)
+    );
+  }) || [];
 
   const executeConfirm = async (order: Order) => {
     if (
@@ -148,9 +159,18 @@ export default function PurchaseOrdersPage() {
         <Card>
           <CardHeader>
             <CardTitle>Historial de Compras</CardTitle>
-            <CardDescription>
-              Registro completo de órdenes de compra y recepciones de mercancía.
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <CardDescription>
+                Registro completo de órdenes de compra y recepciones de mercancía.
+              </CardDescription>
+              <div className="w-[300px]">
+                <Input
+                  placeholder="Buscar por código o proveedor..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -164,7 +184,7 @@ export default function PurchaseOrdersPage() {
             ) : (
               // @ts-ignore
               <OrdersTable
-                orders={orders || []}
+                orders={filteredOrders}
                 onViewDetails={handleViewDetails}
                 onConfirm={handleViewDetails}
                 onCancel={handleViewDetails}

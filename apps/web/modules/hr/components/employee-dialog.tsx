@@ -31,6 +31,7 @@ import { useEmployeeMutations, Employee } from "../hooks/use-employees";
 import { employeeSchema, EmployeeFormValues } from "../schemas/hr.schema";
 import { useCurrencies } from "@/modules/settings/currencies/hooks/use-currencies";
 import { usePositions } from "../hooks/use-positions";
+import { useBanks } from "@/modules/settings/banks/hooks/use-banks";
 
 interface EmployeeDialogProps {
   open: boolean;
@@ -46,6 +47,7 @@ export function EmployeeDialog({
   const { createEmployee, updateEmployee } = useEmployeeMutations();
   const { data: currencies } = useCurrencies();
   const { data: positions } = usePositions();
+  const { data: banks } = useBanks();
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema) as any,
@@ -59,7 +61,8 @@ export function EmployeeDialog({
       salaryCurrencyId: "",
       baseSalary: 0,
       payFrequency: "BIWEEKLY",
-      bankName: "",
+      paymentMethod: "BANK_TRANSFER",
+      bankId: "",
       accountNumber: "",
       accountType: "CHECKING",
     },
@@ -67,6 +70,7 @@ export function EmployeeDialog({
 
   // Watch position to auto-fill salary suggestion
   const selectedPositionId = form.watch("positionId");
+  const selectedPaymentMethod = form.watch("paymentMethod");
 
   useEffect(() => {
     if (selectedPositionId && !employee) {
@@ -92,7 +96,8 @@ export function EmployeeDialog({
         salaryCurrencyId: employee.salaryCurrencyId || "",
         baseSalary: Number(employee.baseSalary),
         payFrequency: (employee.payFrequency as any) || "BIWEEKLY",
-        bankName: employee.bankName || "",
+        paymentMethod: (employee.paymentMethod as any) || "BANK_TRANSFER",
+        bankId: employee.bankId || "",
         accountNumber: employee.accountNumber || "",
         accountType: (employee.accountType as any) || "CHECKING",
       });
@@ -107,7 +112,8 @@ export function EmployeeDialog({
         salaryCurrencyId: "",
         baseSalary: 0,
         payFrequency: "BIWEEKLY",
-        bankName: "",
+        paymentMethod: "BANK_TRANSFER",
+        bankId: "",
         accountNumber: "",
         accountType: "CHECKING",
       });
@@ -314,83 +320,111 @@ export function EmployeeDialog({
             </div>
 
             <div className="p-4 border rounded-md bg-muted/20">
-              <h3 className="text-sm font-medium mb-4">Información Bancaria</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="bankName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Banco</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Banesco">Banesco</SelectItem>
-                          <SelectItem value="Mercantil">Mercantil</SelectItem>
-                          <SelectItem value="Provincial">Provincial</SelectItem>
-                          <SelectItem value="Banco de Venezuela">
-                            Banco de Venezuela
-                          </SelectItem>
-                          <SelectItem value="BNC">BNC</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="accountType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tipo de Cuenta</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="CHECKING">Corriente</SelectItem>
-                          <SelectItem value="SAVINGS">Ahorro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <div className="mt-4">
-                <FormField
-                  control={form.control}
-                  name="accountNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Número de Cuenta (20 dígitos)</FormLabel>
+              <h3 className="text-sm font-medium mb-4">Información de Pago</h3>
+              
+              <FormField
+                control={form.control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <FormItem className="mb-4">
+                    <FormLabel>Método de Pago</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      value={field.value}
+                    >
                       <FormControl>
-                        <Input
-                          placeholder="0134..."
-                          maxLength={20}
-                          {...field}
-                        />
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                      <SelectContent>
+                        <SelectItem value="BANK_TRANSFER">Transferencia Bancaria</SelectItem>
+                        <SelectItem value="CASH">Efectivo</SelectItem>
+                        <SelectItem value="MOBILE_PAYMENT">Pago Móvil</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {selectedPaymentMethod === "BANK_TRANSFER" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="bankId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Banco</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar..." />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {banks?.map((bank) => (
+                              <SelectItem key={bank.id} value={bank.id}>
+                                {bank.name} ({bank.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="accountType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Cuenta</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="CHECKING">Corriente</SelectItem>
+                            <SelectItem value="SAVINGS">Ahorro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="col-span-2 mt-2">
+                    <FormField
+                      control={form.control}
+                      name="accountNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Número de Cuenta (20 dígitos)</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="0134..."
+                              maxLength={20}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter>

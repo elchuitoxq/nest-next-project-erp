@@ -35,12 +35,18 @@ import {
   loans,
   loanItems,
   organizationModules,
+  banks,
+  payrollRuns,
+  payrollItems,
+  payrollConceptTypes,
+  payrollIncidents,
 } from "./src";
 import { sql, eq } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
 import * as dotenv from "dotenv";
 import { faker } from "@faker-js/faker";
 import { seed } from "./seed";
+import { seedBanks } from "./seed-banks";
 
 dotenv.config({ path: "./src/.env" });
 
@@ -54,6 +60,11 @@ async function main() {
   try {
     // 1. RUN BASIC SEED (Infrastructure)
     const baseData = await seed(true); // Clean = true
+    
+    // Seed Banks (Master)
+    await seedBanks();
+    const allBanks = await db.select().from(banks);
+
     const { adminUser, branches: seededBranches, currencies: { usd, ves } } = baseData;
     
     // Alias for code clarity
@@ -234,7 +245,6 @@ async function main() {
     console.log("👷 [L3.3] Creating Employees...");
     
     const employeesData: any[] = [];
-    const venezuelanBanks = ["Banesco", "Mercantil", "Provincial", "Venezuela", "Banco del Tesoro", "BNC"];
     
     for (let i = 0; i < 12; i++) {
       const position = faker.helpers.arrayElement(jobPositionsData);
@@ -242,6 +252,9 @@ async function main() {
       const maxSalary = parseFloat(position.baseSalaryMax || "800");
       const salary = faker.number.float({ min: minSalary, max: maxSalary, fractionDigits: 2 });
       
+      const paymentMethod = faker.helpers.arrayElement(["BANK_TRANSFER", "CASH"]);
+      const bank = paymentMethod === "BANK_TRANSFER" ? faker.helpers.arrayElement(allBanks) : null;
+
       const [emp] = await db.insert(employees).values({
         firstName: faker.person.firstName(),
         lastName: faker.person.lastName(),
@@ -253,8 +266,11 @@ async function main() {
         salaryCurrencyId: currUSD.id,
         baseSalary: salary.toFixed(2),
         payFrequency: faker.helpers.arrayElement(["BIWEEKLY", "MONTHLY"]),
-        bankName: faker.helpers.arrayElement(venezuelanBanks),
-        accountNumber: `0${faker.string.numeric(19)}`,
+        paymentMethod: paymentMethod,
+        bankId: bank?.id,
+        // Legacy Fields (for compatibility view)
+        bankName: bank?.name || "",
+        accountNumber: paymentMethod === "BANK_TRANSFER" ? `0${faker.string.numeric(19)}` : "",
         accountType: faker.helpers.arrayElement(["CHECKING", "SAVINGS"]),
         status: "ACTIVE",
       }).returning();
@@ -767,6 +783,160 @@ async function main() {
       loansCreated++;
     }
     console.log(`   ✅ Created ${loansCreated} product loans`);
+
+    // =================================================================================
+    // LEVEL 8.5: PAYROLL CONCEPTS & INCIDENTS (Novedades)
+    // =================================================================================
+    console.log("⚡ [L8.5] Creating Payroll Concepts & Incidents...");
+
+    // 1. Concepts
+    const [concBono] = await db.insert(payrollConceptTypes).values({
+      code: "BONO_PROD",
+      name: "Bono de Productividad",
+      category: "INCOME",
+      branchId: branchCCS.id,
+    } as any).returning();
+
+    const [concFalta] = await db.insert(payrollConceptTypes).values({
+      code: "FALTA_INJ",
+      name: "Falta Injustificada",
+      category: "DEDUCTION",
+      branchId: branchCCS.id,
+    } as any).returning();
+
+    const [concExtra] = await db.insert(payrollConceptTypes).values({
+      code: "H_EXTRA_D",
+      name: "Hora Extra Diurna",
+      category: "INCOME",
+      branchId: branchCCS.id,
+    } as any).returning();
+
+    // 2. Incidents (For Current Month Draft)
+    const currStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    const currEndDate = new Date(today.getFullYear(), today.getMonth(), 15);
+    const incidentsData: any[] = [];
+
+    // Assign random incidents
+    for (const emp of employeesData) {
+      // 30% chance of bonus
+      if (Math.random() > 0.7) {
+        const amount = faker.number.float({ min: 20, max: 100, fractionDigits: 2 });
+        const [inc] = await db.insert(payrollIncidents).values({
+          employeeId: emp.id,
+          conceptId: concBono.id,
+          date: faker.date.between({ from: currStartDate, to: currEndDate }),
+          amount: amount.toFixed(2),
+          status: "PENDING", // Will be processed in L9
+          notes: "Cumplimiento de meta mensual",
+        }).returning();
+        incidentsData.push(inc);
+      }
+
+      // 10% chance of deduction
+      if (Math.random() > 0.9) {
+        const amount = faker.number.float({ min: 10, max: 50, fractionDigits: 2 });
+        const [inc] = await db.insert(payrollIncidents).values({
+          employeeId: emp.id,
+          conceptId: concFalta.id,
+          date: faker.date.between({ from: currStartDate, to: currEndDate }),
+          amount: amount.toFixed(2),
+          status: "PENDING",
+          notes: "Ausencia día lunes",
+        }).returning();
+        incidentsData.push(inc);
+      }
+    }
+    console.log(`   ✅ Created ${incidentsData.length} payroll incidents`);
+
+    // =================================================================================
+    // LEVEL 9: PAYROLL & HR (Nómina)
+    // =================================================================================
+    console.log("👥 [L9] Creating Payroll Runs...");
+
+    // 1. Paid Payroll (Previous Month)
+    const prevMonthDate = new Date(today);
+    prevMonthDate.setMonth(today.getMonth() - 1);
+    const prevStartDate = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 1);
+    const prevEndDate = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 15);
+    
+    const [paidRun] = await db.insert(payrollRuns).values({
+      code: `NOM-${prevStartDate.toISOString().slice(0, 7)}-Q1`,
+      branchId: branchCCS.id,
+      frequency: "BIWEEKLY",
+      currencyId: currVES.id,
+      startDate: prevStartDate,
+      endDate: prevEndDate,
+      status: "PAID",
+      totalAmount: "0" // Will update
+    } as any).returning();
+
+    // 2. Draft Payroll (Current Month)
+    const [draftRun] = await db.insert(payrollRuns).values({
+      code: `NOM-${currStartDate.toISOString().slice(0, 7)}-Q1`,
+      branchId: branchCCS.id,
+      frequency: "BIWEEKLY",
+      currencyId: currVES.id,
+      startDate: currStartDate,
+      endDate: currEndDate,
+      status: "DRAFT",
+      totalAmount: "0"
+    } as any).returning();
+
+    // Generate Items for Draft Run
+    let totalDraft = 0;
+    const rateVes = 36.5; // Fixed for seed simplicity or fetch from history
+
+    for (const emp of employeesData) {
+      if (emp.payFrequency !== "BIWEEKLY") continue;
+
+      const monthlySalary = parseFloat(emp.baseSalary); // In USD usually
+      const salaryVes = monthlySalary * rateVes;
+      const biweeklyVes = salaryVes / 2;
+      const cestaticketVes = 40 * rateVes / 2; // Half cestaticket
+
+      // Process Incidents for this employee
+      let incidentIncome = 0;
+      let incidentDeduction = 0;
+      const empIncidents = incidentsData.filter(inc => inc.employeeId === emp.id);
+      
+      for (const inc of empIncidents) {
+        // Convert incident amount (assumed USD for seed simplicity) to VES
+        // In real app, incidents should store currency or be in base currency.
+        // Let's assume incidents are in USD for this seed logic
+        const amountVes = parseFloat(inc.amount) * rateVes;
+        
+        // Check concept type (We know IDs from creation)
+        if (inc.conceptId === concBono.id || inc.conceptId === concExtra.id) {
+          incidentIncome += amountVes;
+        } else {
+          incidentDeduction += amountVes;
+        }
+
+        // Update Incident status
+        await db.update(payrollIncidents).set({ 
+          status: "PROCESSED", 
+          processedInRunId: draftRun.id 
+        }).where(eq(payrollIncidents.id, inc.id));
+      }
+
+      const totalBonuses = cestaticketVes + incidentIncome;
+      const totalDeductions = incidentDeduction;
+      const netTotal = biweeklyVes + totalBonuses - totalDeductions;
+      
+      totalDraft += netTotal;
+
+      await db.insert(payrollItems).values({
+        runId: draftRun.id,
+        employeeId: emp.id,
+        baseAmount: biweeklyVes.toFixed(2),
+        bonuses: totalBonuses.toFixed(2),
+        deductions: totalDeductions.toFixed(2),
+        netTotal: netTotal.toFixed(2),
+      });
+    }
+
+    await db.update(payrollRuns).set({ totalAmount: totalDraft.toFixed(2) }).where(eq(payrollRuns.id, draftRun.id));
+    console.log("   ✅ Created sample Payroll Runs (Paid & Draft with Incidents)");
 
     console.log("✅ E2E SEED COMPLETED SUCCESSFULLY!");
     process.exit(0);

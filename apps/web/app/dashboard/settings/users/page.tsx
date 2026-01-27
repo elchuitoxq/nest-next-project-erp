@@ -95,19 +95,20 @@ export default function UsersPage() {
         <Card>
           <CardHeader>
             <CardTitle>Listado de Usuarios</CardTitle>
-            <CardDescription>
-              Visualiza y administra los usuarios registrados.
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <CardDescription>
+                Visualiza y administra los usuarios registrados.
+              </CardDescription>
+              <div className="w-[300px]">
+                <Input
+                  placeholder="Buscar por nombre, email o rol..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center py-4">
-              <Input
-                placeholder="Buscar por nombre, email o rol..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="max-w-sm"
-              />
-            </div>
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />

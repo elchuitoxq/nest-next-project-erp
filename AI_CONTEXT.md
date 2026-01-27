@@ -101,9 +101,47 @@ El sistema opera bajo un modelo de **Multisucursal (Multi-Branch)** por defecto:
 - **Intercepción de Sucursal:** `apps/api/src/common/interceptors/branch.interceptor.ts`
 - **Store de Autenticación (Web):** `apps/web/stores/use-auth-store.ts`
 
+## 🎨 Estándares de Diseño Frontend (Dashboard)
+
+Para mantener la consistencia visual y funcional, todas las páginas de listado (Tablas) deben seguir este patrón estricto:
+
+1.  **Contenedor Principal:** Todo el contenido debe estar envuelto en un componente `<Card>` de Shadcn UI.
+2.  **Encabezado Integrado:**
+    *   `CardHeader`: Debe contener el `CardTitle` y `CardDescription`.
+    *   **Buscador Global:** El `Input` de búsqueda debe estar **dentro del CardHeader**, alineado a la derecha (`flex justify-between`).
+    *   **Prohibido:** No colocar buscadores dentro del componente de la tabla (`CardContent`) para evitar duplicidad.
+3.  **Estilo de Tabla:**
+    *   La tabla debe estar envuelta en un `div` con clase `border rounded-md`.
+    *   Los filtros específicos (Estado, Tipo) pueden ir en una barra de herramientas dentro del `CardContent` o en el `CardHeader` si hay espacio.
+
+## 💰 Tesorería Multimoneda (Actualización)
+
+El sistema ha evolucionado para manejar una **Tesorería Multimoneda Real**:
+
+- **Estado de Cuenta (Wallet):**
+  - Ya no se mezcla USD y VES en un solo saldo.
+  - El backend (`getAccountStatement`) agrupa los saldos por moneda.
+  - El frontend permite cambiar de vista mediante **Pestañas (Tabs)** por moneda (e.g., Vista USD / Vista VES).
+  - La lógica de "Saldo Acumulado" se calcula dinámicamente en el frontend sobre la lista filtrada.
+
 ## 👥 Recursos Humanos (RRHH)
 
 - **Módulo:** `apps/api/src/modules/hr`
-- **Entidades:** `employees` (con datos bancarios), `job_positions` (tabuladores salariales).
-- **Alcance Inicial:** CRUD de empleados y cargos. Planificado motor de nómina quincenal y generación de archivos bancarios.
-- **Relaciones:** Empleados vinculados a Cargos (1:1) y Moneda de Salario (1:1). Cuentas bancarias (1:1 en tabla `employees`).
+- **Entidades Principales:**
+  - `employees`: Datos personales, laborales y bancarios.
+  - `banks`: Maestro de bancos con códigos SUDEBAN (0102, 0134, etc.) para archivos de pago.
+  - `job_positions`: Cargos y tabuladores salariales.
+  - `payroll_runs`: Cabeceras de nómina (Periodo, Total).
+  - `payroll_items`: Detalle por empleado (Asignaciones, Deducciones, Neto).
+- **Gestión de Pagos:**
+  - Método de Pago configurable por empleado: `BANK_TRANSFER`, `CASH`, `MOBILE_PAYMENT`.
+  - Soporte para generación de archivos TXT bancarios mediante códigos oficiales.
+- **Nómina (Roadmap):**
+  - Motor de cálculo quincenal/semanal.
+  - Flujo de estados: Borrador -> Publicada -> Pagada.
+  - Filtros de visualización (Por Banco vs Efectivo).
+- **Gestión de Novedades (Incidencias):**
+  - **Conceptos:** Definición maestra de tipos de movimiento (Ingreso/Egreso). Tabla `payroll_concept_types`.
+  - **Incidencias:** Registro diario de eventos (Faltas, Bonos, Horas Extra). Tabla `payroll_incidents`.
+  - **Flujo:** Las incidencias se registran como `PENDING`. Al generar la nómina (`DRAFT`), el sistema busca incidencias en el rango de fechas, las suma al cálculo y las marca como `PROCESSED`.
+- **Relaciones:** Empleados vinculados a Cargos (1:1) y Moneda de Salario (1:1). Cuentas bancarias relacionadas a tabla maestra `banks`.

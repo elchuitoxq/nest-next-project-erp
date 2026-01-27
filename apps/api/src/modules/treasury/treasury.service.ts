@@ -447,40 +447,52 @@ export class TreasuryService {
     // 3. Sort Chronologically
     transactions.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // 4. Calculate Running Balance
-    let balance = 0;
-    const result = transactions.map((t) => {
-      balance += t.debit - t.credit;
-      return { ...t, balance };
+    // 4. Calculate Balances per Currency
+    const summary: Record<string, { balance: number; unusedBalance: number }> = {};
+
+    // Initialize summary for all involved currencies
+    const involvedCurrencies = new Set(transactions.map((t) => t.currency));
+    involvedCurrencies.forEach((curr) => {
+      summary[curr] = { balance: 0, unusedBalance: 0 };
     });
 
-    // 5. Calculate Unused Balance (Saldo Sin Ocupar)
-    // Formula: (Credit Notes + Unallocated Payments) - (Balance Usage aka Cross Payments)
+    // Calculate Total Balance (Debit - Credit)
+    for (const t of transactions) {
+      if (summary[t.currency]) {
+        summary[t.currency].balance += t.debit - t.credit;
+      }
+    }
+
+    // 5. Calculate Unused Balance (Saldo Sin Ocupar) per Currency
+    // Formula: (Credit Notes + Unallocated Payments) - (Balance Usage)
 
     // A. Credit Notes Total
-    const totalCreditNotes = partnerCreditNotes.reduce((sum, cn) => {
-      const total =
-        Number(cn.totalBase) + Number(cn.totalTax) + Number(cn.totalIgtf);
-      return sum + total;
-    }, 0);
+    for (const cn of partnerCreditNotes) {
+      const curr = cn.currency?.code || 'VES';
+      if (!summary[curr]) summary[curr] = { balance: 0, unusedBalance: 0 };
+      
+      const total = Number(cn.totalBase) + Number(cn.totalTax) + Number(cn.totalIgtf);
+      summary[curr].unusedBalance += total;
+    }
 
     const paymentsWithAllocations = await db.query.payments.findMany({
       where: eq(payments.partnerId, partnerId),
       with: {
         method: true,
         allocations: true,
+        currency: true,
       },
     });
 
-    let totalUnallocatedPayments = 0;
-    let totalBalanceUsed = 0;
-
     for (const p of paymentsWithAllocations) {
+      const curr = p.currency?.code || 'VES';
+      if (!summary[curr]) summary[curr] = { balance: 0, unusedBalance: 0 };
+
       const amount = Number(p.amount);
       const isBalance = p.method?.code?.startsWith('BALANCE');
 
       if (isBalance) {
-        totalBalanceUsed += amount;
+        summary[curr].unusedBalance -= amount;
       } else {
         // Calculate allocated amount
         let allocated = p.allocations.reduce(
@@ -494,18 +506,19 @@ export class TreasuryService {
         }
 
         const rem = Math.max(0, amount - allocated);
-        totalUnallocatedPayments += rem;
+        summary[curr].unusedBalance += rem;
       }
     }
 
-    const unusedBalance =
-      totalCreditNotes + totalUnallocatedPayments - totalBalanceUsed;
+    // Ensure no negative unused balance (safety)
+    Object.keys(summary).forEach(key => {
+        summary[key].unusedBalance = Math.max(0, summary[key].unusedBalance);
+    });
 
     return {
       partnerId,
-      balance,
-      unusedBalance: Math.max(0, unusedBalance), // Safety floor
-      transactions: result.reverse(), // Show newest first
+      summary, // { "USD": { balance: 100, unused: 0 }, "VES": ... }
+      transactions: transactions.reverse(), // Show newest first
     };
   }
 

@@ -4,10 +4,11 @@ import {
   useToggleBankAccount,
   useCreateBankAccount,
   useUpdateBankAccount,
+  useBankAccounts,
 } from "@/modules/treasury/hooks/use-bank-accounts";
 import { BankAccountsTable } from "@/modules/treasury/components/bank-accounts-table";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -40,17 +41,36 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function BankAccountsPage() {
   const [open, setOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<any>(null);
+  const [search, setSearch] = useState("");
 
+  const { data: accounts, isLoading } = useBankAccounts();
   const { mutate: createAccount, isPending: isCreating } =
     useCreateBankAccount();
   const { mutate: updateAccount, isPending: isUpdating } =
     useUpdateBankAccount();
 
   const isPending = isCreating || isUpdating;
+
+  // Client-side filtering
+  const filteredAccounts = accounts?.filter((acc) => {
+    const term = search.toLowerCase();
+    return (
+      acc.name.toLowerCase().includes(term) ||
+      acc.accountNumber?.toLowerCase().includes(term) ||
+      acc.currency?.code.toLowerCase().includes(term)
+    );
+  }) || [];
 
   // Form State
   const [name, setName] = useState("");
@@ -245,11 +265,35 @@ export default function BankAccountsPage() {
           </Dialog>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-1">
-          <div className="space-y-6">
-            <BankAccountsTable onEdit={handleEdit} />
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Listado de Cuentas</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardDescription>
+                Visualiza y gestiona las cuentas de tesorería.
+              </CardDescription>
+              <div className="w-[300px]">
+                <Input
+                  placeholder="Buscar por nombre, cuenta o moneda..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <BankAccountsTable
+                accounts={filteredAccounts}
+                onEdit={handleEdit}
+              />
+            )}
+          </CardContent>
+        </Card>
       </div>
     </SidebarInset>
   );
