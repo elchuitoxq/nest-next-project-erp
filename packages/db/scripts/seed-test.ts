@@ -40,15 +40,14 @@ import {
   payrollItems,
   payrollConceptTypes,
   payrollIncidents,
-} from "./src";
+} from "../src";
 import { sql, eq } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
 import * as dotenv from "dotenv";
 import { faker } from "@faker-js/faker";
 import { seed } from "./seed";
-import { seedBanks } from "./seed-banks";
 
-dotenv.config({ path: "./src/.env" });
+dotenv.config({ path: "../src/.env" });
 
 // Helper for random numeric strings (money)
 const randomMoney = (min: number, max: number) =>
@@ -61,8 +60,6 @@ async function main() {
     // 1. RUN BASIC SEED (Infrastructure)
     const baseData = await seed(true); // Clean = true
     
-    // Seed Banks (Master)
-    await seedBanks();
     const allBanks = await db.select().from(banks);
 
     const { adminUser, branches: seededBranches, currencies: { usd, ves } } = baseData;

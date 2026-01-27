@@ -18,16 +18,16 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:generate": "drizzle-kit generate",
-    "db:reset": "tsx reset.ts",
-    "db:seed": "tsx seed.ts",
-    "db:seed:test": "tsx seed-test.ts",
-    "db:setup": "npx tsx reset.ts && npx drizzle-kit push && npx tsx seed.ts",
-    "db:setup:test": "npx tsx reset.ts && npx drizzle-kit push && npx tsx seed-test.ts"
+    "db:reset": "tsx scripts/reset.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:seed:test": "tsx scripts/seed-test.ts",
+    "db:setup": "npx tsx scripts/reset.ts && npx drizzle-kit push && npx tsx scripts/seed.ts",
+    "db:setup:test": "npx tsx scripts/reset.ts && npx drizzle-kit push && npx tsx scripts/seed-test.ts"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "dotenv": "^16.0.3",
-    "drizzle-orm": "^0.39.1",
+    "drizzle-orm": "^0.45.1",
     "postgres": "^3.4.5",
     "uuidv7": "^1.0.2"
   },

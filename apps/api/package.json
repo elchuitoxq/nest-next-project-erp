@@ -22,14 +22,15 @@
     "seed:transactions": "ts-node -r tsconfig-paths/register src/scripts/seed-transactions.ts"
   },
   "dependencies": {
-    "@nestjs/common": "^11.0.1",
-    "@nestjs/core": "^11.0.1",
+    "@nestjs/common": "^11.1.12",
+    "@nestjs/core": "^11.1.12",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^11.0.5",
-    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-express": "^11.1.12",
     "@nestjs/schedule": "^6.1.0",
     "@repo/db": "*",
+    "drizzle-orm": "^0.45.1",
     "axios": "^1.13.3",
     "bcrypt": "^6.0.0",
     "cheerio": "^1.2.0",

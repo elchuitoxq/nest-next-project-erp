@@ -10,8 +10,9 @@ import {
   branches,
   usersBranches,
   exchangeRates,
+  banks,
   // paymentMethodAccounts, // Add if needed
-} from "./src";
+} from "../src";
 import { sql } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
 import * as dotenv from "dotenv";
@@ -76,6 +77,16 @@ export async function seed(isClean = true) {
         },
       ])
       .returning();
+
+    // 3.5 Seed Banks
+    console.log("🏦 Seeding Banks...");
+    await db.insert(banks).values([
+      { name: "Banco de Venezuela", code: "0102" },
+      { name: "Banesco", code: "0134" },
+      { name: "Mercantil", code: "0105" },
+      { name: "BBVA Provincial", code: "0108" },
+      { name: "BNC", code: "0191" },
+    ]);
 
     // Link user to all branches
     for (const branch of seededBranches) {

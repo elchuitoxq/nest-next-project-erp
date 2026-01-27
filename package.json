@@ -8,11 +8,12 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
     "db:setup": "npm run db:setup -w @repo/db",
-    "db:setup:test": "npm run db:setup:test -w @repo/db && npm run seed:transactions -w apps/api"
+    "db:setup:test": "npm run db:setup:test -w @repo/db && npm run seed:transactions -w apps/api",
+    "db:studio": "npm run db:studio -w @repo/db"
   },
   "devDependencies": {
     "prettier": "^3.7.4",
-    "turbo": "^2.7.3",
+    "turbo": "^2.7.6",
     "typescript": "5.7.3"
   },
   "overrides": {

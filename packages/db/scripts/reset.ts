@@ -1,5 +1,5 @@
 import "./load-env";
-import { client } from "./src";
+import { client } from "../src";
 
 async function reset() {
   console.log("Resetting database...");
