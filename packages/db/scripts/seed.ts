@@ -18,6 +18,8 @@ import * as bcrypt from "bcrypt";
 import * as dotenv from "dotenv";
 
 
+import { seedBanks } from "./seed-banks";
+
 export async function seed(isClean = true) {
   console.log("🚀 Seeding database with Multi-Branch Finance support...");
 
@@ -79,14 +81,7 @@ export async function seed(isClean = true) {
       .returning();
 
     // 3.5 Seed Banks
-    console.log("🏦 Seeding Banks...");
-    await db.insert(banks).values([
-      { name: "Banco de Venezuela", code: "0102" },
-      { name: "Banesco", code: "0134" },
-      { name: "Mercantil", code: "0105" },
-      { name: "BBVA Provincial", code: "0108" },
-      { name: "BNC", code: "0191" },
-    ]);
+    await seedBanks();
 
     // Link user to all branches
     for (const branch of seededBranches) {

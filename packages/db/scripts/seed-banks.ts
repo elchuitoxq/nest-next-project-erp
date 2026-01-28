@@ -1,5 +1,5 @@
 import "./load-env";
-import { db, banks } from "./src";
+import { db, banks } from "../src";
 
 export async function seedBanks() {
   console.log("🏦 Seeding Banks...");
