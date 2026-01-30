@@ -36,8 +36,8 @@ export class TreasuryController {
   }
 
   @Get('payments')
-  findAll(@Req() req: any) {
-    return this.treasuryService.findAllPayments(req.branchId);
+  findAll(@Req() req: any, @Query('bankAccountId') bankAccountId?: string) {
+    return this.treasuryService.findAllPayments(req.branchId, bankAccountId);
   }
 
   @Get('statements/:partnerId')

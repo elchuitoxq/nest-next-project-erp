@@ -32,11 +32,14 @@ export const useRegisterPayment = () => {
   });
 };
 
-export const usePayments = () => {
+export const usePayments = (filters?: { bankAccountId?: string }) => {
   return useQuery({
-    queryKey: ["payments"],
+    queryKey: ["payments", filters], // Include filters in key
     queryFn: async () => {
-      const { data } = await api.get("/treasury/payments");
+      const params = new URLSearchParams();
+      if (filters?.bankAccountId) params.append("bankAccountId", filters.bankAccountId);
+      
+      const { data } = await api.get(`/treasury/payments?${params.toString()}`);
       return data;
     },
   });

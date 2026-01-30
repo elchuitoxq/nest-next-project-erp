@@ -214,9 +214,18 @@ export function GlobalPaymentsTable() {
                           {formatCurrency(Number(payment.amount), currencyCode)}
                         </span>
                         {historicalVesAmount && (
-                          <span className="text-xs text-muted-foreground">
-                            ~ {formatCurrency(historicalVesAmount, "Bs")}
-                          </span>
+                          <>
+                            <span className="text-xs text-muted-foreground">
+                              ~ {formatCurrency(historicalVesAmount, "Bs")}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/70">
+                              @{" "}
+                              {formatCurrency(
+                                Number(payment.exchangeRate),
+                                "Bs",
+                              )}
+                            </span>
+                          </>
                         )}
                       </div>
                     </TableCell>

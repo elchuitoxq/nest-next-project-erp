@@ -69,6 +69,7 @@ export class TreasuryService {
     bankAccountId?: string;
     userId?: string;
     branchId?: string;
+    exchangeRate?: string;
   }) {
     return await db.transaction(async (tx) => {
       // Check for duplicate reference
@@ -95,23 +96,52 @@ export class TreasuryService {
         }
       }
 
-      const amount = new Decimal(data.amount);
+    const amount = new Decimal(data.amount);
 
-      // Fetch latest exchange rate
-      // Fetch latest exchange rate
-      const exchangeRate =
-        (await this.currenciesService.getLatestRate(data.currencyId)) ||
-        '1.0000000000';
-
-      // Determine type based on invoice
+      let exchangeRate = '1.0000000000';
       let paymentType = 'INCOME';
+      let invoice: any = null;
+
       if (data.invoiceId) {
-        const [invoice] = await tx
+        [invoice] = await tx
           .select()
           .from(invoices)
           .where(eq(invoices.id, data.invoiceId));
-        if (invoice && invoice.type === 'PURCHASE') {
-          paymentType = 'EXPENSE';
+        
+        if (invoice) {
+          if (invoice.type === 'PURCHASE') {
+            paymentType = 'EXPENSE';
+          }
+          // INHERIT RATE FROM INVOICE IF NOT PROVIDED EXPLICITLY
+          // This ensures fiscal consistency (Providencia 0102/0071)
+          if (!data.exchangeRate && invoice.exchangeRate) {
+            exchangeRate = invoice.exchangeRate;
+          }
+        }
+      }
+
+      // If rate is still 1.0 (default) AND was provided in data, use data.
+      // If not in data and not inherited, try to fetch latest system rate.
+      if (data.exchangeRate && new Decimal(data.exchangeRate).gt(0)) {
+         exchangeRate = data.exchangeRate;
+      } else if (exchangeRate === '1.0000000000' && !invoice) {
+         // Fallback to system rate if purely standalone payment
+         exchangeRate = (await this.currenciesService.getLatestRate(data.currencyId)) || '1.0000000000';
+      }
+
+      // Validate Bank Balance for Expenses
+      if (data.bankAccountId && paymentType === 'EXPENSE') {
+        const account = await tx.query.bankAccounts.findFirst({
+          where: eq(bankAccounts.id, data.bankAccountId),
+        });
+
+        if (account) {
+          const currentBalance = new Decimal(account.currentBalance || 0);
+          if (currentBalance.lt(amount)) {
+            throw new BadRequestException(
+              `Saldo insuficiente en la cuenta ${account.name}. Disponible: ${currentBalance.toFixed(2)}, Requerido: ${amount.toFixed(2)}`,
+            );
+          }
         }
       }
 
@@ -134,18 +164,68 @@ export class TreasuryService {
         } as any)
         .returning();
 
+      // --- CHECK MANUAL RETENTION PAYMENT ---
+      // If the payment method itself IS a retention (e.g. user selected "RET_IVA_75" in dialog)
+      const method = await tx.query.paymentMethods.findFirst({
+        where: eq(paymentMethods.id, data.methodId),
+      });
+
+      if (method && method.code.startsWith('RET_') && data.invoiceId) {
+        // This IS a manual retention payment. We MUST generate the fiscal voucher.
+        // If metadata contains taxBase, use it, otherwise fetch invoice.
+        const invoice = await tx.query.invoices.findFirst({
+          where: eq(invoices.id, data.invoiceId),
+        });
+
+        if (invoice) {
+           const type = method.code.includes('IVA') ? 'IVA' : 'ISLR';
+           const baseAmount = data.metadata?.taxBase || invoice.totalBase || '0';
+           const taxAmount = invoice.totalTax || '0'; // Simplified, assuming retention applies to full invoice tax
+           
+           // If it's partial retention, we might need logic, but usually RET payment amount IS the retained amount.
+           const retainedAmount = amount.toFixed(2);
+
+           await this.retentionsService.createRetention(
+             {
+               partnerId: data.partnerId,
+               branchId: data.branchId || invoice.branchId,
+               userId: data.userId || 'SYSTEM',
+               type: type as 'IVA' | 'ISLR',
+               period: new Date().toISOString().slice(0, 7).replace('-', ''),
+               items: [
+                 {
+                   invoiceId: invoice.id,
+                   baseAmount: String(baseAmount),
+                   taxAmount: String(taxAmount),
+                   retainedAmount: retainedAmount,
+                   paymentId: payment.id,
+                 },
+               ],
+             },
+             tx, // Pass the ACTIVE transaction
+           );
+        }
+      }
+
       // Update Bank Account Balance
       if (data.bankAccountId) {
+        // Correctly handle Income vs Expense
+        const operation =
+          paymentType === 'INCOME'
+            ? sql`${bankAccounts.currentBalance} + ${data.amount}`
+            : sql`${bankAccounts.currentBalance} - ${data.amount}`;
+
         await tx
           .update(bankAccounts)
           .set({
-            currentBalance: sql`${bankAccounts.currentBalance} + ${data.amount}`,
+            currentBalance: operation,
           })
           .where(eq(bankAccounts.id, data.bankAccountId));
       }
 
       // --- AUTOMATIC RETENTION GENERATION (VENEZUELA) ---
-      if (paymentType === 'EXPENSE' && data.invoiceId) {
+      // Only run automatic logic if this wasn't ALREADY a retention payment (to avoid double creation)
+      if (paymentType === 'EXPENSE' && data.invoiceId && !method?.code.startsWith('RET_')) {
         // Fetch Partner and Invoice details
         const partner = await tx.query.partners.findFirst({
           where: eq(partners.id, data.partnerId),
@@ -196,22 +276,28 @@ export class TreasuryService {
               const retainedAmount = taxCovered.times(rateToApply).div(100);
 
               if (retainedAmount.gt(0)) {
-                await this.retentionsService.createRetention({
-                  partnerId: data.partnerId,
-                  branchId: data.branchId || invoice.branchId,
-                  userId: data.userId || invoice.userId || 'SYSTEM',
-                  type: 'IVA',
-                  period: new Date().toISOString().slice(0, 7).replace('-', ''), // YYYYMM
-                  items: [
-                    {
-                      invoiceId: invoice.id,
-                      baseAmount: baseCovered.toFixed(2),
-                      taxAmount: taxCovered.toFixed(2),
-                      retainedAmount: retainedAmount.toFixed(2),
-                      paymentId: payment.id,
-                    },
-                  ],
-                });
+                await this.retentionsService.createRetention(
+                  {
+                    partnerId: data.partnerId,
+                    branchId: data.branchId || invoice.branchId,
+                    userId: data.userId || invoice.userId || 'SYSTEM',
+                    type: 'IVA',
+                    period: new Date()
+                      .toISOString()
+                      .slice(0, 7)
+                      .replace('-', ''), // YYYYMM
+                    items: [
+                      {
+                        invoiceId: invoice.id,
+                        baseAmount: baseCovered.toFixed(2),
+                        taxAmount: taxCovered.toFixed(2),
+                        retainedAmount: retainedAmount.toFixed(2),
+                        paymentId: payment.id,
+                      },
+                    ],
+                  },
+                  tx, // Pass the ACTIVE transaction
+                );
               }
             }
           }
@@ -327,22 +413,38 @@ export class TreasuryService {
     });
   }
 
-  async findAllPayments(branchId?: string) {
-    const whereClause = branchId ? eq(payments.branchId, branchId) : undefined;
+  async findAllPayments(branchId?: string, bankAccountId?: string) {
+    const whereConditions: any[] = [];
+    if (branchId) whereConditions.push(eq(payments.branchId, branchId));
+    if (bankAccountId) whereConditions.push(eq(payments.bankAccountId, bankAccountId));
+
+    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
+
     const rows = await db
-      .select()
+      .select({
+        payment: payments,
+        user: users,
+        bankAccount: bankAccounts,
+        partner: partners, // Include partner info for description
+        method: paymentMethods // Include method name
+      })
       .from(payments)
       .leftJoin(users, eq(payments.userId, users.id))
       .leftJoin(bankAccounts, eq(payments.bankAccountId, bankAccounts.id))
-      .where(whereClause);
+      .leftJoin(partners, eq(payments.partnerId, partners.id))
+      .leftJoin(paymentMethods, eq(payments.methodId, paymentMethods.id))
+      .where(whereClause)
+      .orderBy(desc(payments.date)); // Newest first
 
     // Map to expected structure
-    return rows.map(({ payments, users, bank_accounts }) => ({
-      ...payments,
-      user: users ? { id: users.id, name: users.name } : null,
-      bankAccount: bank_accounts
-        ? { id: bank_accounts.id, name: bank_accounts.name }
+    return rows.map(({ payment, user, bankAccount, partner, method }) => ({
+      ...payment,
+      user: user ? { id: user.id, name: user.name } : null,
+      bankAccount: bankAccount
+        ? { id: bankAccount.id, name: bankAccount.name }
         : null,
+      partnerName: partner?.name || 'N/A', // Add Partner Name
+      methodName: method?.name || 'N/A' // Add Method Name
     }));
   }
 

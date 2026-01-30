@@ -3,15 +3,20 @@ import api from "@/lib/api";
 import { Product, CreateProductValues, UpdateProductValues } from "../types";
 import { toast } from "sonner";
 
+import { useAuthStore } from "@/stores/use-auth-store";
+
 export function useProducts(search?: string) {
+  const currentBranch = useAuthStore((state) => state.currentBranch);
+
   return useQuery({
-    queryKey: ["products", search],
+    queryKey: ["products", search, currentBranch?.id],
     queryFn: async () => {
       const { data } = await api.get<Product[]>("/products", {
-        params: { search },
+        params: { search, branchId: currentBranch?.id },
       });
       return data;
     },
+    enabled: !!currentBranch?.id,
   });
 }
 
@@ -42,7 +47,7 @@ export function useProductMutations() {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.message || "Error al actualizar producto"
+        error.response?.data?.message || "Error al actualizar producto",
       );
     },
   });

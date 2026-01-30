@@ -50,7 +50,7 @@ export function useWarehouseMutations() {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.message || "Error al actualizar almacén"
+        error.response?.data?.message || "Error al actualizar almacén",
       );
     },
   });
@@ -87,7 +87,7 @@ export function useInventoryMutations() {
     },
     onError: (error: any) => {
       toast.error(
-        error.response?.data?.message || "Error al registrar movimiento"
+        error.response?.data?.message || "Error al registrar movimiento",
       );
     },
   });
@@ -96,12 +96,14 @@ export function useInventoryMutations() {
 }
 
 // --- STOCK ---
-export function useStock(warehouseId?: string) {
+export function useStock(warehouseId?: string, search?: string) {
   return useQuery({
-    queryKey: ["stock", warehouseId],
+    queryKey: ["stock", warehouseId, search],
     queryFn: async () => {
       if (!warehouseId) return [];
-      const { data } = await api.get(`/inventory/stock/${warehouseId}`);
+      const { data } = await api.get(`/inventory/stock/${warehouseId}`, {
+        params: { search },
+      });
       return data;
     },
     enabled: !!warehouseId,

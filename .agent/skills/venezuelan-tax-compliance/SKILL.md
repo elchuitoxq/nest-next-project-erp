@@ -20,11 +20,21 @@ This skill provides the strict business rules and technical requirements for mai
 
 **Context**: "Sujetos Pasivos Especiales" (SPE) must retain IVA and ISLR.
 
+- **Unified Implementation (Atomic Path)**:
+  - **Problem**: Separating the "Payment" (Debt Reduction) from the "Voucher" (Fiscal Document) causes data inconsistency and FK errors.
+  - **Solution**: The system uses a **Unified Path**. When a user registers a retention payment (Method `RET_IVA_*`):
+    1.  The Frontend sends the payment data.
+    2.  `TreasuryService` detects the method code.
+    3.  It calls `RetentionsService.createRetention` **passing the active DB transaction**.
+    4.  Both the Payment record and the Fiscal Voucher are created atomically.
+  - **Result**: Zero "Orphan Retentions".
+
 - **IVA Retention**:
-  - **Trigger**: Automatic upon registering a Purchase Invoice.
+  - **Trigger**: Automatic upon registering a Purchase Invoice OR Manual Payment Selection.
   - **Rate**: 75% or 100% of the Tax Amount, defined by supplier's `retentionRate`.
   - **Voucher**: Must generate a "Comprobante de Retención" (PDF + XML).
   - **Formula**: `RetentionAmount = TotalTax * (RetentionRate / 100)`.
+
 - **ISLR Retention**:
   - **Trigger**: Payment or Crediting of Account (whichever first).
   - **Basis**: Decree 1.808. Requires a "Concepts" table (e.g., "Honorarios Profesionales", "Fletes").
@@ -50,9 +60,18 @@ This skill provides the strict business rules and technical requirements for mai
 
 ## 5. Fiscal Calendar & Reporting
 
+- **Books (Libros de Compra y Venta)**:
+  - **Currency**: STRICTLY in **Bolívares (VES)**. Foreign currency invoices must be converted using their stored historical rate.
+  - **Column Structure (Critical)**:
+    - **Total Factura**: Full Amount (Base + Tax).
+    - **Base Imponible**: Taxable Base.
+    - **IVA (Impuesto)**: Shows **100%** of the Tax (Represents the Fiscal Credit/Debit right).
+    - **IVA Retenido**: Separate column showing the retained amount (75%/100%). **DO NOT subtract this from the IVA column.**
+    - **N° Comprobante**: Mandatory if retention exists.
+  - **Footer/Resumen**: Must include "Total Impuesto Retenido a Terceros" (Payable to SENIAT).
+
 - **Pension Contribution**: New 2024/2025 liability. Calculated on "Total Payments to Workers" (Salaries + Bonuses).
 - **Alerts**: System should warn SPEs about declaration deadlines based on their RIF terminal digit.
-- **Books**: "Libro de Compra" and "Libro de Venta" are mandatory TXT/PDF outputs strictly formatted according to SENIAT specs.
 
 ## Checklist for New Features
 

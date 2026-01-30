@@ -25,8 +25,11 @@ export class ProductsController {
   }
 
   @Get()
-  findAll(@Query('search') search?: string) {
-    return this.productsService.findAll(search);
+  findAll(
+    @Query('search') search?: string,
+    @Query('branchId') branchId?: string,
+  ) {
+    return this.productsService.findAll(search, branchId);
   }
 
   @Get(':id')

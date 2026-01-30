@@ -46,6 +46,7 @@ export function ProductsTable({ products, onEdit }: ProductsTableProps) {
             <TableHead>Precio</TableHead>
             <TableHead>Costo</TableHead>
             <TableHead>Stock Mín</TableHead>
+            <TableHead>Stock</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -67,6 +68,7 @@ export function ProductsTable({ products, onEdit }: ProductsTableProps) {
                 />
               </TableCell>
               <TableCell>{product.minStock}</TableCell>
+              <TableCell>{product.stock}</TableCell>
               <TableCell className="text-right">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

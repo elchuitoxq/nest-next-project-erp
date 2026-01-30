@@ -419,15 +419,22 @@ async function main() {
     // =================================================================================
     // LEVEL 5: SALES CYCLE (Sales)
     // =================================================================================
-    console.log("🛒 [L5] Executing Sales Cycle (Revenue)...");
+    console.log("🛒 [L5] Executing Sales Cycle (Revenue) - High Volume...");
 
-    for (let i = 0; i < 60; i++) {
+    // Create 120 invoices to test pagination and date filtering
+    for (let i = 0; i < 120; i++) {
         const branch = i % 2 === 0 ? branchCCS : branchVAL;
         const wh = i % 2 === 0 ? whCCS[0] : whVAL[0];
         const customer = faker.helpers.arrayElement(customers);
         
-        // Sale Date (Recent 30 days)
-        const date = faker.date.recent({ days: 30 });
+        // Date Distribution Logic:
+        // Ensure we hit both fortnights: Days 1-15 and 16-30
+        const dayOfMonth = (i % 30) + 1; // 1 to 30
+        const date = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
+        
+        // ... (Time randomization)
+        date.setHours(faker.number.int({ min: 8, max: 18 }));
+        
         const dateKey = date.toISOString().slice(0, 10);
         const rate = rateByDate.get(dateKey) || "350.00"; // Fallback
 
@@ -691,7 +698,21 @@ async function main() {
     // =================================================================================
     // LEVEL 7: TAX RETENTIONS (Retenciones Fiscales)
     // =================================================================================
-    console.log("🧾 [L7] Creating Tax Retentions...");
+    console.log("🧾 [L7] Creating Tax Retentions & Unified Payments...");
+
+    // 1. Ensure Retention Payment Method exists
+    let retMethod = allMethods.find(m => m.code.startsWith("RET_IVA"));
+    if (!retMethod) {
+       // Create it if missing (Should be in base seed, but safety first)
+       const [newM] = await db.insert(paymentMethods).values({
+         name: "Retención IVA 75%",
+         code: "RET_IVA_75",
+         branchId: branchCCS.id, // Assign to main branch
+         currencyId: currVES.id,
+         isDigital: false
+       }).returning();
+       retMethod = newM;
+    }
 
     // Fetch purchase invoices for retentions (from SPECIAL taxpayer suppliers)
     const purchaseInvoices = await db.query.invoices.findMany({
@@ -700,13 +721,13 @@ async function main() {
         eq(inv.status, "POSTED")
       ),
       with: { partner: true },
-      limit: 20,
+      limit: 50, // Process more invoices
     });
 
     // Filter for special taxpayers (or just use all for demo)
     const specialPurchases = purchaseInvoices.filter(inv => 
-      inv.partner?.taxpayerType === "SPECIAL" || Math.random() > 0.5
-    ).slice(0, 10);
+      inv.partner?.taxpayerType === "SPECIAL" || Math.random() > 0.3
+    ).slice(0, 30);
 
     let retentionsCreated = 0;
     const currentPeriod = new Date().toISOString().slice(0, 7).replace("-", ""); // YYYYMM
@@ -718,6 +739,24 @@ async function main() {
 
       if (retainedAmount <= 0) continue;
 
+      // 1. Create the Payment (Unified Path)
+      // This reduces the debt of the invoice
+      const [payment] = await db.insert(payments).values({
+        invoiceId: invoice.id,
+        partnerId: invoice.partnerId,
+        branchId: invoice.branchId,
+        methodId: retMethod.id, // RET_IVA_75
+        type: "EXPENSE", // Buying -> Paying with retention paper
+        amount: retainedAmount.toFixed(2),
+        currencyId: invoice.currencyId, // Usually VES for tax
+        exchangeRate: invoice.exchangeRate,
+        reference: `RET-${currentPeriod}-${faker.string.numeric(4)}`,
+        date: invoice.date, // Same day or close
+        userId: adminUser.id,
+        metadata: { isRetention: true, type: "IVA" }
+      } as any).returning();
+
+      // 2. Create the Fiscal Voucher
       const [retention] = await db.insert(taxRetentions).values({
         code: `${currentPeriod}-${faker.string.numeric(4)}`,
         partnerId: invoice.partnerId,
@@ -727,14 +766,15 @@ async function main() {
         totalBase: invoice.totalBase,
         totalTax: taxAmount.toFixed(2),
         totalRetained: retainedAmount.toFixed(2),
-        date: faker.date.recent({ days: 10 }),
+        date: invoice.date,
         userId: adminUser.id,
       } as any).returning();
 
-      // Insert retention line
+      // 3. Insert retention line LINKED to Payment
       await db.insert(taxRetentionLines).values({
         retentionId: retention.id,
         invoiceId: invoice.id,
+        paymentId: payment.id, // Critical Link
         baseAmount: invoice.totalBase,
         taxAmount: taxAmount.toFixed(2),
         retainedAmount: retainedAmount.toFixed(2),
@@ -742,7 +782,36 @@ async function main() {
 
       retentionsCreated++;
     }
-    console.log(`   ✅ Created ${retentionsCreated} IVA tax retentions`);
+    console.log(`   ✅ Created ${retentionsCreated} Unified Retentions (Voucher + Payment)`);
+
+    // =================================================================================
+    // LEVEL 7.5: RECALCULATE BANK BALANCES
+    // =================================================================================
+    console.log("🏦 [L7.5] Reconciling Bank Account Balances...");
+    
+    // Logic: Balance = Initial + Sum(Income) - Sum(Expense)
+    for (const account of seededAccounts) {
+        // Fetch all payments for this account
+        const accPayments = await db.select().from(payments).where(eq(payments.bankAccountId, account.id));
+        
+        let balance = parseFloat(account.currentBalance || "0");
+        
+        for (const p of accPayments) {
+            const amount = parseFloat(p.amount);
+            if (p.type === "INCOME") {
+                balance += amount;
+            } else {
+                balance -= amount;
+            }
+        }
+
+        await db.update(bankAccounts)
+            .set({ currentBalance: balance.toFixed(2) })
+            .where(eq(bankAccounts.id, account.id));
+            
+        console.log(`      > Account ${account.name}: ${balance.toFixed(2)}`);
+    }
+    console.log("   ✅ Bank balances synchronized with transaction history");
 
     // =================================================================================
     // LEVEL 8: LOANS (Préstamos de Productos)

@@ -16,7 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Edit2, Search } from "lucide-react";
+import { Edit2, Search, BookOpen } from "lucide-react";
+import { BankAccountLedger } from "./bank-account-ledger";
 
 interface BankAccountsTableProps {
   accounts: any[];
@@ -26,6 +27,7 @@ interface BankAccountsTableProps {
 export function BankAccountsTable({ accounts, onEdit }: BankAccountsTableProps) {
   const { mutate: toggleActive } = useToggleBankAccount();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedAccount, setSelectedAccount] = useState<any>(null);
 
   const filteredAccounts = accounts?.filter((acc) => {
     const term = searchTerm.toLowerCase();
@@ -38,6 +40,15 @@ export function BankAccountsTable({ accounts, onEdit }: BankAccountsTableProps) 
 
   return (
     <div className="space-y-4">
+      {/* Ledger Dialog */}
+      {selectedAccount && (
+        <BankAccountLedger
+          isOpen={!!selectedAccount}
+          onClose={() => setSelectedAccount(null)}
+          account={selectedAccount}
+        />
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <div className="relative w-full max-w-sm">
@@ -77,6 +88,14 @@ export function BankAccountsTable({ accounts, onEdit }: BankAccountsTableProps) 
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2 items-center">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setSelectedAccount(acc)}
+                      title="Ver Libro de Banco"
+                    >
+                      <BookOpen className="h-4 w-4 text-blue-600" />
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => onEdit(acc)}>
                       <Edit2 className="h-4 w-4" />
                     </Button>

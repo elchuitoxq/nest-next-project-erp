@@ -54,7 +54,19 @@ const payload = {
   - Updates Product Cost (Weighted Average Cost).
 - **Context**: Always pass `branchId` and `userId` to `createInvoice`.
 
-## 5. Updates & Invalidation
+## 5. Treasury & Bank Accounts
+
+- **Balance Logic (Critical)**:
+  - **Income (Venta/Cobro)**: `balance = balance + amount`
+  - **Expense (Compra/Pago)**: `balance = balance - amount`
+  - *Note:* Always validate `paymentType` before applying the math. Do not assume all payments add up.
+- **Audit (Libro de Banco)**:
+  - Users must be able to see the breakdown. Implement `BankAccountLedger` using `findAllPayments` filtered by `bankAccountId`.
+- **Payment Intelligence**:
+  - **Rate Inheritance**: If paying a specific Invoice, the payment MUST use the `invoice.exchangeRate` to avoid accounting gaps (diferencial cambiario).
+  - **Manual Rate**: Only use manual/daily rate for unlinked payments (Advances).
+
+## 6. Updates & Invalidation
 
 - When creating/voiding/posting invoices, ensure you invalidate **BOTH** `['invoices']` (Sales) and `['purchases']` (Purchases) query keys if the action shares logic.
 

@@ -13,7 +13,7 @@ Un sistema ERP modular y completo diseñado específicamente para el mercado ven
 ## ✨ Características Principales
 
 - **Diseño Multisucursal:** Aislamiento nativo de datos y operaciones por sucursal comercial.
-- **Núcleo Bimonetario Inteligente:** 
+- **Núcleo Bimonetario Inteligente:**
   - Manejo fluido de USD (Base) y VES (Fiscal).
   - Conversión en tiempo real en tablas y formularios.
   - Registro histórico de tasa de cambio por transacción.
@@ -22,7 +22,7 @@ Un sistema ERP modular y completo diseñado específicamente para el mercado ven
   - Gestión de Cuentas Bancarias y Cajas (Efectivo/Digital).
   - Conciliación de facturas con pagos parciales y tasas dinámicas.
 - **Inventario y Logística:** Gestión multi-almacén, stock en tiempo real y movimientos.
-- **Cumplimiento Fiscal:** 
+- **Cumplimiento Fiscal:**
   - Libros de Compra y Venta exportables a Excel (Formato SENIAT).
   - Cálculo automático de IGTF (3%) y Retenciones.
 - **Recursos Humanos:** Nómina y maestros bancarios.
@@ -45,29 +45,51 @@ Un sistema ERP modular y completo diseñado específicamente para el mercado ven
 ## 🛠️ Comandos Principales
 
 ### 1. Instalación
+
 ```bash
 npm install
 ```
 
-### 2. Base de Datos
+### 2. Configuración de Entorno
+
+1. **API:** Crea un archivo `.env` en `apps/api/` (ver `apps/api/README.md`):
+
+   ```env
+   DATABASE_URL="postgres://elchuitoxq:elchuitoxq@localhost:5432/erp_project_db"
+   PORT=4000
+   JWT_SECRET="alguna-clave-secreta-segura"
+   ```
+
+2. **Base de Datos:** Crea un archivo `.env` en `packages/db/src/` para los scripts de mantenimiento:
+   ```env
+   DATABASE_URL="postgres://elchuitoxq:elchuitoxq@localhost:5432/erp_project_db"
+   ```
+
+### 3. Base de Datos
+
 El proyecto incluye scripts organizados en `packages/db/scripts`:
 
 - **Inicializar DB (Reset + Seed):**
+
   ```bash
   npm run db:setup:test
   ```
-  *(Crea tablas, limpia datos y genera transacciones de prueba: Usuarios, Inventario, Ventas).*
+
+  _(Crea tablas, limpia datos y genera transacciones de prueba: Usuarios, Inventario, Ventas)._
 
 - **Panel de Administración (Drizzle Studio):**
   ```bash
   npm run db:studio
   ```
 
-### 3. Desarrollo
+### 4. Desarrollo
+
 Ejecuta todo el stack (API + Web) en paralelo:
+
 ```bash
 npm run dev
 ```
+
 - **Web:** [http://localhost:3005](http://localhost:3005)
 - **API:** [http://localhost:4000](http://localhost:4000)
 

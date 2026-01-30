@@ -1,23 +1,54 @@
 import { Injectable } from '@nestjs/common';
-import { db, products, productCategories } from '@repo/db';
-import { eq, desc, ilike, or } from 'drizzle-orm';
+import { db, products, productCategories, stock, warehouses } from '@repo/db';
+import { eq, desc, ilike, or, and, sql } from 'drizzle-orm';
 
 @Injectable()
 export class ProductsService {
-  async findAll(search?: string) {
+  async findAll(search?: string, branchId?: string) {
+    const query = db
+      .select({
+        id: products.id,
+        sku: products.sku,
+        name: products.name,
+        description: products.description,
+        categoryId: products.categoryId,
+        cost: products.cost,
+        price: products.price,
+        isExempt: products.isExempt,
+        taxRate: products.taxRate,
+        type: products.type,
+        minStock: products.minStock,
+        currencyId: products.currencyId,
+        createdAt: products.createdAt,
+        stock: sql<number>`COALESCE(SUM(${stock.quantity}), 0)`.mapWith(Number),
+      })
+      .from(products)
+      .leftJoin(stock, eq(products.id, stock.productId))
+      .leftJoin(warehouses, eq(stock.warehouseId, warehouses.id))
+      .groupBy(products.id)
+      .orderBy(desc(products.createdAt));
+
+    const conditions = [];
+
     if (search) {
-      return await db
-        .select()
-        .from(products)
-        .where(
-          or(
-            ilike(products.name, `%${search}%`),
-            ilike(products.sku, `%${search}%`),
-          ),
-        )
-        .orderBy(desc(products.createdAt));
+      conditions.push(
+        or(
+          ilike(products.name, `%${search}%`),
+          ilike(products.sku, `%${search}%`),
+        ),
+      );
     }
-    return await db.select().from(products).orderBy(desc(products.createdAt));
+
+    if (branchId) {
+      conditions.push(eq(warehouses.branchId, branchId));
+    }
+
+    if (conditions.length > 0) {
+      // @ts-ignore - complex types sometimes fail with spread
+      query.where(and(...conditions));
+    }
+
+    return await query;
   }
 
   async findOne(id: string) {

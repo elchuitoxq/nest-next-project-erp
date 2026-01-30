@@ -10,6 +10,7 @@ export interface Product {
   taxRate: number;
   type: string;
   minStock: number;
+  stock: number; // Calculated field
   currencyId?: string; // Added field
   createdAt: string;
 }

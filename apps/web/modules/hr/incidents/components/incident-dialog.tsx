@@ -1,14 +1,27 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState } from "react";
 import { useIncidentMutations } from "../hooks/use-incidents";
 import { useEmployees } from "../../hooks/use-employees";
 import { usePayrollConcepts } from "../../concepts/hooks/use-payroll-concepts";
+import { EmployeeCombobox } from "../../components/employee-combobox";
 
 interface IncidentDialogProps {
   open: boolean;
@@ -33,7 +46,7 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
       conceptId,
       date,
       amount: Number(amount),
-      notes
+      notes,
     });
     onOpenChange(false);
     // Reset form
@@ -52,20 +65,9 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Empleado</Label>
-            <Select value={employeeId} onValueChange={setEmployeeId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar..." />
-              </SelectTrigger>
-              <SelectContent>
-                {employees?.map((emp) => (
-                  <SelectItem key={emp.id} value={emp.id}>
-                    {emp.firstName} {emp.lastName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <EmployeeCombobox value={employeeId} onChange={setEmployeeId} />
           </div>
-          
+
           <div className="space-y-2">
             <Label>Concepto</Label>
             <Select value={conceptId} onValueChange={setConceptId}>
@@ -75,7 +77,7 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
               <SelectContent>
                 {concepts?.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.name} ({c.category === 'INCOME' ? '+' : '-'})
+                    {c.name} ({c.category === "INCOME" ? "+" : "-"})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -85,11 +87,22 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Fecha</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label>Monto / Valor Total</Label>
-              <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+              <Input
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+              />
             </div>
           </div>
 
@@ -99,7 +112,13 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancelar
+            </Button>
             <Button type="submit">Guardar</Button>
           </DialogFooter>
         </form>

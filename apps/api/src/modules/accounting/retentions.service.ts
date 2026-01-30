@@ -7,7 +7,7 @@ import {
   branches,
   invoices,
 } from '@repo/db';
-import { eq, sql, and, desc } from 'drizzle-orm';
+import { eq, sql, and, desc, gte, lt } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import PDFDocument from 'pdfkit';
 import { uuidv7 } from 'uuidv7';
@@ -86,21 +86,24 @@ export class RetentionsService {
     return txt;
   }
 
-  async createRetention(data: {
-    partnerId: string;
-    branchId: string;
-    type: 'IVA' | 'ISLR';
-    period: string; // YYYYMM
-    userId: string;
-    items: {
-      invoiceId: string;
-      baseAmount: string;
-      taxAmount: string;
-      retainedAmount: string;
-      paymentId?: string;
-    }[];
-  }) {
-    return await db.transaction(async (tx) => {
+  async createRetention(
+    data: {
+      partnerId: string;
+      branchId: string;
+      type: 'IVA' | 'ISLR';
+      period: string; // YYYYMM
+      userId: string;
+      items: {
+        invoiceId: string;
+        baseAmount: string;
+        taxAmount: string;
+        retainedAmount: string;
+        paymentId?: string;
+      }[];
+    },
+    tx?: any, // Optional transaction object
+  ) {
+    const operation = async (transaction: any) => {
       // 1. Calculate Totals
       const totalBase = data.items.reduce(
         (sum, item) => sum.plus(new Decimal(item.baseAmount)),
@@ -122,7 +125,7 @@ export class RetentionsService {
       const code = `${yyyy}${mm}-${Date.now().toString().slice(-4)}`;
 
       // Use explicit any cast if linter complains about schema not updated
-      const [retention] = await tx
+      const [retention] = await transaction
         .insert(taxRetentions as any)
         .values({
           code: code,
@@ -139,7 +142,7 @@ export class RetentionsService {
 
       // 3. Insert Lines
       for (const item of data.items) {
-        await tx.insert(taxRetentionLines as any).values({
+        await transaction.insert(taxRetentionLines as any).values({
           retentionId: retention.id,
           invoiceId: item.invoiceId,
           baseAmount: item.baseAmount,
@@ -150,7 +153,16 @@ export class RetentionsService {
       }
 
       return retention;
-    });
+    };
+
+    // Use provided transaction OR start a new one
+    if (tx) {
+      return await operation(tx);
+    } else {
+      return await db.transaction(async (newTx) => {
+        return await operation(newTx);
+      });
+    }
   }
 
   async generatePDF(retentionId: string): Promise<PDFKit.PDFDocument> {
@@ -202,6 +214,35 @@ export class RetentionsService {
       with: {
         partner: true,
         branch: true,
+      },
+      orderBy: [desc(taxRetentions.createdAt)],
+    });
+  }
+
+  async findByDateRange(
+    startDate: Date,
+    endDate: Date,
+    type: 'IVA' | 'ISLR',
+    branchId?: string,
+  ) {
+    const whereConditions = [
+      eq(taxRetentions.type, type),
+      gte(taxRetentions.createdAt, startDate),
+      lt(taxRetentions.createdAt, endDate),
+    ];
+
+    if (branchId) {
+      whereConditions.push(eq(taxRetentions.branchId, branchId));
+    }
+
+    return await db.query.taxRetentions.findMany({
+      where: and(...whereConditions),
+      with: {
+        partner: true,
+        branch: true,
+        lines: {
+          with: { invoice: true },
+        },
       },
       orderBy: [desc(taxRetentions.createdAt)],
     });

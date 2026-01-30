@@ -21,15 +21,15 @@ The file `packages/db/seed-test.ts` is the **Source of Truth** for:
     - **L3**: Masters (Partners, Products)
     - **L4**: Inventory (Initial Stock)
     - **L5**: Transactions (Invoices Sales/Purchases)
-    - **L6**: Treasury (Payments) -> *Delegated to API Script*
+    - **L6**: Treasury (Payments) -> *Delegated to API Script or Unified Logic*
 4.  **Exchange Rates**: When generating historical financial data, always calculate **backwards** from the target current rate (e.g., 352.7063).
     - *Why?* To ensure the "Today" rate in the app matches the user's expectation, while still providing a realistic curve for past charts.
     - *Method:* `currentRate = target; for (days) { currentRate -= random_inflation; }`
 5.  **No Duplication**: If `seed-test.ts` extends `seed.ts`, do NOT re-insert data for "Today" (like today's Exchange Rate) that `seed.ts` already created. Only insert historical data (Yesterday backwards).
-6.  **Hybrid Strategy (Robustness)**:
-    - **Infra (DB Level)**: `seed-test.ts` creates static data (Users, Branches, Historical Rates, Stock).
-    - **Transactions (API Level)**: Use `seed:transactions` (NestJS script) to generate Orders, Invoices, and Payments.
-    - *Why?* This ensures test data respects **real business logic** (tax calc, conversions, stock moves, correlatives) instead of inserting raw/potentially invalid rows.
+6.  **Consistency Rules (CRITICAL)**:
+    - **Retentions**: Never create just a `tax_retention` record. You MUST create the corresponding `payment` (Method: `RET_IVA_XX`) and link them via `tax_retention_lines`. This reflects the "Unified Path" where a retention is a payment document.
+    - **Bank Balances**: Random payments create random balances. Always run a **Final Recalculation Step** (L7.5) that sums all Incomes/Expenses per account and updates `bank_accounts.current_balance`.
+    - **Fiscal Logic**: All Invoices must have `total_tax` = `total_base` * 0.16. Do not use random tax amounts.
 
 ## Usage
 
