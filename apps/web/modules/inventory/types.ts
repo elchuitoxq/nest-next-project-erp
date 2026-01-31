@@ -64,3 +64,19 @@ export interface CreateInventoryMoveValues {
   lines: InventoryMoveLine[];
   userId?: string;
 }
+
+export interface Move {
+  id: string;
+  code: string;
+  type: string;
+  date: string;
+  fromWarehouse?: { name: string };
+  toWarehouse?: { name: string };
+  user?: { name: string };
+  note?: string;
+  lines?: {
+    id: string;
+    quantity: number;
+    product: { name: string };
+  }[];
+}

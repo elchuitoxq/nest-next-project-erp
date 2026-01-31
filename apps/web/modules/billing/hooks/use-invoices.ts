@@ -2,15 +2,37 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Invoice } from "../types";
 
-export function useInvoices() {
+export interface FindInvoicesParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: string | string[]; // Allow array
+  status?: string | string[]; // Allow array
+  partnerId?: string;
+}
+
+export function useInvoices(params: FindInvoicesParams = {}) {
+  // Convert arrays to comma-separated strings for URL params
+  const serializedParams = {
+    ...params,
+    type: Array.isArray(params.type) ? params.type.join(",") : params.type,
+    status: Array.isArray(params.status) ? params.status.join(",") : params.status,
+  };
+
   return useQuery({
-    queryKey: ["invoices"],
+    queryKey: ["invoices", serializedParams],
     queryFn: async () => {
-      const { data } = await api.get<Invoice[]>("/billing/invoices");
+      const { data } = await api.get<{
+        data: Invoice[];
+        meta: { total: number; page: number; lastPage: number };
+      }>("/billing/invoices", {
+        params: serializedParams,
+      });
       return data;
     },
   });
 }
+
 
 export function usePostInvoice() {
   const queryClient = useQueryClient();

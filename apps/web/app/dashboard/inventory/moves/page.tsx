@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/card";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -23,41 +22,34 @@ import {
 } from "@/components/ui/breadcrumb";
 
 import { useInventoryMoves } from "@/modules/inventory/hooks/use-inventory";
-import { MovesTable, Move } from "@/modules/inventory/components/moves-table";
+import { MovesTable } from "@/modules/inventory/components/moves-table";
 import { MoveDialog } from "@/modules/inventory/components/move-dialog";
 import { MoveDetailsDialog } from "@/modules/inventory/components/move-details-dialog";
+import { Move } from "@/modules/inventory/types";
+import { PaginationState } from "@tanstack/react-table";
 
 export default function InventoryMovesPage() {
-  const { data: moves, isLoading, isError } = useInventoryMoves();
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 25,
+  });
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+
+  const {
+    data: movesResponse,
+    isLoading,
+    isError,
+  } = useInventoryMoves({
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+    search,
+    type: typeFilter.length > 0 ? typeFilter : undefined,
+  });
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [selectedMove, setSelectedMove] = useState<Move | undefined>(undefined);
-  const [search, setSearch] = useState("");
-
-  // Client-side filtering
-  const filteredMoves =
-    (moves as Move[])?.filter((move: Move) => {
-      const term = search.toLowerCase();
-      const typeLabel =
-        move.type === "IN"
-          ? "entrada"
-          : move.type === "OUT"
-            ? "salida"
-            : move.type === "TRANSFER"
-              ? "traslado"
-              : move.type === "ADJUST"
-                ? "ajuste"
-                : move.type.toLowerCase();
-
-      return (
-        move.code.toLowerCase().includes(term) ||
-        typeLabel.includes(term) ||
-        move.fromWarehouse?.name.toLowerCase().includes(term) ||
-        move.toWarehouse?.name.toLowerCase().includes(term) ||
-        move.user?.name.toLowerCase().includes(term) ||
-        move.note?.toLowerCase().includes(term)
-      );
-    }) || [];
+  const [selectedMove, setSelectedMove] = useState<Move | null>(null);
 
   return (
     <SidebarInset>
@@ -107,30 +99,25 @@ export default function InventoryMovesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center py-4">
-              <Input
-                placeholder="Buscar por código, tipo, almacén o responsable..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="max-w-md"
-              />
-            </div>
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : isError ? (
+            {isError ? (
               <div className="text-red-500 py-8 text-center">
                 Error al cargar historial. Por favor intente nuevamente.
               </div>
             ) : (
-              // @ts-ignore
               <MovesTable
-                moves={filteredMoves}
-                onSelectMove={(move: any) => {
+                data={movesResponse?.data || []}
+                pageCount={movesResponse?.meta.lastPage || 1}
+                pagination={pagination}
+                onPaginationChange={setPagination}
+                isLoading={isLoading}
+                onSelectMove={(move) => {
                   setSelectedMove(move);
                   setIsDetailsOpen(true);
                 }}
+                search={search}
+                onSearchChange={setSearch}
+                typeFilter={typeFilter}
+                onTypeChange={setTypeFilter}
               />
             )}
           </CardContent>

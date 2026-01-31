@@ -20,6 +20,7 @@ Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas comp
 
 - **🛡️ Implementación Estricta:** `.agent/skills/implementing-strict-features/SKILL.md` (Validación Zod/DTO, i18n).
 - **🏗️ Estándares ERP:** `.agent/skills/erp-development-standards.md`.
+- **🚀 Paginación Server-Side (Nuevo):** `.agent/skills/implementing-server-side-pagination.md` (Estándar para tablas de alto rendimiento).
 - **🐛 Debugging:** `.agent/skills/systematic-debugging/SKILL.md`.
 - **🧪 Testing:** `.agent/skills/test-driven-development/SKILL.md`.
 - **🌿 Git Worktrees:** `.agent/skills/using-git-worktrees/SKILL.md`.
@@ -86,44 +87,46 @@ El sistema opera bajo un modelo de **Multisucursal (Multi-Branch)** por defecto:
 > [!IMPORTANT]
 > Ver reglas detalladas en `venezuelan-tax-compliance/SKILL.md`
 
-1. **Digitalización (Providencia 0102):** Todo desarrollo de facturación debe soportar "Imprentas Digitales" (Seriales de Control) y exportación XML/JSON.
-2. **Retenciones (Agente de Retención):**
-   - **IVA (75%/100%):** Debe ser calculada automáticamente en Compras.
-   - **ISLR (Decreto 1.808):** Requiere tabla de conceptos y sustraendo (U.T.).
-   - **Comprobantes:** Obligatorio generar PDF+XML al momento del pago/abono.
-   - **Unificación de Lógica:** El sistema usa una lógica unificada en `RetentionsService`. Si se registra un pago manual con método `RET_*` (ej. `RET_IVA_75`), el sistema detecta esto y **crea automáticamente el comprobante fiscal** dentro de la misma transacción de base de datos (`tx`), garantizando integridad.
-   - **Tablas:** `tax_retentions`, `tax_retention_lines`, `tax_concepts`.
-3. **IGTF (3%):**
-   - Aplicable a pagos en divisa (USD/EUR).
-   - Discriminación obligatoria en factura (`totalIgtf`).
-4. **Tasa BCV (Automatizada):**
-   - **Servicio:** `BCVScraperService` (Cron jobs/daily 08:00 AM).
-   - **Fuente:** Scraping directo a `bcv.org.ve`.
-   - **Persistencia:** Tabla `exchange_rates` con fuente `BCV_SCRAPER`.
-5. **Pensiones:** Cálculo de contribución especial sobre nómina integral.
-6. **Reportes Fiscales (Libros de Compra y Venta):**
-   - **Moneda:** Los libros SIEMPRE se expresan en **Bolívares (VES)**. Si la factura es en divisa, se convierte a la tasa histórica de la fecha de emisión.
-   - **Columnas Críticas:**
-     - **IVA / Débito Fiscal:** Muestra el 100% del impuesto de la factura (Derecho a Crédito Fiscal).
-     - **IVA Retenido:** Muestra el monto retenido (75% o 100%) en una columna separada.
-     - **N° Comprobante:** Obligatorio si existe retención.
-   - **Resumen:** El reporte incluye un "Footer" con totales calculados por el backend (`FiscalReportsService`), incluyendo el "Total Impuesto Retenido a Terceros" (Monto a pagar al SENIAT).
+1.  **Digitalización (Providencia 0102):** Todo desarrollo de facturación debe soportar "Imprentas Digitales" (Seriales de Control) y exportación XML/JSON.
+2.  **Retenciones (Agente de Retención):**
+    *   **IVA (75%/100%):** Debe ser calculada automáticamente en Compras.
+    *   **ISLR (Decreto 1.808):** Requiere tabla de conceptos y sustraendo (U.T.).
+    *   **Comprobantes:** Obligatorio generar PDF+XML al momento del pago/abono.
+    *   **Unificación de Lógica:** El sistema usa una lógica unificada en `RetentionsService`. Si se registra un pago manual con método `RET_*` (ej. `RET_IVA_75`), el sistema detecta esto y **crea automáticamente el comprobante fiscal** dentro de la misma transacción de base de datos (`tx`), garantizando integridad.
+    *   **Tablas:** `tax_retentions`, `tax_retention_lines`, `tax_concepts`.
+3.  **IGTF (3%):**
+    *   Aplicable a pagos en divisa (USD/EUR).
+    *   Discriminación obligatoria en factura (`totalIgtf`).
+4.  **Tasa BCV (Automatizada):**
+    *   **Servicio:** `BCVScraperService` (Cron jobs/daily 08:00 AM).
+    *   **Fuente:** Scraping directo a `bcv.org.ve`.
+    *   **Persistencia:** Tabla `exchange_rates` con fuente `BCV_SCRAPER`.
+5.  **Pensiones:** Cálculo de contribución especial sobre nómina integral.
+6.  **Reportes Fiscales (Libros de Compra y Venta):**
+    *   **Moneda:** Los libros SIEMPRE se expresan en **Bolívares (VES)**. Si la factura es en divisa, se convierte a la tasa histórica de la fecha de emisión.
+    *   **Columnas Críticas:**
+        *   **IVA / Débito Fiscal:** Muestra el 100% del impuesto de la factura (Derecho a Crédito Fiscal).
+        *   **IVA Retenido:** Muestra el monto retenido (75% o 100%) en una columna separada.
+        *   **N° Comprobante:** Obligatorio si existe retención.
+    *   **Dashboard de Liquidación:** Módulo integrado que cruza Débitos vs Créditos vs Retenciones para calcular la **Cuota Tributaria (A Pagar)** y genera el **TXT de Retenciones** para el portal SENIAT.
 
 ## 💰 Tesorería Multimoneda (Actualización)
 
 El sistema ha evolucionado para manejar una **Tesorería Multimoneda Real**:
 
-- **Estado de Cuenta (Wallet):**
-  - Ya no se mezcla USD y VES en un solo saldo.
-  - El backend (`getAccountStatement`) agrupa los saldos por moneda.
-- **Libro de Banco (Audit Ledger):**
-  - Cada cuenta bancaria tiene un historial detallado de movimientos (`TreasuryService.findAllPayments` con filtro `bankAccountId`).
-  - **Lógica de Saldos:**
-    - **Ingresos (`INCOME`):** SUMAN (+) al saldo.
-    - **Egresos (`EXPENSE`):** RESTAN (-) al saldo.
-- **Pagos Inteligentes:**
-  - Si se paga una factura específica, el sistema **hereda la Tasa de Cambio** de la factura original (si no se especifica otra). Esto evita discrepancias contables y "diferencial cambiario" en libros.
-  - Si es un pago libre (anticipo), usa la tasa del día o la manual.
+*   **Estado de Cuenta (Wallet):**
+    *   Ya no se mezcla USD y VES en un solo saldo.
+    *   El backend (`getAccountStatement`) agrupa los saldos por moneda.
+*   **Libro de Banco (Audit Ledger):**
+    *   Cada cuenta bancaria tiene un historial detallado de movimientos (`TreasuryService.findAllPayments` con filtro `bankAccountId`).
+    *   **Lógica de Saldos:**
+        *   **Ingresos (`INCOME`):** SUMAN (+) al saldo.
+        *   **Egresos (`EXPENSE`):** RESTAN (-) al saldo.
+*   **Guardia de Saldos (Protección):**
+    *   El sistema **bloquea** cualquier pago (Egreso) si el saldo de la cuenta bancaria es insuficiente (`BadRequestException`). No se permiten saldos negativos.
+*   **Pagos Inteligentes:**
+    *   Si se paga una factura específica, el sistema **hereda la Tasa de Cambio** de la factura original (si no se especifica otra). Esto evita discrepancias contables y "diferencial cambiario" en libros.
+    *   Si es un pago libre (anticipo), usa la tasa del día o la manual.
 
 ## 👥 Recursos Humanos (RRHH)
 

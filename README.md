@@ -19,12 +19,15 @@ Un sistema ERP modular y completo diseñado específicamente para el mercado ven
   - Registro histórico de tasa de cambio por transacción.
 - **Tesorería Avanzada:**
   - Historial de Pagos Globales con filtros y búsqueda integrada.
+  - **Protección de Saldos:** Bloqueo automático de operaciones si no hay fondos suficientes.
+  - **Libro de Banco:** Auditoría detallada de movimientos (Ingresos/Egresos) por cuenta.
   - Gestión de Cuentas Bancarias y Cajas (Efectivo/Digital).
   - Conciliación de facturas con pagos parciales y tasas dinámicas.
 - **Inventario y Logística:** Gestión multi-almacén, stock en tiempo real y movimientos.
 - **Cumplimiento Fiscal:**
   - Libros de Compra y Venta exportables a Excel (Formato SENIAT).
-  - Cálculo automático de IGTF (3%) y Retenciones.
+  - **Liquidación de Impuestos:** Dashboard quincenal con cálculo de Cuota Tributaria y generación de archivo TXT de Retenciones.
+  - Cálculo automático de IGTF (3%) y Retenciones Integradas (Pago + Comprobante).
 - **Recursos Humanos:** Nómina y maestros bancarios.
 
 ## 📂 Estructura del Proyecto

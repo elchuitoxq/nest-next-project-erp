@@ -24,13 +24,37 @@ import { useInvoices } from "@/modules/billing/hooks/use-invoices";
 import { InvoicesTable } from "@/modules/billing/components/invoices-table";
 import { InvoiceDetailsDialog } from "@/modules/billing/components/invoice-details-dialog";
 import { Invoice } from "@/modules/billing/types";
+import { PaginationState } from "@tanstack/react-table";
 
 export default function InvoicesPage() {
-  const { data: invoices, isLoading, isError } = useInvoices();
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 25,
+  });
+  const [search, setSearch] = useState("");
+  // Change to string arrays for multiple selection
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+
+  const {
+    data: invoicesResponse,
+    isLoading,
+    isError,
+  } = useInvoices({
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+    search,
+    // Pass arrays directly if they have items, otherwise undefined
+    status: statusFilter.length > 0 ? statusFilter : undefined,
+    type: typeFilter.length > 0 ? typeFilter : undefined,
+  });
+
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const activeInvoice = invoices?.find((inv) => inv.id === selectedId);
+  const activeInvoice = invoicesResponse?.data?.find(
+    (inv) => inv.id === selectedId,
+  );
 
   const handleViewDetails = (invoice: Invoice) => {
     setSelectedId(invoice.id);
@@ -79,18 +103,24 @@ export default function InvoicesPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : isError ? (
+            {isError ? (
               <div className="text-red-500 py-8 text-center">
                 Error al cargar facturas.
               </div>
             ) : (
               <InvoicesTable
-                invoices={invoices || []}
+                data={invoicesResponse?.data || []}
+                pageCount={invoicesResponse?.meta.lastPage || 1}
+                pagination={pagination}
+                onPaginationChange={setPagination}
                 onViewDetails={handleViewDetails}
+                isLoading={isLoading}
+                search={search}
+                onSearchChange={setSearch}
+                statusFilter={statusFilter}
+                onStatusChange={setStatusFilter}
+                typeFilter={typeFilter}
+                onTypeChange={setTypeFilter}
               />
             )}
           </CardContent>

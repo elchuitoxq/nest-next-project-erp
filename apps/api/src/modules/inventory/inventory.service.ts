@@ -7,8 +7,9 @@ import {
   inventoryMoveLines,
   products,
 } from '@repo/db';
-import { eq, desc, and, sql, inArray, or, ilike } from 'drizzle-orm';
+import { eq, desc, and, sql, inArray, or, ilike, SQL } from 'drizzle-orm';
 import Decimal from 'decimal.js';
+import { FindMovesDto } from './dto/find-moves.dto';
 
 @Injectable()
 export class InventoryService {
@@ -203,11 +204,14 @@ export class InventoryService {
   }
 
   // --- MOVES ---
-  async findAllMoves(branchId?: string) {
-    let whereClause = undefined;
+  async findAllMoves(branchId: string, query: FindMovesDto) {
+    const { page = 1, limit = 10, search, type, warehouseId } = query;
+    const offset = (page - 1) * limit;
 
+    const conditions = [];
+
+    // Branch Security: Ensure we only show moves related to warehouses in this branch
     if (branchId) {
-      // Get all warehouses for this branch
       const branchWarehouses = await db
         .select({ id: warehouses.id })
         .from(warehouses)
@@ -216,18 +220,64 @@ export class InventoryService {
       const warehouseIds = branchWarehouses.map((w) => w.id);
 
       if (warehouseIds.length > 0) {
-        whereClause = or(
-          inArray(inventoryMoves.fromWarehouseId, warehouseIds),
-          inArray(inventoryMoves.toWarehouseId, warehouseIds),
+        // Move involves at least one warehouse from this branch
+        conditions.push(
+          or(
+            inArray(inventoryMoves.fromWarehouseId, warehouseIds),
+            inArray(inventoryMoves.toWarehouseId, warehouseIds),
+          ),
         );
       } else {
-        // Branch has no warehouses, so no moves. return empty.
-        return [];
+        return { data: [], meta: { total: 0, page, lastPage: 0 } };
       }
     }
 
-    return await db.query.inventoryMoves.findMany({
+    if (type && type.length > 0) {
+      if (Array.isArray(type)) {
+        conditions.push(inArray(inventoryMoves.type, type));
+      } else {
+        conditions.push(eq(inventoryMoves.type, type));
+      }
+    }
+
+    if (warehouseId) {
+      conditions.push(
+        or(
+          eq(inventoryMoves.fromWarehouseId, warehouseId),
+          eq(inventoryMoves.toWarehouseId, warehouseId),
+        ),
+      );
+    }
+
+    if (search) {
+      const searchTerms = search.split(',').map(s => s.trim()).filter(Boolean);
+      const termConditions = [];
+
+      for (const term of searchTerms) {
+        termConditions.push(ilike(inventoryMoves.code, `%${term}%`));
+        termConditions.push(ilike(inventoryMoves.note, `%${term}%`));
+      }
+      
+      if (termConditions.length > 0) {
+        conditions.push(or(...termConditions)!);
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // 1. Get Total Count
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(inventoryMoves)
+      .where(whereClause);
+    
+    const total = Number(countResult?.count || 0);
+
+    // 2. Get Paginated Data
+    const data = await db.query.inventoryMoves.findMany({
       where: whereClause,
+      limit,
+      offset,
       orderBy: desc(inventoryMoves.date),
       with: {
         fromWarehouse: true,
@@ -240,6 +290,15 @@ export class InventoryService {
         },
       },
     });
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        lastPage: Math.ceil(total / limit),
+      },
+    };
   }
 
   private async updateStock(

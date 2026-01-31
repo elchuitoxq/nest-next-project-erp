@@ -12,6 +12,7 @@ import {
 import { BranchInterceptor } from '../../common/interceptors/branch.interceptor';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { FindOrdersDto } from './dto/find-orders.dto';
 import { JwtAuthGuard } from '../../modules/auth/jwt-auth.guard';
 
 @Controller('orders')
@@ -21,8 +22,8 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get()
-  findAll(@Request() req: any, @Query('type') type?: string) {
-    return this.ordersService.findAll(req.branchId, type);
+  findAll(@Request() req: any, @Query() query: FindOrdersDto) {
+    return this.ordersService.findAll(req.branchId, query);
   }
 
   @Get(':id')

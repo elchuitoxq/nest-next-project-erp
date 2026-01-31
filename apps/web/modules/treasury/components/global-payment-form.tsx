@@ -41,8 +41,28 @@ interface Currency {
 }
 
 export function GlobalPaymentForm() {
-  const { data: partners } = usePartners();
-  const { data: allInvoices } = useInvoices();
+  const { data: partnersResponse } = usePartners({
+    limit: 1000, // Fetch many for dropdown, or use specialized component
+  });
+  const partners = partnersResponse?.data || [];
+  
+  // Use pagination params to fetch ALL relevant invoices for the selected partner
+  // Note: For a "Global Payment" form, we ideally want ALL unpaid invoices for a client.
+  // The current pagination hook defaults to page 1. We might need a specialized endpoint or hook
+  // for "All Unpaid Invoices By Partner", but for now we can try to use the existing one
+  // with a large limit or rely on the user filtering first.
+  
+  // State for partner filter to drive the invoice query
+  const [partnerId, setPartnerId] = useState("");
+
+  const { data: invoicesResponse } = useInvoices({
+    partnerId: partnerId || undefined, // Only fetch if partner selected
+    status: "POSTED", // Only fetch posted invoices
+    limit: 100, // Fetch a reasonable amount of pending invoices
+  });
+
+  const allInvoices = invoicesResponse?.data || [];
+
   const { data: methods } = usePaymentMethods();
   const { data: bankAccounts } = useBankAccounts();
   const { mutate: registerPayment, isPending } = useRegisterPayment();
@@ -65,7 +85,6 @@ export function GlobalPaymentForm() {
   });
 
   // Form State
-  const [partnerId, setPartnerId] = useState("");
   const [methodId, setMethodId] = useState("");
   const [bankAccountId, setBankAccountId] = useState("");
   const [currencyId, setCurrencyId] = useState("");
@@ -79,6 +98,8 @@ export function GlobalPaymentForm() {
   // Filter Invoices
   const clientInvoices = useMemo(() => {
     if (!partnerId || !allInvoices) return [];
+    // The query already filters by partnerId and status=POSTED via API
+    // We just double check and sort here
     return allInvoices
       .filter(
         (inv) =>

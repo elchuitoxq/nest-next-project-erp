@@ -15,6 +15,7 @@ import { InventoryService } from './inventory.service';
 import { CreateInventoryMoveDto } from './dto/create-move.dto';
 import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { JwtAuthGuard } from '../../modules/auth/jwt-auth.guard';
+import { FindMovesDto } from './dto/find-moves.dto';
 
 @Controller('inventory')
 @UseGuards(JwtAuthGuard)
@@ -49,8 +50,8 @@ export class InventoryController {
 
   // --- Moves ---
   @Get('moves')
-  findAllMoves(@Request() req: any) {
-    return this.inventoryService.findAllMoves(req.branchId);
+  findAllMoves(@Request() req: any, @Query() query: FindMovesDto) {
+    return this.inventoryService.findAllMoves(req.branchId, query);
   }
 
   @Post('moves')

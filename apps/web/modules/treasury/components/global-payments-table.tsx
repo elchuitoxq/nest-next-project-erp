@@ -44,7 +44,10 @@ interface ExtendedPaymentMethod extends PaymentMethod {
 
 export function GlobalPaymentsTable() {
   const { data: payments, isLoading: isLoadingPayments } = usePayments();
-  const { data: partners, isLoading: isLoadingPartners } = usePartners();
+  // Fetch a reasonable limit of partners for mapping
+  const { data: partnersResponse, isLoading: isLoadingPartners } = usePartners({ limit: 1000 });
+  const partners = partnersResponse?.data || [];
+
   const { data: methods, isLoading: isLoadingMethods } = usePaymentMethods();
   const [searchTerm, setSearchTerm] = useState("");
   const [methodFilter, setMethodFilter] = useState("ALL");

@@ -4,6 +4,7 @@ import {
   Warehouse,
   CreateWarehouseValues,
   CreateInventoryMoveValues,
+  Move,
 } from "../types";
 import { toast } from "sonner";
 
@@ -59,16 +60,32 @@ export function useWarehouseMutations() {
 }
 
 // --- MOVES ---
-export function useInventoryMoves() {
-  // TODO: Add pagination or filtering
+export interface FindMovesParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: string | string[];
+  warehouseId?: string;
+}
+
+export function useInventoryMoves(params: FindMovesParams = {}) {
+  // Serialize params
+  const serializedParams = {
+    ...params,
+    type: Array.isArray(params.type) ? params.type.join(",") : params.type,
+  };
+
   return useQuery({
-    queryKey: ["inventory-moves"],
+    queryKey: ["inventory-moves", serializedParams],
     queryFn: async () => {
-      // Needed backend endpoint for listing moves if not exists
-      const { data } = await api.get("/inventory/moves");
+      const { data } = await api.get<{
+        data: Move[];
+        meta: { total: number; page: number; lastPage: number };
+      }>("/inventory/moves", {
+        params: serializedParams,
+      });
       return data;
     },
-    retry: false, // Don't retry if 404 (endpoint might not exist yet)
   });
 }
 

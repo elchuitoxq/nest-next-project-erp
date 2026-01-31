@@ -3,12 +3,30 @@ import api from "@/lib/api";
 import { Order, CreateOrderValues } from "../types";
 import { toast } from "sonner";
 
-export function useOrders(type?: string) {
+export interface FindOrdersParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: string | string[];
+  status?: string | string[];
+}
+
+export function useOrders(params: FindOrdersParams = {}) {
+  // Convert arrays to comma-separated strings for URL params
+  const serializedParams = {
+    ...params,
+    type: Array.isArray(params.type) ? params.type.join(",") : params.type,
+    status: Array.isArray(params.status) ? params.status.join(",") : params.status,
+  };
+
   return useQuery({
-    queryKey: ["orders", type],
+    queryKey: ["orders", serializedParams],
     queryFn: async () => {
-      const { data } = await api.get<Order[]>("/orders", {
-        params: { type },
+      const { data } = await api.get<{
+        data: Order[];
+        meta: { total: number; page: number; lastPage: number };
+      }>("/orders", {
+        params: serializedParams,
       });
       return data;
     },

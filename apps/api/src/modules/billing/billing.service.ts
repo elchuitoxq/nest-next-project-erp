@@ -16,11 +16,12 @@ import {
   creditNotes,
   users,
 } from '@repo/db';
-import { eq, sql, desc, inArray, and, gte, lt, like, ne } from 'drizzle-orm';
+import { eq, sql, desc, inArray, and, gte, lt, like, ne, ilike, or, SQL } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import { InventoryService } from '../inventory/inventory.service';
 import { CurrenciesService } from '../settings/currencies/currencies.service';
 import { CreateInvoiceDto, InvoiceType } from './dto/create-invoice.dto';
+import { FindInvoicesDto } from './dto/find-invoices.dto';
 
 @Injectable()
 export class BillingService {
@@ -385,24 +386,99 @@ export class BillingService {
     return updated;
   }
 
-  async findAll(branchId?: string, type?: string) {
-    // 1. Fetch raw invoices (no relations)
-    const conditions = [];
-    if (branchId) conditions.push(eq(invoices.branchId, branchId));
-    if (type) conditions.push(eq(invoices.type, type));
+  async findAll(branchId: string, query: FindInvoicesDto) {
+    const { page = 1, limit = 10, search, type, status, partnerId } = query;
+    const offset = (page - 1) * limit;
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const conditions = [eq(invoices.branchId, branchId)];
 
+    if (type && type.length > 0) {
+      if (Array.isArray(type)) {
+        conditions.push(inArray(invoices.type, type));
+      } else {
+        conditions.push(eq(invoices.type, type));
+      }
+    }
+
+    if (status && status.length > 0) {
+      if (Array.isArray(status)) {
+        conditions.push(inArray(invoices.status, status));
+      } else {
+        conditions.push(eq(invoices.status, status));
+      }
+    }
+
+    if (partnerId) conditions.push(eq(invoices.partnerId, partnerId));
+
+    if (search) {
+      // Búsqueda inteligente por múltiples términos separados por comas
+      const searchTerms = search.split(',').map(s => s.trim()).filter(Boolean);
+      
+      if (searchTerms.length > 0) {
+        const termConditions = [];
+        
+        // Buscar partners que coincidan con ALGUNO de los términos
+        const matchingPartners = await db
+          .select({ id: partners.id })
+          .from(partners)
+          .where(
+            or(
+              ...searchTerms.map(term => ilike(partners.name, `%${term}%`))
+            )
+          );
+        
+        const partnerIds = matchingPartners.map(p => p.id);
+
+        // Buscar por código o cliente
+        for (const term of searchTerms) {
+          termConditions.push(ilike(invoices.code, `%${term}%`));
+          // También permitir buscar por número de control externo
+          termConditions.push(ilike(invoices.invoiceNumber, `%${term}%`));
+        }
+
+        if (partnerIds.length > 0) {
+          termConditions.push(inArray(invoices.partnerId, partnerIds));
+        }
+
+        // Si tenemos condiciones de búsqueda, las agregamos con OR
+        if (termConditions.length > 0) {
+          conditions.push(or(...termConditions)!);
+        }
+      }
+    }
+
+    const whereClause = and(...conditions);
+
+    // 1. Get Total Count
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(invoices)
+      .where(whereClause!);
+    
+    const total = Number(countResult?.count || 0);
+
+    // 2. Get Paginated Data
     const invoicesList = await db.query.invoices.findMany({
       where: whereClause,
+      limit,
+      offset,
       orderBy: desc(invoices.date),
     });
 
-    if (invoicesList.length === 0) return [];
+    if (invoicesList.length === 0) {
+      return {
+        data: [],
+        meta: {
+          total: 0,
+          page,
+          lastPage: 0,
+        },
+      };
+    }
 
     // Collect IDs
     const invoiceIds = invoicesList.map((inv) => inv.id);
-    const partnerIds = [...new Set(invoicesList.map((inv) => inv.partnerId))];
+    const invoicePartnerIds = [...new Set(invoicesList.map((inv) => inv.partnerId))];
     const branchIds = [...new Set(invoicesList.map((inv) => inv.branchId))];
     const currencyIds = [...new Set(invoicesList.map((inv) => inv.currencyId))];
 
@@ -416,9 +492,9 @@ export class BillingService {
       fetchedCreditNotes,
       fetchedUsers,
     ] = await Promise.all([
-      partnerIds.length > 0
+      invoicePartnerIds.length > 0
         ? db.query.partners.findMany({
-            where: inArray(partners.id, partnerIds),
+            where: inArray(partners.id, invoicePartnerIds),
           })
         : [],
       branchIds.length > 0
@@ -522,7 +598,7 @@ export class BillingService {
     const userMap = new Map(fetchedUsers.map((u) => [u.id, u]));
 
     // 5. Enrich and return
-    return invoicesList.map((inv) => ({
+    const data = invoicesList.map((inv) => ({
       ...inv,
       partner: partnerMap.get(inv.partnerId) || null,
       branch: branchMap.get(inv.branchId) || null,
@@ -531,6 +607,15 @@ export class BillingService {
       items: itemsByInvoice.get(inv.id) || [],
       payments: paymentsByInvoice.get(inv.id) || [],
       creditNotes: creditNotesByInvoice.get(inv.id) || [],
-      }));
+    }));
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        lastPage: Math.ceil(total / limit),
+      },
+    };
   }
 }

@@ -30,10 +30,27 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { PaginationState } from "@tanstack/react-table";
 
 export default function PartnersPage() {
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 25,
+  });
   const [search, setSearch] = useState("");
-  const { data: partners, isLoading, isError } = usePartners({ search });
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+
+  const {
+    data: partnersResponse,
+    isLoading,
+    isError,
+  } = usePartners({
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+    search,
+    type: typeFilter.length > 0 ? typeFilter : undefined,
+  });
+
   const { deletePartner } = usePartnerMutations();
   const router = useRouter();
 
@@ -103,30 +120,26 @@ export default function PartnersPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center py-4">
-              <Input
-                placeholder="Buscar por nombre o RIF..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="max-w-sm"
-              />
-            </div>
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : isError ? (
+            {isError ? (
               <div className="text-red-500 py-8 text-center">
                 Error al cargar socios. Por favor intente nuevamente.
               </div>
             ) : (
               <PartnersTable
-                partners={partners || []}
+                data={partnersResponse?.data || []}
+                pageCount={partnersResponse?.meta.lastPage || 1}
+                pagination={pagination}
+                onPaginationChange={setPagination}
+                isLoading={isLoading}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onViewStatement={(p) =>
                   router.push(`/dashboard/treasury/statements/${p.id}`)
                 }
+                search={search}
+                onSearchChange={setSearch}
+                typeFilter={typeFilter}
+                onTypeChange={setTypeFilter}
               />
             )}
           </CardContent>

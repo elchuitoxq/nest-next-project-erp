@@ -13,6 +13,7 @@ import { BranchInterceptor } from '../../common/interceptors/branch.interceptor'
 import { BillingService } from './billing.service';
 import { JwtAuthGuard } from '../../modules/auth/jwt-auth.guard';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
+import { FindInvoicesDto } from './dto/find-invoices.dto';
 
 @Controller('billing')
 @UseGuards(JwtAuthGuard)
@@ -35,8 +36,8 @@ export class BillingController {
   }
 
   @Get('invoices')
-  findAll(@Req() req: any, @Query('type') type?: string) {
-    return this.billingService.findAll(req.branchId, type);
+  findAll(@Req() req: any, @Query() query: FindInvoicesDto) {
+    return this.billingService.findAll(req.branchId, query);
   }
 
   @Post('invoices/:id/post')

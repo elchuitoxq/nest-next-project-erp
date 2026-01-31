@@ -15,6 +15,8 @@ The core business engine of the ERP, built with [NestJS](https://nestjs.com/). I
 - **`inventory/`**: Warehouse management and stock movements.
 - **`orders/`**: Sales orders and real-time price recalculation (Dual Currency).
 - **`billing/`**: Invoice generation and fiscal compliance (IVA/IGTF).
+- **`treasury/`**: Bank accounts management, payments, and funds validation logic.
+- **`reports/`**: Fiscal books generation (Sales/Purchases) and tax liquidation summary.
 - **`bi/`**: Business Intelligence and KPI calculation.
 
 ## 🛠️ Development

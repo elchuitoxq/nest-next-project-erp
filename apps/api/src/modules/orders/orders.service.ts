@@ -13,9 +13,11 @@ import {
   currencies,
   exchangeRates,
   warehouses,
+  partners,
 } from '@repo/db';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, sql, inArray, or, ilike, SQL } from 'drizzle-orm';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { FindOrdersDto } from './dto/find-orders.dto';
 import { InvoiceType } from '../billing/dto/create-invoice.dto';
 import Decimal from 'decimal.js';
 import { CurrenciesService } from '../settings/currencies/currencies.service';
@@ -27,15 +29,76 @@ export class OrdersService {
     private readonly billingService: BillingService,
     private readonly currenciesService: CurrenciesService,
   ) {}
-  async findAll(branchId?: string, type?: string) {
-    const conditions = [];
-    if (branchId) conditions.push(eq(orders.branchId, branchId));
-    if (type) conditions.push(eq(orders.type, type));
+  async findAll(branchId: string, query: FindOrdersDto) {
+    const { page = 1, limit = 10, search, type, status, partnerId } = query;
+    const offset = (page - 1) * limit;
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const conditions = [eq(orders.branchId, branchId)];
 
-    return await db.query.orders.findMany({
+    if (type && type.length > 0) {
+      if (Array.isArray(type)) {
+        conditions.push(inArray(orders.type, type));
+      } else {
+        conditions.push(eq(orders.type, type));
+      }
+    }
+
+    if (status && status.length > 0) {
+      if (Array.isArray(status)) {
+        conditions.push(inArray(orders.status, status));
+      } else {
+        conditions.push(eq(orders.status, status));
+      }
+    }
+
+    if (partnerId) conditions.push(eq(orders.partnerId, partnerId));
+
+    if (search) {
+      const searchTerms = search.split(',').map(s => s.trim()).filter(Boolean);
+      
+      if (searchTerms.length > 0) {
+        const termConditions = [];
+        
+        const matchingPartners = await db
+          .select({ id: partners.id })
+          .from(partners)
+          .where(
+            or(
+              ...searchTerms.map(term => ilike(partners.name, `%${term}%`))
+            )
+          );
+        
+        const partnerIds = matchingPartners.map(p => p.id);
+
+        for (const term of searchTerms) {
+          termConditions.push(ilike(orders.code, `%${term}%`));
+        }
+
+        if (partnerIds.length > 0) {
+          termConditions.push(inArray(orders.partnerId, partnerIds));
+        }
+
+        if (termConditions.length > 0) {
+          conditions.push(or(...termConditions)!);
+        }
+      }
+    }
+
+    const whereClause = and(...conditions) as SQL<unknown>;
+
+    // 1. Get Total Count
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(orders)
+      .where(whereClause);
+    
+    const total = Number(countResult?.count || 0);
+
+    // 2. Get Paginated Data
+    const items = await db.query.orders.findMany({
       where: whereClause,
+      limit,
+      offset,
       orderBy: desc(orders.date),
       with: {
         partner: true,
@@ -50,6 +113,15 @@ export class OrdersService {
         },
       },
     });
+
+    return {
+      data: items,
+      meta: {
+        total,
+        page,
+        lastPage: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findOne(id: string) {

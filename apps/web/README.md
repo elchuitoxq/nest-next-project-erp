@@ -13,7 +13,11 @@ The user interface for the ERP, built with [Next.js 15](https://nextjs.org/) (Ap
 ## 📂 Key Folders
 
 - **`components/`**: Shared UI components and administrative layouts.
-- **`modules/`**: Feature-specific UI logic (Inventory, Sales, Billing). Each module contains its own hooks, components, and schemas.
+- **`modules/`**: Feature-specific UI logic. Each module contains its own hooks, components, and schemas.
+  - `inventory`: Stock, Warehouses, Products.
+  - `billing`: Invoices, POS.
+  - `treasury`: Payments, Bank Accounts, Ledger.
+  - `reports`: Fiscal Books, Tax Liquidation.
 - **`stores/`**: Global state stores (Auth, Theme).
 - **`lib/`**: API clients (Axios) and utility functions.
 

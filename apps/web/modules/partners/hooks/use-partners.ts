@@ -4,12 +4,28 @@ import { Partner } from "../types";
 import { PartnerFormValues } from "../schemas/partner.schema";
 import { toast } from "sonner";
 
-export const usePartners = (params?: { search?: string; type?: string }) => {
+export interface FindPartnersParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  type?: string | string[];
+}
+
+export const usePartners = (params: FindPartnersParams = {}) => {
+  // Serialize params
+  const serializedParams = {
+    ...params,
+    type: Array.isArray(params.type) ? params.type.join(",") : params.type,
+  };
+
   return useQuery({
-    queryKey: ["partners", params?.search, params?.type],
+    queryKey: ["partners", serializedParams],
     queryFn: async () => {
-      const { data } = await api.get<Partner[]>("/partners", {
-        params,
+      const { data } = await api.get<{
+        data: Partner[];
+        meta: { total: number; page: number; lastPage: number };
+      }>("/partners", {
+        params: serializedParams,
       });
       return data;
     },

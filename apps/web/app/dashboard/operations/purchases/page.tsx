@@ -29,16 +29,33 @@ import { OrdersTable } from "@/modules/orders/components/orders-table";
 import { OrderDialog } from "@/modules/orders/components/order-dialog";
 import { OrderDetailsDialog } from "@/modules/orders/components/order-details-dialog";
 import { Order } from "@/modules/orders/types";
+import { PaginationState } from "@tanstack/react-table";
 
 export default function PurchaseOrdersPage() {
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 25,
+  });
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+
   // Pass 'PURCHASE' to filter
-  const { data: orders, isLoading, isError } = useOrders("PURCHASE");
+  const { data: ordersResponse, isLoading, isError } = useOrders({
+    type: "PURCHASE",
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+    search,
+    status: statusFilter.length > 0 ? statusFilter : undefined,
+  });
+
   const { confirmOrder, cancelOrder, generateInvoice, recalculateOrder } =
     useOrderMutations();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<Order | undefined>(
-    undefined,
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const selectedOrder = ordersResponse?.data?.find(
+    (order) => order.id === selectedId,
   );
 
   const executeConfirm = async (order: Order) => {
@@ -98,7 +115,7 @@ export default function PurchaseOrdersPage() {
   };
 
   const handleViewDetails = (order: Order) => {
-    setSelectedOrder(order);
+    setSelectedId(order.id);
     setIsDetailsOpen(true);
   };
 
@@ -155,21 +172,22 @@ export default function PurchaseOrdersPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : isError ? (
+            {isError ? (
               <div className="text-red-500 py-8 text-center">
                 Error al cargar órdenes.
               </div>
             ) : (
-              // @ts-ignore
               <OrdersTable
-                orders={orders || []}
+                data={ordersResponse?.data || []}
+                pageCount={ordersResponse?.meta.lastPage || 1}
+                pagination={pagination}
+                onPaginationChange={setPagination}
                 onViewDetails={handleViewDetails}
-                onConfirm={handleViewDetails}
-                onCancel={handleViewDetails}
+                isLoading={isLoading}
+                search={search}
+                onSearchChange={setSearch}
+                statusFilter={statusFilter}
+                onStatusChange={setStatusFilter}
               />
             )}
           </CardContent>

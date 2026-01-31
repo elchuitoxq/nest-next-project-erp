@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { PartnersService } from './partners.service';
 import { JwtAuthGuard } from '../../modules/auth/jwt-auth.guard';
+import { FindPartnersDto } from './dto/find-partners.dto';
 
 @Controller('partners')
 @UseGuards(JwtAuthGuard)
@@ -18,8 +19,8 @@ export class PartnersController {
   constructor(private readonly partnersService: PartnersService) {}
 
   @Get()
-  findAll(@Query('search') search?: string, @Query('type') type?: string) {
-    return this.partnersService.findAll(search, type);
+  findAll(@Query() query: FindPartnersDto) {
+    return this.partnersService.findAll(query);
   }
 
   @Get(':id')

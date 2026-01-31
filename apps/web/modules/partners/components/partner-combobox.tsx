@@ -38,7 +38,8 @@ export function PartnerCombobox({
   const [search, setSearch] = useState("");
 
   // Fetch with search and type filters
-  const { data: partners, isLoading } = usePartners({ search, type });
+  const { data: partnersResponse, isLoading } = usePartners({ search, type });
+  const partners = partnersResponse?.data || [];
 
   const selectedPartner = partners?.find((p) => p.id === value);
 
