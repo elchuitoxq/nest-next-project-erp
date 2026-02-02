@@ -26,6 +26,11 @@ export class OrdersController {
     return this.ordersService.findAll(req.branchId, query);
   }
 
+  @Get('stats')
+  getStats(@Request() req: any, @Query('type') type: string) {
+    return this.ordersService.getStats(req.branchId, type || 'SALE');
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     // We might want to restrict findOne to the active branch too,

@@ -16,7 +16,9 @@ export function useInvoices(params: FindInvoicesParams = {}) {
   const serializedParams = {
     ...params,
     type: Array.isArray(params.type) ? params.type.join(",") : params.type,
-    status: Array.isArray(params.status) ? params.status.join(",") : params.status,
+    status: Array.isArray(params.status)
+      ? params.status.join(",")
+      : params.status,
   };
 
   return useQuery({
@@ -32,7 +34,6 @@ export function useInvoices(params: FindInvoicesParams = {}) {
     },
   });
 }
-
 
 export function usePostInvoice() {
   const queryClient = useQueryClient();
@@ -90,3 +91,15 @@ export function useUpdateInvoice() {
     },
   });
 }
+
+export const useInvoiceStats = (type: "SALE" | "PURCHASE") => {
+  return useQuery({
+    queryKey: ["invoices", "stats", type],
+    queryFn: async () => {
+      const { data } = await api.get<{ status: string; count: number }[]>(
+        `/billing/invoices/stats?type=${type}`,
+      );
+      return data;
+    },
+  });
+};

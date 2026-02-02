@@ -54,21 +54,22 @@ export class OrdersService {
     if (partnerId) conditions.push(eq(orders.partnerId, partnerId));
 
     if (search) {
-      const searchTerms = search.split(',').map(s => s.trim()).filter(Boolean);
-      
+      const searchTerms = search
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
       if (searchTerms.length > 0) {
         const termConditions = [];
-        
+
         const matchingPartners = await db
           .select({ id: partners.id })
           .from(partners)
           .where(
-            or(
-              ...searchTerms.map(term => ilike(partners.name, `%${term}%`))
-            )
+            or(...searchTerms.map((term) => ilike(partners.name, `%${term}%`))),
           );
-        
-        const partnerIds = matchingPartners.map(p => p.id);
+
+        const partnerIds = matchingPartners.map((p) => p.id);
 
         for (const term of searchTerms) {
           termConditions.push(ilike(orders.code, `%${term}%`));
@@ -91,7 +92,7 @@ export class OrdersService {
       .select({ count: sql<number>`count(*)` })
       .from(orders)
       .where(whereClause);
-    
+
     const total = Number(countResult?.count || 0);
 
     // 2. Get Paginated Data
@@ -140,6 +141,19 @@ export class OrdersService {
         },
       },
     });
+  }
+
+  async getStats(branchId: string, type: string) {
+    const stats = await db
+      .select({
+        status: orders.status,
+        count: sql<number>`count(*)`,
+      })
+      .from(orders)
+      .where(and(eq(orders.branchId, branchId), eq(orders.type, type)))
+      .groupBy(orders.status);
+
+    return stats;
   }
 
   // Modified signature to handle extended DTO with branchId
@@ -491,12 +505,22 @@ export class OrdersService {
         where: eq(currencies.id, targetCurrencyId),
       });
 
+      // FIX: Find the Foreign / Market Currency (Usually USD)
+      // We need the rate of the FOREIGN currency to do conversions.
+      // E.g. If Foreign is USD, we need rate ~45.00.
+
+      const marketCurrency = await db.query.currencies.findFirst({
+        where: eq(currencies.isBase, false), // Assuming Foreign is NOT base (VES is Base)
+      });
+
       let orderRateStr = '1';
-      // Always fetch global VES rate (USD -> VES parity)
-      if (vesCurrency) {
+
+      if (marketCurrency) {
         orderRateStr =
-          (await this.currenciesService.getLatestRate(vesCurrency.id)) || '1';
+          (await this.currenciesService.getLatestRate(marketCurrency.id)) ||
+          '1';
       }
+
       const orderRate = new Decimal(orderRateStr);
 
       let newTotal = new Decimal(0);
@@ -506,7 +530,14 @@ export class OrdersService {
         // Product Price is usually stored in product.currencyId (e.g., USD)
         // If product.currencyId is missing, assume it matches the product.price context (e.g. USD).
 
-        const productPrice = new Decimal(product.price || '0');
+        // Check if Purchase or Sale
+        // If Purchase, we use COST. If Sale, we use PRICE.
+        const basePrice =
+          order.type === 'PURCHASE'
+            ? new Decimal(product.cost || '0')
+            : new Decimal(product.price || '0');
+
+        const productPrice = basePrice;
         const productCurrencyId = product.currencyId;
 
         let finalPrice = productPrice;
@@ -539,22 +570,26 @@ export class OrdersService {
           if (!productCurrency || !orderCurrency) continue;
 
           if (!productCurrency.isBase && orderCurrency.isBase) {
-            // USD -> VES
-            // We need Rate of ProductCurrency.
-            // But 'orderRate' above was fetched for TargetCurrency (VES), which is 1.
-            // We need Rate of ProductCurrency (USD).
+            // Foreign (VES) -> Base (USD)
+            // Example: 3500 VES -> $10 USD. Rate 350.
+            // Operation: Divide by Rate.
             const prodRateStr =
               (await this.currenciesService.getLatestRate(productCurrencyId)) ||
               '1';
             const prodRate = new Decimal(prodRateStr);
-            finalPrice = productPrice.times(prodRate);
+            finalPrice = productPrice.div(prodRate);
           } else if (productCurrency.isBase && !orderCurrency.isBase) {
-            // VES -> USD
-            // We need Rate of OrderCurrency (USD).
-            // 'orderRate' is 45.
-            finalPrice = productPrice.div(orderRate);
+            // Base (USD) -> Foreign (VES)
+            // Example: $10 USD -> 3500 VES. Rate 350.
+            // Operation: Multiply by Rate.
+            // We need the rate of the TARGET currency (VES).
+            const targetRateStr =
+              (await this.currenciesService.getLatestRate(targetCurrencyId)) ||
+              '1';
+            const targetRate = new Decimal(targetRateStr);
+            finalPrice = productPrice.times(targetRate);
           } else if (!productCurrency.isBase && !orderCurrency.isBase) {
-            // USD -> EUR (Cross Rate) - Not supported yet, assume 1:1 or handle later
+            // VES -> EUR (Not supported, assume 1:1)
           }
         }
 

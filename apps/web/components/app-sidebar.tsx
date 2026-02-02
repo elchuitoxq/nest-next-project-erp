@@ -119,10 +119,6 @@ const NAV_ITEMS: NavItem[] = [
         title: "Reportes Fiscales",
         url: "/dashboard/treasury/reports",
       },
-      {
-        title: "Métodos de Pago",
-        url: "/dashboard/treasury/methods",
-      },
     ],
   },
   {
@@ -178,6 +174,10 @@ const NAV_ITEMS: NavItem[] = [
       {
         title: "Monedas y Tasas",
         url: "/dashboard/settings/currencies",
+      },
+      {
+        title: "Métodos de Pago",
+        url: "/dashboard/settings/methods",
       },
     ],
   },

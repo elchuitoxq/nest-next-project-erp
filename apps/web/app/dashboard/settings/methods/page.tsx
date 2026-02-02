@@ -60,13 +60,14 @@ export default function MethodsPage() {
   });
 
   // Client-side filtering
-  const filteredMethods = methods?.filter((m: any) => {
-    const term = search.toLowerCase();
-    return (
-      m.name.toLowerCase().includes(term) ||
-      m.code.toLowerCase().includes(term)
-    );
-  }) || [];
+  const filteredMethods =
+    methods?.filter((m: any) => {
+      const term = search.toLowerCase();
+      return (
+        m.name.toLowerCase().includes(term) ||
+        m.code.toLowerCase().includes(term)
+      );
+    }) || [];
 
   const { data: accounts } = useBankAccounts();
 
@@ -120,8 +121,8 @@ export default function MethodsPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/dashboard/treasury">
-                  Tesorería
+                <BreadcrumbLink href="/dashboard/settings">
+                  Configuración
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />

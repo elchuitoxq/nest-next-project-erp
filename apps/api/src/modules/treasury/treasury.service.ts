@@ -96,7 +96,24 @@ export class TreasuryService {
         }
       }
 
-    const amount = new Decimal(data.amount);
+      // Method Validation & Sanitization
+      const method = await tx.query.paymentMethods.findFirst({
+        where: eq(paymentMethods.id, data.methodId),
+      });
+
+      // If method is CASH/EFECTIVO, force bankAccountId to null to avoid pollution
+      // This fixes the issue where frontend sends bankAccountId even after switching to Cash
+      let finalBankAccountId = data.bankAccountId;
+      if (
+        method &&
+        (method.code.includes('CASH') ||
+          method.code.includes('EFECTIVO') ||
+          method.code.includes('DIVISA'))
+      ) {
+        finalBankAccountId = undefined;
+      }
+
+      const amount = new Decimal(data.amount);
 
       let exchangeRate = '1.0000000000';
       let paymentType = 'INCOME';
@@ -107,7 +124,7 @@ export class TreasuryService {
           .select()
           .from(invoices)
           .where(eq(invoices.id, data.invoiceId));
-        
+
         if (invoice) {
           if (invoice.type === 'PURCHASE') {
             paymentType = 'EXPENSE';
@@ -123,16 +140,18 @@ export class TreasuryService {
       // If rate is still 1.0 (default) AND was provided in data, use data.
       // If not in data and not inherited, try to fetch latest system rate.
       if (data.exchangeRate && new Decimal(data.exchangeRate).gt(0)) {
-         exchangeRate = data.exchangeRate;
+        exchangeRate = data.exchangeRate;
       } else if (exchangeRate === '1.0000000000' && !invoice) {
-         // Fallback to system rate if purely standalone payment
-         exchangeRate = (await this.currenciesService.getLatestRate(data.currencyId)) || '1.0000000000';
+        // Fallback to system rate if purely standalone payment
+        exchangeRate =
+          (await this.currenciesService.getLatestRate(data.currencyId)) ||
+          '1.0000000000';
       }
 
       // Validate Bank Balance for Expenses
-      if (data.bankAccountId && paymentType === 'EXPENSE') {
+      if (finalBankAccountId && paymentType === 'EXPENSE') {
         const account = await tx.query.bankAccounts.findFirst({
-          where: eq(bankAccounts.id, data.bankAccountId),
+          where: eq(bankAccounts.id, finalBankAccountId),
         });
 
         if (account) {
@@ -157,7 +176,7 @@ export class TreasuryService {
           amount: amount.toFixed(2),
           type: paymentType as 'INCOME' | 'EXPENSE',
           exchangeRate,
-          bankAccountId: data.bankAccountId || null,
+          bankAccountId: finalBankAccountId || null,
           reference: data.reference,
           metadata: data.metadata,
           userId: data.userId,
@@ -166,9 +185,8 @@ export class TreasuryService {
 
       // --- CHECK MANUAL RETENTION PAYMENT ---
       // If the payment method itself IS a retention (e.g. user selected "RET_IVA_75" in dialog)
-      const method = await tx.query.paymentMethods.findFirst({
-        where: eq(paymentMethods.id, data.methodId),
-      });
+      // Method is already fetched above
+      // const method = ... (already fetched)
 
       if (method && method.code.startsWith('RET_') && data.invoiceId) {
         // This IS a manual retention payment. We MUST generate the fiscal voucher.
@@ -178,37 +196,37 @@ export class TreasuryService {
         });
 
         if (invoice) {
-           const type = method.code.includes('IVA') ? 'IVA' : 'ISLR';
-           const baseAmount = data.metadata?.taxBase || invoice.totalBase || '0';
-           const taxAmount = invoice.totalTax || '0'; // Simplified, assuming retention applies to full invoice tax
-           
-           // If it's partial retention, we might need logic, but usually RET payment amount IS the retained amount.
-           const retainedAmount = amount.toFixed(2);
+          const type = method.code.includes('IVA') ? 'IVA' : 'ISLR';
+          const baseAmount = data.metadata?.taxBase || invoice.totalBase || '0';
+          const taxAmount = invoice.totalTax || '0'; // Simplified, assuming retention applies to full invoice tax
 
-           await this.retentionsService.createRetention(
-             {
-               partnerId: data.partnerId,
-               branchId: data.branchId || invoice.branchId,
-               userId: data.userId || 'SYSTEM',
-               type: type as 'IVA' | 'ISLR',
-               period: new Date().toISOString().slice(0, 7).replace('-', ''),
-               items: [
-                 {
-                   invoiceId: invoice.id,
-                   baseAmount: String(baseAmount),
-                   taxAmount: String(taxAmount),
-                   retainedAmount: retainedAmount,
-                   paymentId: payment.id,
-                 },
-               ],
-             },
-             tx, // Pass the ACTIVE transaction
-           );
+          // If it's partial retention, we might need logic, but usually RET payment amount IS the retained amount.
+          const retainedAmount = amount.toFixed(2);
+
+          await this.retentionsService.createRetention(
+            {
+              partnerId: data.partnerId,
+              branchId: data.branchId || invoice.branchId,
+              userId: data.userId || 'SYSTEM',
+              type: type as 'IVA' | 'ISLR',
+              period: new Date().toISOString().slice(0, 7).replace('-', ''),
+              items: [
+                {
+                  invoiceId: invoice.id,
+                  baseAmount: String(baseAmount),
+                  taxAmount: String(taxAmount),
+                  retainedAmount: retainedAmount,
+                  paymentId: payment.id,
+                },
+              ],
+            },
+            tx, // Pass the ACTIVE transaction
+          );
         }
       }
 
       // Update Bank Account Balance
-      if (data.bankAccountId) {
+      if (finalBankAccountId) {
         // Correctly handle Income vs Expense
         const operation =
           paymentType === 'INCOME'
@@ -220,12 +238,16 @@ export class TreasuryService {
           .set({
             currentBalance: operation,
           })
-          .where(eq(bankAccounts.id, data.bankAccountId));
+          .where(eq(bankAccounts.id, finalBankAccountId));
       }
 
       // --- AUTOMATIC RETENTION GENERATION (VENEZUELA) ---
       // Only run automatic logic if this wasn't ALREADY a retention payment (to avoid double creation)
-      if (paymentType === 'EXPENSE' && data.invoiceId && !method?.code.startsWith('RET_')) {
+      if (
+        paymentType === 'EXPENSE' &&
+        data.invoiceId &&
+        !method?.code.startsWith('RET_')
+      ) {
         // Fetch Partner and Invoice details
         const partner = await tx.query.partners.findFirst({
           where: eq(partners.id, data.partnerId),
@@ -416,9 +438,11 @@ export class TreasuryService {
   async findAllPayments(branchId?: string, bankAccountId?: string) {
     const whereConditions: any[] = [];
     if (branchId) whereConditions.push(eq(payments.branchId, branchId));
-    if (bankAccountId) whereConditions.push(eq(payments.bankAccountId, bankAccountId));
+    if (bankAccountId)
+      whereConditions.push(eq(payments.bankAccountId, bankAccountId));
 
-    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
+    const whereClause =
+      whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
     const rows = await db
       .select({
@@ -426,7 +450,7 @@ export class TreasuryService {
         user: users,
         bankAccount: bankAccounts,
         partner: partners, // Include partner info for description
-        method: paymentMethods // Include method name
+        method: paymentMethods, // Include method name
       })
       .from(payments)
       .leftJoin(users, eq(payments.userId, users.id))
@@ -444,7 +468,7 @@ export class TreasuryService {
         ? { id: bankAccount.id, name: bankAccount.name }
         : null,
       partnerName: partner?.name || 'N/A', // Add Partner Name
-      methodName: method?.name || 'N/A' // Add Method Name
+      methodName: method?.name || 'N/A', // Add Method Name
     }));
   }
 
@@ -550,7 +574,8 @@ export class TreasuryService {
     transactions.sort((a, b) => a.date.getTime() - b.date.getTime());
 
     // 4. Calculate Balances per Currency
-    const summary: Record<string, { balance: number; unusedBalance: number }> = {};
+    const summary: Record<string, { balance: number; unusedBalance: number }> =
+      {};
 
     // Initialize summary for all involved currencies
     const involvedCurrencies = new Set(transactions.map((t) => t.currency));
@@ -572,8 +597,9 @@ export class TreasuryService {
     for (const cn of partnerCreditNotes) {
       const curr = cn.currency?.code || 'VES';
       if (!summary[curr]) summary[curr] = { balance: 0, unusedBalance: 0 };
-      
-      const total = Number(cn.totalBase) + Number(cn.totalTax) + Number(cn.totalIgtf);
+
+      const total =
+        Number(cn.totalBase) + Number(cn.totalTax) + Number(cn.totalIgtf);
       summary[curr].unusedBalance += total;
     }
 
@@ -613,8 +639,8 @@ export class TreasuryService {
     }
 
     // Ensure no negative unused balance (safety)
-    Object.keys(summary).forEach(key => {
-        summary[key].unusedBalance = Math.max(0, summary[key].unusedBalance);
+    Object.keys(summary).forEach((key) => {
+      summary[key].unusedBalance = Math.max(0, summary[key].unusedBalance);
     });
 
     return {

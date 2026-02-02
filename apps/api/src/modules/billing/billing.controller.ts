@@ -40,6 +40,11 @@ export class BillingController {
     return this.billingService.findAll(req.branchId, query);
   }
 
+  @Get('invoices/stats')
+  getStats(@Req() req: any, @Query('type') type: string) {
+    return this.billingService.getStats(req.branchId, type || 'SALE');
+  }
+
   @Post('invoices/:id/post')
   postInvoice(@Param('id') id: string, @Req() req: any) {
     return this.billingService.postInvoice(id, req.user.userId);

@@ -59,22 +59,26 @@ async function main() {
   try {
     // 1. RUN BASIC SEED (Infrastructure)
     const baseData = await seed(true); // Clean = true
-    
+
     const allBanks = await db.select().from(banks);
 
-    const { adminUser, branches: seededBranches, currencies: { usd, ves } } = baseData;
-    
+    const {
+      adminUser,
+      branches: seededBranches,
+      currencies: { usd, ves },
+    } = baseData;
+
     // Alias for code clarity
     const currUSD = usd;
     const currVES = ves;
-    const branchCCS = seededBranches.find(b => b.name.includes("Caracas"))!;
-    const branchVAL = seededBranches.find(b => b.name.includes("Valencia"))!;
+    const branchCCS = seededBranches.find((b) => b.name.includes("Caracas"))!;
+    const branchVAL = seededBranches.find((b) => b.name.includes("Valencia"))!;
 
     // Fetch master roles
     const allRoles = await db.select().from(roles);
-    const roleSeller = allRoles.find(r => r.name === "seller")!;
-    const roleWarehouse = allRoles.find(r => r.name === "warehouse")!;
-    const roleTreasury = allRoles.find(r => r.name === "accountant")!;
+    const roleSeller = allRoles.find((r) => r.name === "seller")!;
+    const roleWarehouse = allRoles.find((r) => r.name === "warehouse")!;
+    const roleTreasury = allRoles.find((r) => r.name === "accountant")!;
 
     // =================================================================================
     // LEVEL 1: SETUP (Users, Accounts, Rates)
@@ -84,45 +88,80 @@ async function main() {
     // Create extra users
     const password = await bcrypt.hash("admin123", 10);
     const usersData = [
-      { email: "ventas.ccs@erp.com", name: "Vendedor Caracas", role: roleSeller, branch: branchCCS },
-      { email: "almacen.val@erp.com", name: "Jefe Almacén Val", role: roleWarehouse, branch: branchVAL },
-      { email: "tesoreria@erp.com", name: "Tesorero General", role: roleTreasury, branch: branchCCS },
+      {
+        email: "ventas.ccs@erp.com",
+        name: "Vendedor Caracas",
+        role: roleSeller,
+        branch: branchCCS,
+      },
+      {
+        email: "almacen.val@erp.com",
+        name: "Jefe Almacén Val",
+        role: roleWarehouse,
+        branch: branchVAL,
+      },
+      {
+        email: "tesoreria@erp.com",
+        name: "Tesorero General",
+        role: roleTreasury,
+        branch: branchCCS,
+      },
     ];
 
     for (const u of usersData) {
-      const [newUser] = await db.insert(users).values({
-          email: u.email, name: u.name, password: password,
-        }).returning();
-      await db.insert(usersRoles).values({ userId: newUser.id, roleId: u.role.id });
-      await db.insert(usersBranches).values({ userId: newUser.id, branchId: u.branch.id, isDefault: true });
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          email: u.email,
+          name: u.name,
+          password: password,
+        })
+        .returning();
+      await db
+        .insert(usersRoles)
+        .values({ userId: newUser.id, roleId: u.role.id });
+      await db
+        .insert(usersBranches)
+        .values({ userId: newUser.id, branchId: u.branch.id, isDefault: true });
       // Add secondary branch for treasurer
-      if (u.role.name === 'accountant') {
-         await db.insert(usersBranches).values({ userId: newUser.id, branchId: branchVAL.id, isDefault: false });
+      if (u.role.name === "accountant") {
+        await db
+          .insert(usersBranches)
+          .values({
+            userId: newUser.id,
+            branchId: branchVAL.id,
+            isDefault: false,
+          });
       }
     }
 
     // Wallets & Accounts (Zelle, Cash)
     const allMethods = await db.select().from(paymentMethods);
     const seededAccounts = await db.select().from(bankAccounts);
-    
-    for (const b of [branchCCS, branchVAL]) {
-        // Ensure Wallet Account
-        const [wallet] = await db.insert(bankAccounts).values({
-            name: `Zelle Corp - ${b.name.split(" ")[1]}`,
-            type: "WALLET",
-            currencyId: currUSD.id,
-            branchId: b.id,
-            currentBalance: "5000.00"
-        }).returning();
-        seededAccounts.push(wallet);
 
-        const methodTransfUSD = allMethods.find(m => m.code === "TRANSFERENCIA_USD" && m.branchId === b.id);
-        if (methodTransfUSD) {
-            await db.insert(paymentMethodAccounts).values({
-                methodId: methodTransfUSD.id,
-                bankAccountId: wallet.id
-            });
-        }
+    for (const b of [branchCCS, branchVAL]) {
+      // Ensure Wallet Account
+      const [wallet] = await db
+        .insert(bankAccounts)
+        .values({
+          name: `Zelle Corp - ${b.name.split(" ")[1]}`,
+          type: "WALLET",
+          currencyId: currUSD.id,
+          branchId: b.id,
+          currentBalance: "5000.00",
+        })
+        .returning();
+      seededAccounts.push(wallet);
+
+      const methodTransfUSD = allMethods.find(
+        (m) => m.code === "TRANSFERENCIA_USD" && m.branchId === b.id,
+      );
+      if (methodTransfUSD) {
+        await db.insert(paymentMethodAccounts).values({
+          methodId: methodTransfUSD.id,
+          bankAccountId: wallet.id,
+        });
+      }
     }
 
     // Historical Rates (60 days)
@@ -130,92 +169,156 @@ async function main() {
     const rateByDate = new Map<string, string>();
     const ratesData: any[] = [];
     const today = new Date();
-    let currentRateNum = 352.70; // Starting point today
+    let currentRateNum = 352.7; // Starting point today
 
     for (let i = 0; i <= 60; i++) {
-        const d = new Date();
-        d.setDate(today.getDate() - i);
-        const dateKey = d.toISOString().slice(0, 10);
-        
-        // Slight fluctuation
-        if (i > 0) currentRateNum -= faker.number.float({ min: 0.1, max: 0.8 });
-        
-        const rateStr = currentRateNum.toFixed(4);
-        rateByDate.set(dateKey, rateStr);
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const dateKey = d.toISOString().slice(0, 10);
 
-        if (i > 0) { // Today is already created by seed()
-            ratesData.push({
-                currencyId: currVES.id,
-                rate: rateStr,
-                date: d,
-                source: "BCV",
-            });
-        }
+      // Slight fluctuation
+      if (i > 0) currentRateNum -= faker.number.float({ min: 0.1, max: 0.8 });
+
+      const rateStr = currentRateNum.toFixed(4);
+      rateByDate.set(dateKey, rateStr);
+
+      if (i > 0) {
+        // Today is already created by seed()
+        ratesData.push({
+          currencyId: currVES.id,
+          rate: rateStr,
+          date: d,
+          source: "BCV",
+        });
+      }
     }
     await db.insert(exchangeRates).values(ratesData);
 
     // Master Data
     console.log("📦 [L3] Creating Products & Partners...");
-    
+
     // Partners
     const suppliers: any[] = [];
     const customers: any[] = [];
-    for(let i=0; i<5; i++) {
-        const [p] = await db.insert(partners).values({
-            name: faker.company.name(),
-            taxId: `J-${faker.string.numeric(8)}-${faker.string.numeric(1)}`,
-            email: faker.internet.email(),
-            type: "SUPPLIER",
-            taxpayerType: "ORDINARY",
-            address: faker.location.streetAddress(),
-        }).returning();
-        suppliers.push(p);
+    for (let i = 0; i < 5; i++) {
+      const [p] = await db
+        .insert(partners)
+        .values({
+          name: faker.company.name(),
+          taxId: `J-${faker.string.numeric(8)}-${faker.string.numeric(1)}`,
+          email: faker.internet.email(),
+          type: "SUPPLIER",
+          taxpayerType: "ORDINARY",
+          address: faker.location.streetAddress(),
+        })
+        .returning();
+      suppliers.push(p);
     }
-    for(let i=0; i<10; i++) {
-        const [p] = await db.insert(partners).values({
-            name: faker.person.fullName(),
-            taxId: `V-${faker.string.numeric(8)}`,
-            type: "CUSTOMER",
-            taxpayerType: Math.random() > 0.8 ? "SPECIAL" : "ORDINARY",
-            address: faker.location.city(),
-        }).returning();
-        customers.push(p);
+    for (let i = 0; i < 10; i++) {
+      const [p] = await db
+        .insert(partners)
+        .values({
+          name: faker.person.fullName(),
+          taxId: `V-${faker.string.numeric(8)}`,
+          type: "CUSTOMER",
+          taxpayerType: Math.random() > 0.8 ? "SPECIAL" : "ORDINARY",
+          address: faker.location.city(),
+        })
+        .returning();
+      customers.push(p);
     }
 
     // Products (Priced in USD)
-    const [catTech] = await db.insert(productCategories).values([{ name: "Tecnología", description: "General" }]).returning();
+    const [catTech] = await db
+      .insert(productCategories)
+      .values([{ name: "Tecnología", description: "General" }])
+      .returning();
     const productsData: any[] = [];
-    for(let i=0; i<20; i++) {
-        const cost = parseFloat(randomMoney(50, 800));
-        const price = cost * 1.4; // 40% margin
-        const [prod] = await db.insert(products).values({
-            sku: `PROD-${faker.string.alphanumeric(4).toUpperCase()}`,
-            name: faker.commerce.productName(),
-            categoryId: catTech.id,
-            type: "PHYSICAL",
-            currencyId: currUSD.id,
-            cost: cost.toFixed(2),
-            price: price.toFixed(2),
-            taxRate: "16.00"
-        }).returning();
-        productsData.push(prod);
+    for (let i = 0; i < 20; i++) {
+      const cost = parseFloat(randomMoney(50, 800));
+      const price = cost * 1.4; // 40% margin
+      const [prod] = await db
+        .insert(products)
+        .values({
+          sku: `PROD-${faker.string.alphanumeric(4).toUpperCase()}`,
+          name: faker.commerce.productName(),
+          categoryId: catTech.id,
+          type: "PHYSICAL",
+          currencyId: currUSD.id,
+          cost: cost.toFixed(2),
+          price: price.toFixed(2),
+          taxRate: "16.00",
+        })
+        .returning();
+      productsData.push(prod);
     }
 
     // =================================================================================
     // NEW: TAX CONCEPTS (Catálogo Fiscal Venezolano)
     // =================================================================================
     console.log("📋 [L3.1] Creating Tax Concepts...");
-    
-    const taxConceptsData = await db.insert(taxConcepts).values([
-      { code: "001", name: "Honorarios Profesionales (Personas Naturales)", retentionPercentage: "3.00", baseMin: "0", sustraendo: "0" },
-      { code: "002", name: "Honorarios Profesionales (Personas Jurídicas)", retentionPercentage: "5.00", baseMin: "0", sustraendo: "0" },
-      { code: "003", name: "Comisiones Mercantiles", retentionPercentage: "5.00", baseMin: "0", sustraendo: "0" },
-      { code: "004", name: "Servicios de Transporte", retentionPercentage: "1.00", baseMin: "0", sustraendo: "0" },
-      { code: "005", name: "Servicios Generales", retentionPercentage: "2.00", baseMin: "0", sustraendo: "0" },
-      { code: "006", name: "Arrendamiento de Bienes Inmuebles", retentionPercentage: "5.00", baseMin: "0", sustraendo: "0" },
-      { code: "007", name: "Publicidad y Propaganda", retentionPercentage: "5.00", baseMin: "0", sustraendo: "0" },
-      { code: "008", name: "Pagos a Contratistas", retentionPercentage: "2.00", baseMin: "0", sustraendo: "0" },
-    ]).returning();
+
+    const taxConceptsData = await db
+      .insert(taxConcepts)
+      .values([
+        {
+          code: "001",
+          name: "Honorarios Profesionales (Personas Naturales)",
+          retentionPercentage: "3.00",
+          baseMin: "0",
+          sustraendo: "0",
+        },
+        {
+          code: "002",
+          name: "Honorarios Profesionales (Personas Jurídicas)",
+          retentionPercentage: "5.00",
+          baseMin: "0",
+          sustraendo: "0",
+        },
+        {
+          code: "003",
+          name: "Comisiones Mercantiles",
+          retentionPercentage: "5.00",
+          baseMin: "0",
+          sustraendo: "0",
+        },
+        {
+          code: "004",
+          name: "Servicios de Transporte",
+          retentionPercentage: "1.00",
+          baseMin: "0",
+          sustraendo: "0",
+        },
+        {
+          code: "005",
+          name: "Servicios Generales",
+          retentionPercentage: "2.00",
+          baseMin: "0",
+          sustraendo: "0",
+        },
+        {
+          code: "006",
+          name: "Arrendamiento de Bienes Inmuebles",
+          retentionPercentage: "5.00",
+          baseMin: "0",
+          sustraendo: "0",
+        },
+        {
+          code: "007",
+          name: "Publicidad y Propaganda",
+          retentionPercentage: "5.00",
+          baseMin: "0",
+          sustraendo: "0",
+        },
+        {
+          code: "008",
+          name: "Pagos a Contratistas",
+          retentionPercentage: "2.00",
+          baseMin: "0",
+          sustraendo: "0",
+        },
+      ])
+      .returning();
 
     console.log(`   ✅ Created ${taxConceptsData.length} tax concepts`);
 
@@ -223,16 +326,61 @@ async function main() {
     // NEW: JOB POSITIONS (Cargos con Tabulador Salarial)
     // =================================================================================
     console.log("💼 [L3.2] Creating Job Positions...");
-    
-    const jobPositionsData = await db.insert(jobPositions).values([
-      { name: "Gerente General", description: "Dirección general de la empresa", currencyId: currUSD.id, baseSalaryMin: "2000.00", baseSalaryMax: "5000.00" },
-      { name: "Gerente de Ventas", description: "Dirección del equipo comercial", currencyId: currUSD.id, baseSalaryMin: "1200.00", baseSalaryMax: "2500.00" },
-      { name: "Contador", description: "Gestión contable y fiscal", currencyId: currUSD.id, baseSalaryMin: "800.00", baseSalaryMax: "1500.00" },
-      { name: "Vendedor", description: "Atención al cliente y ventas", currencyId: currUSD.id, baseSalaryMin: "400.00", baseSalaryMax: "800.00" },
-      { name: "Almacenista", description: "Gestión de inventario y almacén", currencyId: currUSD.id, baseSalaryMin: "350.00", baseSalaryMax: "600.00" },
-      { name: "Analista Administrativo", description: "Soporte administrativo general", currencyId: currUSD.id, baseSalaryMin: "500.00", baseSalaryMax: "900.00" },
-      { name: "Cajero", description: "Manejo de caja y cobros", currencyId: currUSD.id, baseSalaryMin: "350.00", baseSalaryMax: "550.00" },
-    ]).returning();
+
+    const jobPositionsData = await db
+      .insert(jobPositions)
+      .values([
+        {
+          name: "Gerente General",
+          description: "Dirección general de la empresa",
+          currencyId: currUSD.id,
+          baseSalaryMin: "2000.00",
+          baseSalaryMax: "5000.00",
+        },
+        {
+          name: "Gerente de Ventas",
+          description: "Dirección del equipo comercial",
+          currencyId: currUSD.id,
+          baseSalaryMin: "1200.00",
+          baseSalaryMax: "2500.00",
+        },
+        {
+          name: "Contador",
+          description: "Gestión contable y fiscal",
+          currencyId: currUSD.id,
+          baseSalaryMin: "800.00",
+          baseSalaryMax: "1500.00",
+        },
+        {
+          name: "Vendedor",
+          description: "Atención al cliente y ventas",
+          currencyId: currUSD.id,
+          baseSalaryMin: "400.00",
+          baseSalaryMax: "800.00",
+        },
+        {
+          name: "Almacenista",
+          description: "Gestión de inventario y almacén",
+          currencyId: currUSD.id,
+          baseSalaryMin: "350.00",
+          baseSalaryMax: "600.00",
+        },
+        {
+          name: "Analista Administrativo",
+          description: "Soporte administrativo general",
+          currencyId: currUSD.id,
+          baseSalaryMin: "500.00",
+          baseSalaryMax: "900.00",
+        },
+        {
+          name: "Cajero",
+          description: "Manejo de caja y cobros",
+          currencyId: currUSD.id,
+          baseSalaryMin: "350.00",
+          baseSalaryMax: "550.00",
+        },
+      ])
+      .returning();
 
     console.log(`   ✅ Created ${jobPositionsData.length} job positions`);
 
@@ -240,38 +388,54 @@ async function main() {
     // NEW: EMPLOYEES (Empleados)
     // =================================================================================
     console.log("👷 [L3.3] Creating Employees...");
-    
+
     const employeesData: any[] = [];
-    
+
     for (let i = 0; i < 12; i++) {
       const position = faker.helpers.arrayElement(jobPositionsData);
       const minSalary = parseFloat(position.baseSalaryMin || "400");
       const maxSalary = parseFloat(position.baseSalaryMax || "800");
-      const salary = faker.number.float({ min: minSalary, max: maxSalary, fractionDigits: 2 });
-      
-      const paymentMethod = faker.helpers.arrayElement(["BANK_TRANSFER", "CASH"]);
-      const bank = paymentMethod === "BANK_TRANSFER" ? faker.helpers.arrayElement(allBanks) : null;
+      const salary = faker.number.float({
+        min: minSalary,
+        max: maxSalary,
+        fractionDigits: 2,
+      });
 
-      const [emp] = await db.insert(employees).values({
-        firstName: faker.person.firstName(),
-        lastName: faker.person.lastName(),
-        identityCard: `V-${faker.string.numeric(8)}`,
-        email: faker.internet.email(),
-        phone: `+58 4${faker.string.numeric(2)}-${faker.string.numeric(7)}`,
-        positionId: position.id,
-        hireDate: faker.date.past({ years: 3 }),
-        salaryCurrencyId: currUSD.id,
-        baseSalary: salary.toFixed(2),
-        payFrequency: faker.helpers.arrayElement(["BIWEEKLY", "MONTHLY"]),
-        paymentMethod: paymentMethod,
-        bankId: bank?.id,
-        // Legacy Fields (for compatibility view)
-        bankName: bank?.name || "",
-        accountNumber: paymentMethod === "BANK_TRANSFER" ? `0${faker.string.numeric(19)}` : "",
-        accountType: faker.helpers.arrayElement(["CHECKING", "SAVINGS"]),
-        status: "ACTIVE",
-      }).returning();
-      
+      const paymentMethod = faker.helpers.arrayElement([
+        "BANK_TRANSFER",
+        "CASH",
+      ]);
+      const bank =
+        paymentMethod === "BANK_TRANSFER"
+          ? faker.helpers.arrayElement(allBanks)
+          : null;
+
+      const [emp] = await db
+        .insert(employees)
+        .values({
+          firstName: faker.person.firstName(),
+          lastName: faker.person.lastName(),
+          identityCard: `V-${faker.string.numeric(8)}`,
+          email: faker.internet.email(),
+          phone: `+58 4${faker.string.numeric(2)}-${faker.string.numeric(7)}`,
+          positionId: position.id,
+          hireDate: faker.date.past({ years: 3 }),
+          salaryCurrencyId: currUSD.id,
+          baseSalary: salary.toFixed(2),
+          payFrequency: faker.helpers.arrayElement(["BIWEEKLY", "MONTHLY"]),
+          paymentMethod: paymentMethod,
+          bankId: bank?.id,
+          // Legacy Fields (for compatibility view)
+          bankName: bank?.name || "",
+          accountNumber:
+            paymentMethod === "BANK_TRANSFER"
+              ? `0${faker.string.numeric(19)}`
+              : "",
+          accountType: faker.helpers.arrayElement(["CHECKING", "SAVINGS"]),
+          status: "ACTIVE",
+        })
+        .returning();
+
       employeesData.push(emp);
     }
 
@@ -281,8 +445,16 @@ async function main() {
     // NEW: ORGANIZATION MODULES (Módulos habilitados por sucursal)
     // =================================================================================
     console.log("🔧 [L3.4] Creating Organization Modules...");
-    
-    const moduleKeys = ["sales", "purchases", "inventory", "treasury", "hr", "reports", "bi"];
+
+    const moduleKeys = [
+      "sales",
+      "purchases",
+      "inventory",
+      "treasury",
+      "hr",
+      "reports",
+      "bi",
+    ];
     for (const branch of [branchCCS, branchVAL]) {
       for (const moduleKey of moduleKeys) {
         await db.insert(organizationModules).values({
@@ -295,8 +467,22 @@ async function main() {
     console.log(`   ✅ Enabled ${moduleKeys.length} modules per branch`);
 
     // Warehouses
-    const whCCS = await db.insert(warehouses).values({ name: "Almacén CCS Principal", branchId: branchCCS.id, address: "Caracas" }).returning();
-    const whVAL = await db.insert(warehouses).values({ name: "Almacén VAL Principal", branchId: branchVAL.id, address: "Valencia" }).returning();
+    const whCCS = await db
+      .insert(warehouses)
+      .values({
+        name: "Almacén CCS Principal",
+        branchId: branchCCS.id,
+        address: "Caracas",
+      })
+      .returning();
+    const whVAL = await db
+      .insert(warehouses)
+      .values({
+        name: "Almacén VAL Principal",
+        branchId: branchVAL.id,
+        address: "Valencia",
+      })
+      .returning();
     const warehousesList = [whCCS[0], whVAL[0]];
 
     // =================================================================================
@@ -305,115 +491,143 @@ async function main() {
     console.log("🚚 [L4] Executing Purchase Cycle (Restocking)...");
 
     for (let i = 0; i < 15; i++) {
-        const branch = i % 2 === 0 ? branchCCS : branchVAL;
-        const wh = i % 2 === 0 ? whCCS[0] : whVAL[0];
-        const supplier = faker.helpers.arrayElement(suppliers);
-        
-        // Purchase Date (Past 30-60 days)
-        const date = faker.date.recent({ days: 30, refDate: new Date(today.getTime() - 30*24*60*60*1000) });
-        const dateKey = date.toISOString().slice(0, 10);
-        const rate = rateByDate.get(dateKey) || "350.00";
+      const branch = i % 2 === 0 ? branchCCS : branchVAL;
+      const wh = i % 2 === 0 ? whCCS[0] : whVAL[0];
+      const supplier = faker.helpers.arrayElement(suppliers);
 
-        // 1. Create Purchase Order
-        // Scenario: Purchase in USD (Import) or VES (National)
-        const isImport = Math.random() > 0.5;
-        const currency = isImport ? currUSD : currVES;
-        
-        // Order Header
-        const [order] = await db.insert(orders).values({
-            code: `OC-${faker.string.numeric(6)}`,
-            partnerId: supplier.id,
-            branchId: branch.id,
-            warehouseId: wh.id,
-            userId: adminUser.id,
-            status: "CONFIRMED", // Directly Confirmed to move stock
-            type: "PURCHASE",
-            currencyId: currency.id || "",
-            exchangeRate: rate,
-            date: date,
-            total: "0", // Will update
-        } as any).returning();
+      // Purchase Date (Past 30-60 days)
+      const date = faker.date.recent({
+        days: 30,
+        refDate: new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000),
+      });
+      const dateKey = date.toISOString().slice(0, 10);
+      const rate = rateByDate.get(dateKey) || "350.00";
 
-        // Order Items
-        let totalOrder = 0;
-        const itemsCount = faker.number.int({ min: 3, max: 8 });
-        const orderLines: any[] = [];
+      // 1. Create Purchase Order
+      // Scenario: Purchase in USD (Import) or VES (National)
+      const isImport = Math.random() > 0.5;
+      const currency = isImport ? currUSD : currVES;
 
-        for (let j = 0; j < itemsCount; j++) {
-            const prod = faker.helpers.arrayElement(productsData);
-            const qty = faker.number.int({ min: 10, max: 50 });
-            
-            // Cost calculation
-            let unitCost = parseFloat(prod.cost!);
-            if (currency.id === currVES.id) {
-                unitCost = unitCost * parseFloat(rate); // Convert to VES
-            }
+      // Order Header
+      const [order] = await db
+        .insert(orders)
+        .values({
+          code: `OC-${faker.string.numeric(6)}`,
+          partnerId: supplier.id,
+          branchId: branch.id,
+          warehouseId: wh.id,
+          userId: adminUser.id,
+          status: "CONFIRMED", // Directly Confirmed to move stock
+          type: "PURCHASE",
+          currencyId: currency.id || "",
+          exchangeRate: rate,
+          date: date,
+          total: "0", // Will update
+        } as any)
+        .returning();
 
-            const lineTotal = unitCost * qty;
-            totalOrder += lineTotal;
+      // Order Items
+      let totalOrder = 0;
+      const itemsCount = faker.number.int({ min: 3, max: 8 });
+      const orderLines: any[] = [];
 
-            orderLines.push({
-                orderId: order.id,
-                productId: prod.id,
-                quantity: qty.toString(),
-                price: unitCost.toFixed(2), // In Purchase, price is cost
-            });
+      for (let j = 0; j < itemsCount; j++) {
+        const prod = faker.helpers.arrayElement(productsData);
+        const qty = faker.number.int({ min: 10, max: 50 });
 
-            // Stock Movement (IN)
-            // We need to create stock records if they don't exist
-            const existingStock = await db.query.stock.findFirst({ where: (stock, { and, eq }) => and(eq(stock.warehouseId, wh.id), eq(stock.productId, prod.id)) });
-            if (existingStock) {
-                await db.update(stock).set({ quantity: (parseFloat(existingStock.quantity || "0") + qty).toString() }).where(eq(stock.id, existingStock.id));
-            } else {
-                await db.insert(stock).values({ warehouseId: wh.id, productId: prod.id, quantity: qty.toString() });
-            }
+        // Cost calculation
+        let unitCost = parseFloat(prod.cost!);
+        if (currency.id === currVES.id) {
+          unitCost = unitCost * parseFloat(rate); // Convert to VES
         }
 
-        await db.insert(orderItems).values(orderLines);
-        await db.update(orders).set({ total: totalOrder.toFixed(2) }).where(eq(orders.id, order.id));
+        const lineTotal = unitCost * qty;
+        totalOrder += lineTotal;
 
-        // Inventory Move Record
-        const [move] = await db.insert(inventoryMoves).values({
-            code: `MOV-IN-${order.code}`,
-            type: "IN",
-            toWarehouseId: wh.id,
-            branchId: branch.id,
-            date: date,
-            note: `Recepción Orden #${order.code}`,
-            userId: adminUser.id
-        } as any).returning(); // Explicit cast to avoid type issues with relations
-
-        const moveLines = orderLines.map(l => ({
-            moveId: move.id,
-            productId: l.productId,
-            quantity: l.quantity,
-            cost: l.price
-        }));
-        await db.insert(inventoryMoveLines).values(moveLines);
-
-        // 2. Generate Invoice (Bill)
-        const totalBase = totalOrder;
-        const totalTax = totalBase * 0.16;
-        const totalInv = totalBase + totalTax;
-
-        await db.insert(invoices).values({
-            code: `C-${faker.string.numeric(6)}`, // Supplier Invoice Number (Control)
-            invoiceNumber: `CTRL-${faker.string.numeric(8)}`,
-            partnerId: supplier.id,
-            branchId: branch.id,
-            currencyId: currency.id,
-            exchangeRate: rate,
-            type: "PURCHASE",
-            status: "POSTED", // Debt created
-            date: date,
-            userId: adminUser.id,
-            orderId: order.id,
-            warehouseId: wh.id,
-            totalBase: totalBase.toFixed(2),
-            totalTax: totalTax.toFixed(2),
-            total: totalInv.toFixed(2),
-            totalIgtf: "0",
+        orderLines.push({
+          orderId: order.id,
+          productId: prod.id,
+          quantity: qty.toString(),
+          price: unitCost.toFixed(2), // In Purchase, price is cost
         });
+
+        // Stock Movement (IN)
+        // We need to create stock records if they don't exist
+        const existingStock = await db.query.stock.findFirst({
+          where: (stock, { and, eq }) =>
+            and(eq(stock.warehouseId, wh.id), eq(stock.productId, prod.id)),
+        });
+        if (existingStock) {
+          await db
+            .update(stock)
+            .set({
+              quantity: (
+                parseFloat(existingStock.quantity || "0") + qty
+              ).toString(),
+            })
+            .where(eq(stock.id, existingStock.id));
+        } else {
+          await db
+            .insert(stock)
+            .values({
+              warehouseId: wh.id,
+              productId: prod.id,
+              quantity: qty.toString(),
+            });
+        }
+      }
+
+      await db.insert(orderItems).values(orderLines);
+      await db
+        .update(orders)
+        .set({ total: totalOrder.toFixed(2) })
+        .where(eq(orders.id, order.id));
+
+      // Inventory Move Record
+      const [move] = await db
+        .insert(inventoryMoves)
+        .values({
+          code: `MOV-IN-${order.code}`,
+          type: "IN",
+          toWarehouseId: wh.id,
+          branchId: branch.id,
+          date: date,
+          note: `Recepción Orden #${order.code}`,
+          userId: adminUser.id,
+        } as any)
+        .returning(); // Explicit cast to avoid type issues with relations
+
+      const moveLines = orderLines.map((l) => ({
+        moveId: move.id,
+        productId: l.productId,
+        quantity: l.quantity,
+        cost: l.price,
+      }));
+      await db.insert(inventoryMoveLines).values(moveLines);
+
+      // 2. Generate Invoice (Bill)
+      const totalBase = totalOrder;
+      const totalTax = totalBase * 0.16;
+      const totalInv = totalBase + totalTax;
+
+      await db.insert(invoices).values({
+        code: `C-${faker.string.numeric(6)}`, // Supplier Invoice Number (Control)
+        invoiceNumber: `CTRL-${faker.string.numeric(8)}`,
+        partnerId: supplier.id,
+        branchId: branch.id,
+        currencyId: currency.id,
+        exchangeRate: rate,
+        type: "PURCHASE",
+        status: "POSTED", // Debt created
+        date: date,
+        userId: adminUser.id,
+        orderId: order.id,
+        warehouseId: wh.id,
+        totalBase: totalBase.toFixed(2),
+        totalTax: totalTax.toFixed(2),
+        total: totalInv.toFixed(2),
+        totalIgtf: "0",
+      });
     }
 
     // =================================================================================
@@ -423,179 +637,208 @@ async function main() {
 
     // Create 120 invoices to test pagination and date filtering
     for (let i = 0; i < 120; i++) {
-        const branch = i % 2 === 0 ? branchCCS : branchVAL;
-        const wh = i % 2 === 0 ? whCCS[0] : whVAL[0];
-        const customer = faker.helpers.arrayElement(customers);
-        
-        // Date Distribution Logic:
-        // Ensure we hit both fortnights: Days 1-15 and 16-30
-        const dayOfMonth = (i % 30) + 1; // 1 to 30
-        const date = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
-        
-        // ... (Time randomization)
-        date.setHours(faker.number.int({ min: 8, max: 18 }));
-        
-        const dateKey = date.toISOString().slice(0, 10);
-        const rate = rateByDate.get(dateKey) || "350.00"; // Fallback
+      const branch = i % 2 === 0 ? branchCCS : branchVAL;
+      const wh = i % 2 === 0 ? whCCS[0] : whVAL[0];
+      const customer = faker.helpers.arrayElement(customers);
 
-        // Scenario: 60% USD (IGTF), 40% VES
-        const isUSD = Math.random() > 0.4;
-        const currency = isUSD ? currUSD : currVES;
-        const rateUsed = isUSD ? rate : "1"; 
-        
-        // Logic: Invoice Exchange Rate is ALWAYS the market rate of the day (VES/USD)
-        // Correction: If currency is VES, rate is 1 for Fiscal consistency
-        const invoiceRate = rateUsed; 
+      // Date Distribution Logic:
+      // Ensure we hit both fortnights: Days 1-15 and 16-30
+      const dayOfMonth = (i % 30) + 1; // 1 to 30
+      const date = new Date(today.getFullYear(), today.getMonth(), dayOfMonth);
 
-        // 1. Create Sale Order
-        const [order] = await db.insert(orders).values({
-            code: `PED-${faker.string.numeric(5)}`,
-            partnerId: customer.id,
-            branchId: branch.id,
-            warehouseId: wh.id,
-            userId: adminUser.id,
-            status: "CONFIRMED",
-            type: "SALE",
-            currencyId: currency.id || "",
-            exchangeRate: invoiceRate,
-            date: date,
-            total: "0",
-        } as any).returning();
+      // ... (Time randomization)
+      date.setHours(faker.number.int({ min: 8, max: 18 }));
 
-        let totalBase = 0;
-        const itemsCount = faker.number.int({ min: 1, max: 5 });
-        const orderLines: any[] = [];
+      const dateKey = date.toISOString().slice(0, 10);
+      const rate = rateByDate.get(dateKey) || "350.00"; // Fallback
 
-        for (let j = 0; j < itemsCount; j++) {
-            const prod = faker.helpers.arrayElement(productsData);
-            const qty = faker.number.int({ min: 1, max: 5 });
-            
-            // Check Stock
-            // (Skipping strict check for seed, assuming purchases filled enough, or allowing negative for test)
-            // But let's decrement
-            const existingStock = await db.query.stock.findFirst({ where: (stock, { and, eq }) => and(eq(stock.warehouseId, wh.id), eq(stock.productId, prod.id)) });
-            if (existingStock) {
-                const newQty = parseFloat(existingStock.quantity || "0") - qty;
-                await db.update(stock).set({ quantity: newQty.toString() }).where(eq(stock.id, existingStock.id));
-            }
+      // Scenario: 60% USD (IGTF), 40% VES
+      const isUSD = Math.random() > 0.4;
+      const currency = isUSD ? currUSD : currVES;
 
-            // Price Logic
-            let unitPrice = parseFloat(prod.price!);
-            if (currency.id === currVES.id) {
-                unitPrice = unitPrice * parseFloat(rate); // Convert USD Price to VES
-            }
+      // FIX: Always use the Market Rate for the order header exchangeRate.
+      // Even if the transaction is in VES (Fiscal Rate 1), we want to know
+      // the market rate used for the price calculation (e.g. 350.00).
+      // The Invoice entity splits Fiscal Rate vs Market Rate, but Order typically stores the calculation basis.
+      // For simple seeding, we will store the Market Rate (350.00) so the Recalculate function has a reference.
+      const invoiceRate = rate;
 
-            const lineTotal = unitPrice * qty;
-            totalBase += lineTotal;
+      // 1. Create Sale Order
+      const [order] = await db
+        .insert(orders)
+        .values({
+          code: `PED-${faker.string.numeric(5)}`,
+          partnerId: customer.id,
+          branchId: branch.id,
+          warehouseId: wh.id,
+          userId: adminUser.id,
+          status: "CONFIRMED",
+          type: "SALE",
+          currencyId: currency.id || "",
+          exchangeRate: invoiceRate,
+          date: date,
+          total: "0",
+        } as any)
+        .returning();
 
-            orderLines.push({
-                orderId: order.id,
-                productId: prod.id,
-                quantity: qty.toString(),
-                price: unitPrice.toFixed(2),
-            });
+      let totalBase = 0;
+      const itemsCount = faker.number.int({ min: 1, max: 5 });
+      const orderLines: any[] = [];
+
+      for (let j = 0; j < itemsCount; j++) {
+        const prod = faker.helpers.arrayElement(productsData);
+        const qty = faker.number.int({ min: 1, max: 5 });
+
+        // Check Stock
+        // (Skipping strict check for seed, assuming purchases filled enough, or allowing negative for test)
+        // But let's decrement
+        const existingStock = await db.query.stock.findFirst({
+          where: (stock, { and, eq }) =>
+            and(eq(stock.warehouseId, wh.id), eq(stock.productId, prod.id)),
+        });
+        if (existingStock) {
+          const newQty = parseFloat(existingStock.quantity || "0") - qty;
+          await db
+            .update(stock)
+            .set({ quantity: newQty.toString() })
+            .where(eq(stock.id, existingStock.id));
         }
 
-        await db.insert(orderItems).values(orderLines);
-        await db.update(orders).set({ total: totalBase.toFixed(2) }).where(eq(orders.id, order.id));
-
-        // Inventory Out
-        const [move] = await db.insert(inventoryMoves).values({
-            code: `MOV-OUT-${order.code}`,
-            type: "OUT",
-            fromWarehouseId: wh.id,
-            branchId: branch.id,
-            date: date,
-            note: `Despacho Pedido #${order.code}`,
-            userId: adminUser.id
-        } as any).returning();
-
-        const moveLines = orderLines.map(l => ({
-            moveId: move.id,
-            productId: l.productId,
-            quantity: l.quantity,
-            cost: "0" // Simplified
-        }));
-        await db.insert(inventoryMoveLines).values(moveLines);
-
-        // 2. Invoice Generation
-        const totalTax = totalBase * 0.16;
-        let igtf = 0;
-        
-        // IGTF Logic: Only if USD
-        if (isUSD) {
-            igtf = (totalBase + totalTax) * 0.03;
+        // Price Logic
+        let unitPrice = parseFloat(prod.price!);
+        if (currency.id === currVES.id) {
+          unitPrice = unitPrice * parseFloat(rate); // Convert USD Price to VES
         }
 
-        const totalFinal = totalBase + totalTax + igtf;
+        const lineTotal = unitPrice * qty;
+        totalBase += lineTotal;
 
-        const [inv] = await db.insert(invoices).values({
-            code: `A-${faker.string.numeric(6)}`,
-            partnerId: customer.id,
-            branchId: branch.id,
-            currencyId: currency.id,
-            exchangeRate: invoiceRate,
-            type: "SALE",
-            status: "POSTED",
-            date: date,
-            userId: adminUser.id,
-            orderId: order.id,
-            warehouseId: wh.id,
-            totalBase: totalBase.toFixed(2),
-            totalTax: totalTax.toFixed(2),
-            totalIgtf: igtf.toFixed(2),
-            total: totalFinal.toFixed(2),
-        }).returning();
+        orderLines.push({
+          orderId: order.id,
+          productId: prod.id,
+          quantity: qty.toString(),
+          price: unitPrice.toFixed(2),
+        });
+      }
 
-        // Invoice Items
-        const invItems = orderLines.map(l => ({
+      await db.insert(orderItems).values(orderLines);
+      await db
+        .update(orders)
+        .set({ total: totalBase.toFixed(2) })
+        .where(eq(orders.id, order.id));
+
+      // Inventory Out
+      const [move] = await db
+        .insert(inventoryMoves)
+        .values({
+          code: `MOV-OUT-${order.code}`,
+          type: "OUT",
+          fromWarehouseId: wh.id,
+          branchId: branch.id,
+          date: date,
+          note: `Despacho Pedido #${order.code}`,
+          userId: adminUser.id,
+        } as any)
+        .returning();
+
+      const moveLines = orderLines.map((l) => ({
+        moveId: move.id,
+        productId: l.productId,
+        quantity: l.quantity,
+        cost: "0", // Simplified
+      }));
+      await db.insert(inventoryMoveLines).values(moveLines);
+
+      // 2. Invoice Generation
+      const totalTax = totalBase * 0.16;
+      let igtf = 0;
+
+      // IGTF Logic: Only if USD
+      if (isUSD) {
+        igtf = (totalBase + totalTax) * 0.03;
+      }
+
+      const totalFinal = totalBase + totalTax + igtf;
+
+      const [inv] = await db
+        .insert(invoices)
+        .values({
+          code: `A-${faker.string.numeric(6)}`,
+          partnerId: customer.id,
+          branchId: branch.id,
+          currencyId: currency.id,
+          exchangeRate: invoiceRate,
+          type: "SALE",
+          status: "POSTED",
+          date: date,
+          userId: adminUser.id,
+          orderId: order.id,
+          warehouseId: wh.id,
+          totalBase: totalBase.toFixed(2),
+          totalTax: totalTax.toFixed(2),
+          totalIgtf: igtf.toFixed(2),
+          total: totalFinal.toFixed(2),
+        })
+        .returning();
+
+      // Invoice Items
+      const invItems = orderLines.map((l) => ({
+        invoiceId: inv.id,
+        productId: l.productId,
+        quantity: l.quantity,
+        price: l.price,
+        total: (parseFloat(l.price) * parseFloat(l.quantity)).toFixed(2),
+        taxRate: "16.00",
+      }));
+      await db.insert(invoiceItems).values(invItems);
+
+      // 3. Payment (80% Paid, 20% Debt)
+      if (Math.random() > 0.2) {
+        const methods = allMethods.filter((m) => m.branchId === branch.id);
+        // If USD -> Zelle/Cash USD
+        // If VES -> Transfer/PagoMovil
+        let methodCode = isUSD ? "TRANSFERENCIA_USD" : "PAGO_MOVIL"; // Simplified selection
+        let method = methods.find((m) => m.code === methodCode);
+        if (!method) method = methods[0]; // Fallback
+
+        // Account
+        const accounts = seededAccounts.filter(
+          (a) =>
+            a.branchId === branch.id && a.currencyId === method?.currencyId,
+        );
+        const account = accounts[0];
+
+        if (method && account) {
+          const [pay] = await db
+            .insert(payments)
+            .values({
+              invoiceId: inv.id,
+              partnerId: customer.id,
+              branchId: branch.id,
+              methodId: method.id,
+              bankAccountId: account.id,
+              type: "INCOME",
+              amount: totalFinal.toFixed(2), // Full payment
+              currencyId: method.currencyId,
+              exchangeRate: invoiceRate,
+              reference: faker.finance.routingNumber(),
+              date: date,
+              userId: adminUser.id,
+            } as any)
+            .returning();
+
+          await db.insert(paymentAllocations).values({
+            paymentId: pay.id,
             invoiceId: inv.id,
-            productId: l.productId,
-            quantity: l.quantity,
-            price: l.price,
-            total: (parseFloat(l.price) * parseFloat(l.quantity)).toFixed(2),
-            taxRate: "16.00"
-        }));
-        await db.insert(invoiceItems).values(invItems);
+            amount: totalFinal.toFixed(2),
+          } as any);
 
-        // 3. Payment (80% Paid, 20% Debt)
-        if (Math.random() > 0.2) {
-            const methods = allMethods.filter(m => m.branchId === branch.id);
-            // If USD -> Zelle/Cash USD
-            // If VES -> Transfer/PagoMovil
-            let methodCode = isUSD ? "TRANSFERENCIA_USD" : "PAGO_MOVIL"; // Simplified selection
-            let method = methods.find(m => m.code === methodCode);
-            if (!method) method = methods[0]; // Fallback
-
-            // Account
-            const accounts = seededAccounts.filter(a => a.branchId === branch.id && a.currencyId === method?.currencyId);
-            const account = accounts[0];
-
-            if (method && account) {
-                const [pay] = await db.insert(payments).values({
-                    invoiceId: inv.id,
-                    partnerId: customer.id,
-                    branchId: branch.id,
-                    methodId: method.id,
-                    bankAccountId: account.id,
-                    type: "INCOME",
-                    amount: totalFinal.toFixed(2), // Full payment
-                    currencyId: method.currencyId,
-                    exchangeRate: invoiceRate,
-                    reference: faker.finance.routingNumber(),
-                    date: date,
-                    userId: adminUser.id
-                } as any).returning();
-
-                await db.insert(paymentAllocations).values({
-                    paymentId: pay.id,
-                    invoiceId: inv.id,
-                    amount: totalFinal.toFixed(2)
-                } as any);
-
-                await db.update(invoices).set({ status: "PAID" }).where(eq(invoices.id, inv.id));
-            }
+          await db
+            .update(invoices)
+            .set({ status: "PAID" })
+            .where(eq(invoices.id, inv.id));
         }
+      }
     }
 
     // =================================================================================
@@ -605,10 +848,11 @@ async function main() {
 
     // Fetch posted/paid sale invoices for credit notes
     const saleInvoices = await db.query.invoices.findMany({
-      where: (inv, { and, eq, or }) => and(
-        eq(inv.type, "SALE"),
-        or(eq(inv.status, "POSTED"), eq(inv.status, "PAID"))
-      ),
+      where: (inv, { and, eq, or }) =>
+        and(
+          eq(inv.type, "SALE"),
+          or(eq(inv.status, "POSTED"), eq(inv.status, "PAID")),
+        ),
       with: { items: true },
       limit: 15,
     });
@@ -619,18 +863,21 @@ async function main() {
       if (!invoice.items || invoice.items.length === 0) continue;
 
       // Select 1-2 items for partial return
-      const itemsToReturn = invoice.items.slice(0, Math.min(2, invoice.items.length));
-      
+      const itemsToReturn = invoice.items.slice(
+        0,
+        Math.min(2, invoice.items.length),
+      );
+
       // Calculate totals
       let ncTotalBase = 0;
       const ncItems: any[] = [];
-      
+
       for (const item of itemsToReturn) {
         const returnQty = Math.ceil(Number(item.quantity) * 0.5); // Return 50%
         const price = Number(item.price);
         const itemTotal = price * returnQty;
         ncTotalBase += itemTotal;
-        
+
         ncItems.push({
           productId: item.productId,
           quantity: returnQty.toString(),
@@ -648,22 +895,25 @@ async function main() {
       // Find warehouse for stock return
       const wh = invoice.branchId === branchCCS.id ? whCCS[0] : whVAL[0];
 
-      const [nc] = await db.insert(creditNotes).values({
-        code: `NC-${faker.string.alphanumeric(6).toUpperCase()}`,
-        invoiceId: invoice.id,
-        partnerId: invoice.partnerId,
-        branchId: invoice.branchId,
-        currencyId: invoice.currencyId,
-        exchangeRate: invoice.exchangeRate,
-        warehouseId: wh.id,
-        status: "POSTED",
-        totalBase: ncTotalBase.toFixed(2),
-        totalTax: ncTotalTax.toFixed(2),
-        totalIgtf: ncTotalIgtf.toFixed(2),
-        total: ncTotal.toFixed(2),
-        date: faker.date.recent({ days: 15 }),
-        userId: adminUser.id,
-      }).returning();
+      const [nc] = await db
+        .insert(creditNotes)
+        .values({
+          code: `NC-${faker.string.alphanumeric(6).toUpperCase()}`,
+          invoiceId: invoice.id,
+          partnerId: invoice.partnerId,
+          branchId: invoice.branchId,
+          currencyId: invoice.currencyId,
+          exchangeRate: invoice.exchangeRate,
+          warehouseId: wh.id,
+          status: "POSTED",
+          totalBase: ncTotalBase.toFixed(2),
+          totalTax: ncTotalTax.toFixed(2),
+          totalIgtf: ncTotalIgtf.toFixed(2),
+          total: ncTotal.toFixed(2),
+          date: faker.date.recent({ days: 15 }),
+          userId: adminUser.id,
+        })
+        .returning();
 
       // Insert NC items
       for (const item of ncItems) {
@@ -677,11 +927,15 @@ async function main() {
 
         // Return stock
         const existingStock = await db.query.stock.findFirst({
-          where: (s, { and, eq }) => and(eq(s.warehouseId, wh.id), eq(s.productId, item.productId))
+          where: (s, { and, eq }) =>
+            and(eq(s.warehouseId, wh.id), eq(s.productId, item.productId)),
         });
         if (existingStock) {
           const newQty = Number(existingStock.quantity) + Number(item.quantity);
-          await db.update(stock).set({ quantity: newQty.toString() }).where(eq(stock.id, existingStock.id));
+          await db
+            .update(stock)
+            .set({ quantity: newQty.toString() })
+            .where(eq(stock.id, existingStock.id));
         } else {
           await db.insert(stock).values({
             warehouseId: wh.id,
@@ -693,7 +947,9 @@ async function main() {
 
       creditNotesCreated++;
     }
-    console.log(`   ✅ Created ${creditNotesCreated} credit notes with stock returns`);
+    console.log(
+      `   ✅ Created ${creditNotesCreated} credit notes with stock returns`,
+    );
 
     // =================================================================================
     // LEVEL 7: TAX RETENTIONS (Retenciones Fiscales)
@@ -701,33 +957,36 @@ async function main() {
     console.log("🧾 [L7] Creating Tax Retentions & Unified Payments...");
 
     // 1. Ensure Retention Payment Method exists
-    let retMethod = allMethods.find(m => m.code.startsWith("RET_IVA"));
+    let retMethod = allMethods.find((m) => m.code.startsWith("RET_IVA"));
     if (!retMethod) {
-       // Create it if missing (Should be in base seed, but safety first)
-       const [newM] = await db.insert(paymentMethods).values({
-         name: "Retención IVA 75%",
-         code: "RET_IVA_75",
-         branchId: branchCCS.id, // Assign to main branch
-         currencyId: currVES.id,
-         isDigital: false
-       }).returning();
-       retMethod = newM;
+      // Create it if missing (Should be in base seed, but safety first)
+      const [newM] = await db
+        .insert(paymentMethods)
+        .values({
+          name: "Retención IVA 75%",
+          code: "RET_IVA_75",
+          branchId: branchCCS.id, // Assign to main branch
+          currencyId: currVES.id,
+          isDigital: false,
+        })
+        .returning();
+      retMethod = newM;
     }
 
     // Fetch purchase invoices for retentions (from SPECIAL taxpayer suppliers)
     const purchaseInvoices = await db.query.invoices.findMany({
-      where: (inv, { and, eq }) => and(
-        eq(inv.type, "PURCHASE"),
-        eq(inv.status, "POSTED")
-      ),
+      where: (inv, { and, eq }) =>
+        and(eq(inv.type, "PURCHASE"), eq(inv.status, "POSTED")),
       with: { partner: true },
       limit: 50, // Process more invoices
     });
 
     // Filter for special taxpayers (or just use all for demo)
-    const specialPurchases = purchaseInvoices.filter(inv => 
-      inv.partner?.taxpayerType === "SPECIAL" || Math.random() > 0.3
-    ).slice(0, 30);
+    const specialPurchases = purchaseInvoices
+      .filter(
+        (inv) => inv.partner?.taxpayerType === "SPECIAL" || Math.random() > 0.3,
+      )
+      .slice(0, 30);
 
     let retentionsCreated = 0;
     const currentPeriod = new Date().toISOString().slice(0, 7).replace("-", ""); // YYYYMM
@@ -741,34 +1000,40 @@ async function main() {
 
       // 1. Create the Payment (Unified Path)
       // This reduces the debt of the invoice
-      const [payment] = await db.insert(payments).values({
-        invoiceId: invoice.id,
-        partnerId: invoice.partnerId,
-        branchId: invoice.branchId,
-        methodId: retMethod.id, // RET_IVA_75
-        type: "EXPENSE", // Buying -> Paying with retention paper
-        amount: retainedAmount.toFixed(2),
-        currencyId: invoice.currencyId, // Usually VES for tax
-        exchangeRate: invoice.exchangeRate,
-        reference: `RET-${currentPeriod}-${faker.string.numeric(4)}`,
-        date: invoice.date, // Same day or close
-        userId: adminUser.id,
-        metadata: { isRetention: true, type: "IVA" }
-      } as any).returning();
+      const [payment] = await db
+        .insert(payments)
+        .values({
+          invoiceId: invoice.id,
+          partnerId: invoice.partnerId,
+          branchId: invoice.branchId,
+          methodId: retMethod.id, // RET_IVA_75
+          type: "EXPENSE", // Buying -> Paying with retention paper
+          amount: retainedAmount.toFixed(2),
+          currencyId: invoice.currencyId, // Usually VES for tax
+          exchangeRate: invoice.exchangeRate,
+          reference: `RET-${currentPeriod}-${faker.string.numeric(4)}`,
+          date: invoice.date, // Same day or close
+          userId: adminUser.id,
+          metadata: { isRetention: true, type: "IVA" },
+        } as any)
+        .returning();
 
       // 2. Create the Fiscal Voucher
-      const [retention] = await db.insert(taxRetentions).values({
-        code: `${currentPeriod}-${faker.string.numeric(4)}`,
-        partnerId: invoice.partnerId,
-        branchId: invoice.branchId,
-        period: currentPeriod,
-        type: "IVA",
-        totalBase: invoice.totalBase,
-        totalTax: taxAmount.toFixed(2),
-        totalRetained: retainedAmount.toFixed(2),
-        date: invoice.date,
-        userId: adminUser.id,
-      } as any).returning();
+      const [retention] = await db
+        .insert(taxRetentions)
+        .values({
+          code: `${currentPeriod}-${faker.string.numeric(4)}`,
+          partnerId: invoice.partnerId,
+          branchId: invoice.branchId,
+          period: currentPeriod,
+          type: "IVA",
+          totalBase: invoice.totalBase,
+          totalTax: taxAmount.toFixed(2),
+          totalRetained: retainedAmount.toFixed(2),
+          date: invoice.date,
+          userId: adminUser.id,
+        } as any)
+        .returning();
 
       // 3. Insert retention line LINKED to Payment
       await db.insert(taxRetentionLines).values({
@@ -782,34 +1047,40 @@ async function main() {
 
       retentionsCreated++;
     }
-    console.log(`   ✅ Created ${retentionsCreated} Unified Retentions (Voucher + Payment)`);
+    console.log(
+      `   ✅ Created ${retentionsCreated} Unified Retentions (Voucher + Payment)`,
+    );
 
     // =================================================================================
     // LEVEL 7.5: RECALCULATE BANK BALANCES
     // =================================================================================
     console.log("🏦 [L7.5] Reconciling Bank Account Balances...");
-    
+
     // Logic: Balance = Initial + Sum(Income) - Sum(Expense)
     for (const account of seededAccounts) {
-        // Fetch all payments for this account
-        const accPayments = await db.select().from(payments).where(eq(payments.bankAccountId, account.id));
-        
-        let balance = parseFloat(account.currentBalance || "0");
-        
-        for (const p of accPayments) {
-            const amount = parseFloat(p.amount);
-            if (p.type === "INCOME") {
-                balance += amount;
-            } else {
-                balance -= amount;
-            }
-        }
+      // Fetch all payments for this account
+      const accPayments = await db
+        .select()
+        .from(payments)
+        .where(eq(payments.bankAccountId, account.id));
 
-        await db.update(bankAccounts)
-            .set({ currentBalance: balance.toFixed(2) })
-            .where(eq(bankAccounts.id, account.id));
-            
-        console.log(`      > Account ${account.name}: ${balance.toFixed(2)}`);
+      let balance = parseFloat(account.currentBalance || "0");
+
+      for (const p of accPayments) {
+        const amount = parseFloat(p.amount);
+        if (p.type === "INCOME") {
+          balance += amount;
+        } else {
+          balance -= amount;
+        }
+      }
+
+      await db
+        .update(bankAccounts)
+        .set({ currentBalance: balance.toFixed(2) })
+        .where(eq(bankAccounts.id, account.id));
+
+      console.log(`      > Account ${account.name}: ${balance.toFixed(2)}`);
     }
     console.log("   ✅ Bank balances synchronized with transaction history");
 
@@ -823,15 +1094,18 @@ async function main() {
       const customer = faker.helpers.arrayElement(customers);
       const isReturned = Math.random() > 0.6;
 
-      const [loan] = await db.insert(loans).values({
-        code: `PRE-${faker.string.numeric(5)}`,
-        partnerId: customer.id,
-        status: isReturned ? "RETURNED" : "ACTIVE",
-        startDate: faker.date.recent({ days: 30 }),
-        dueDate: faker.date.soon({ days: 30 }),
-        returnDate: isReturned ? faker.date.recent({ days: 5 }) : null,
-        notes: faker.lorem.sentence(),
-      }).returning();
+      const [loan] = await db
+        .insert(loans)
+        .values({
+          code: `PRE-${faker.string.numeric(5)}`,
+          partnerId: customer.id,
+          status: isReturned ? "RETURNED" : "ACTIVE",
+          startDate: faker.date.recent({ days: 30 }),
+          dueDate: faker.date.soon({ days: 30 }),
+          returnDate: isReturned ? faker.date.recent({ days: 5 }) : null,
+          notes: faker.lorem.sentence(),
+        })
+        .returning();
 
       // Add 1-3 loan items
       const itemsCount = faker.number.int({ min: 1, max: 3 });
@@ -841,8 +1115,16 @@ async function main() {
           loanId: loan.id,
           productId: prod.id,
           quantity: faker.number.int({ min: 1, max: 5 }).toString(),
-          serialNumber: Math.random() > 0.5 ? `SN-${faker.string.alphanumeric(8).toUpperCase()}` : null,
-          condition: faker.helpers.arrayElement(["GOOD", "GOOD", "GOOD", "DAMAGED"]),
+          serialNumber:
+            Math.random() > 0.5
+              ? `SN-${faker.string.alphanumeric(8).toUpperCase()}`
+              : null,
+          condition: faker.helpers.arrayElement([
+            "GOOD",
+            "GOOD",
+            "GOOD",
+            "DAMAGED",
+          ]),
         });
       }
 
@@ -856,26 +1138,35 @@ async function main() {
     console.log("⚡ [L8.5] Creating Payroll Concepts & Incidents...");
 
     // 1. Concepts
-    const [concBono] = await db.insert(payrollConceptTypes).values({
-      code: "BONO_PROD",
-      name: "Bono de Productividad",
-      category: "INCOME",
-      branchId: branchCCS.id,
-    } as any).returning();
+    const [concBono] = await db
+      .insert(payrollConceptTypes)
+      .values({
+        code: "BONO_PROD",
+        name: "Bono de Productividad",
+        category: "INCOME",
+        branchId: branchCCS.id,
+      } as any)
+      .returning();
 
-    const [concFalta] = await db.insert(payrollConceptTypes).values({
-      code: "FALTA_INJ",
-      name: "Falta Injustificada",
-      category: "DEDUCTION",
-      branchId: branchCCS.id,
-    } as any).returning();
+    const [concFalta] = await db
+      .insert(payrollConceptTypes)
+      .values({
+        code: "FALTA_INJ",
+        name: "Falta Injustificada",
+        category: "DEDUCTION",
+        branchId: branchCCS.id,
+      } as any)
+      .returning();
 
-    const [concExtra] = await db.insert(payrollConceptTypes).values({
-      code: "H_EXTRA_D",
-      name: "Hora Extra Diurna",
-      category: "INCOME",
-      branchId: branchCCS.id,
-    } as any).returning();
+    const [concExtra] = await db
+      .insert(payrollConceptTypes)
+      .values({
+        code: "H_EXTRA_D",
+        name: "Hora Extra Diurna",
+        category: "INCOME",
+        branchId: branchCCS.id,
+      } as any)
+      .returning();
 
     // 2. Incidents (For Current Month Draft)
     const currStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -886,29 +1177,43 @@ async function main() {
     for (const emp of employeesData) {
       // 30% chance of bonus
       if (Math.random() > 0.7) {
-        const amount = faker.number.float({ min: 20, max: 100, fractionDigits: 2 });
-        const [inc] = await db.insert(payrollIncidents).values({
-          employeeId: emp.id,
-          conceptId: concBono.id,
-          date: faker.date.between({ from: currStartDate, to: currEndDate }),
-          amount: amount.toFixed(2),
-          status: "PENDING", // Will be processed in L9
-          notes: "Cumplimiento de meta mensual",
-        }).returning();
+        const amount = faker.number.float({
+          min: 20,
+          max: 100,
+          fractionDigits: 2,
+        });
+        const [inc] = await db
+          .insert(payrollIncidents)
+          .values({
+            employeeId: emp.id,
+            conceptId: concBono.id,
+            date: faker.date.between({ from: currStartDate, to: currEndDate }),
+            amount: amount.toFixed(2),
+            status: "PENDING", // Will be processed in L9
+            notes: "Cumplimiento de meta mensual",
+          })
+          .returning();
         incidentsData.push(inc);
       }
 
       // 10% chance of deduction
       if (Math.random() > 0.9) {
-        const amount = faker.number.float({ min: 10, max: 50, fractionDigits: 2 });
-        const [inc] = await db.insert(payrollIncidents).values({
-          employeeId: emp.id,
-          conceptId: concFalta.id,
-          date: faker.date.between({ from: currStartDate, to: currEndDate }),
-          amount: amount.toFixed(2),
-          status: "PENDING",
-          notes: "Ausencia día lunes",
-        }).returning();
+        const amount = faker.number.float({
+          min: 10,
+          max: 50,
+          fractionDigits: 2,
+        });
+        const [inc] = await db
+          .insert(payrollIncidents)
+          .values({
+            employeeId: emp.id,
+            conceptId: concFalta.id,
+            date: faker.date.between({ from: currStartDate, to: currEndDate }),
+            amount: amount.toFixed(2),
+            status: "PENDING",
+            notes: "Ausencia día lunes",
+          })
+          .returning();
         incidentsData.push(inc);
       }
     }
@@ -922,31 +1227,45 @@ async function main() {
     // 1. Paid Payroll (Previous Month)
     const prevMonthDate = new Date(today);
     prevMonthDate.setMonth(today.getMonth() - 1);
-    const prevStartDate = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 1);
-    const prevEndDate = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 15);
-    
-    const [paidRun] = await db.insert(payrollRuns).values({
-      code: `NOM-${prevStartDate.toISOString().slice(0, 7)}-Q1`,
-      branchId: branchCCS.id,
-      frequency: "BIWEEKLY",
-      currencyId: currVES.id,
-      startDate: prevStartDate,
-      endDate: prevEndDate,
-      status: "PAID",
-      totalAmount: "0" // Will update
-    } as any).returning();
+    const prevStartDate = new Date(
+      prevMonthDate.getFullYear(),
+      prevMonthDate.getMonth(),
+      1,
+    );
+    const prevEndDate = new Date(
+      prevMonthDate.getFullYear(),
+      prevMonthDate.getMonth(),
+      15,
+    );
+
+    const [paidRun] = await db
+      .insert(payrollRuns)
+      .values({
+        code: `NOM-${prevStartDate.toISOString().slice(0, 7)}-Q1`,
+        branchId: branchCCS.id,
+        frequency: "BIWEEKLY",
+        currencyId: currVES.id,
+        startDate: prevStartDate,
+        endDate: prevEndDate,
+        status: "PAID",
+        totalAmount: "0", // Will update
+      } as any)
+      .returning();
 
     // 2. Draft Payroll (Current Month)
-    const [draftRun] = await db.insert(payrollRuns).values({
-      code: `NOM-${currStartDate.toISOString().slice(0, 7)}-Q1`,
-      branchId: branchCCS.id,
-      frequency: "BIWEEKLY",
-      currencyId: currVES.id,
-      startDate: currStartDate,
-      endDate: currEndDate,
-      status: "DRAFT",
-      totalAmount: "0"
-    } as any).returning();
+    const [draftRun] = await db
+      .insert(payrollRuns)
+      .values({
+        code: `NOM-${currStartDate.toISOString().slice(0, 7)}-Q1`,
+        branchId: branchCCS.id,
+        frequency: "BIWEEKLY",
+        currencyId: currVES.id,
+        startDate: currStartDate,
+        endDate: currEndDate,
+        status: "DRAFT",
+        totalAmount: "0",
+      } as any)
+      .returning();
 
     // Generate Items for Draft Run
     let totalDraft = 0;
@@ -958,19 +1277,21 @@ async function main() {
       const monthlySalary = parseFloat(emp.baseSalary); // In USD usually
       const salaryVes = monthlySalary * rateVes;
       const biweeklyVes = salaryVes / 2;
-      const cestaticketVes = 40 * rateVes / 2; // Half cestaticket
+      const cestaticketVes = (40 * rateVes) / 2; // Half cestaticket
 
       // Process Incidents for this employee
       let incidentIncome = 0;
       let incidentDeduction = 0;
-      const empIncidents = incidentsData.filter(inc => inc.employeeId === emp.id);
-      
+      const empIncidents = incidentsData.filter(
+        (inc) => inc.employeeId === emp.id,
+      );
+
       for (const inc of empIncidents) {
         // Convert incident amount (assumed USD for seed simplicity) to VES
         // In real app, incidents should store currency or be in base currency.
         // Let's assume incidents are in USD for this seed logic
         const amountVes = parseFloat(inc.amount) * rateVes;
-        
+
         // Check concept type (We know IDs from creation)
         if (inc.conceptId === concBono.id || inc.conceptId === concExtra.id) {
           incidentIncome += amountVes;
@@ -979,16 +1300,19 @@ async function main() {
         }
 
         // Update Incident status
-        await db.update(payrollIncidents).set({ 
-          status: "PROCESSED", 
-          processedInRunId: draftRun.id 
-        }).where(eq(payrollIncidents.id, inc.id));
+        await db
+          .update(payrollIncidents)
+          .set({
+            status: "PROCESSED",
+            processedInRunId: draftRun.id,
+          })
+          .where(eq(payrollIncidents.id, inc.id));
       }
 
       const totalBonuses = cestaticketVes + incidentIncome;
       const totalDeductions = incidentDeduction;
       const netTotal = biweeklyVes + totalBonuses - totalDeductions;
-      
+
       totalDraft += netTotal;
 
       await db.insert(payrollItems).values({
@@ -1001,8 +1325,13 @@ async function main() {
       });
     }
 
-    await db.update(payrollRuns).set({ totalAmount: totalDraft.toFixed(2) }).where(eq(payrollRuns.id, draftRun.id));
-    console.log("   ✅ Created sample Payroll Runs (Paid & Draft with Incidents)");
+    await db
+      .update(payrollRuns)
+      .set({ totalAmount: totalDraft.toFixed(2) })
+      .where(eq(payrollRuns.id, draftRun.id));
+    console.log(
+      "   ✅ Created sample Payroll Runs (Paid & Draft with Incidents)",
+    );
 
     console.log("✅ E2E SEED COMPLETED SUCCESSFULLY!");
     process.exit(0);

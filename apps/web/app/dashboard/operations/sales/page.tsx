@@ -28,6 +28,7 @@ import {
 import { OrdersTable } from "@/modules/orders/components/orders-table";
 import { OrderDialog } from "@/modules/orders/components/order-dialog";
 import { OrderDetailsDialog } from "@/modules/orders/components/order-details-dialog";
+import { OrderStatusCards } from "@/modules/orders/components/order-status-cards";
 import { Order } from "@/modules/orders/types";
 import { PaginationState } from "@tanstack/react-table";
 
@@ -39,7 +40,11 @@ export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
-  const { data: ordersResponse, isLoading, isError } = useOrders({
+  const {
+    data: ordersResponse,
+    isLoading,
+    isError,
+  } = useOrders({
     type: "SALE",
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
@@ -154,6 +159,8 @@ export default function OrdersPage() {
             </Button>
           </div>
         </div>
+
+        <OrderStatusCards type="SALE" />
 
         <Card>
           <CardHeader>

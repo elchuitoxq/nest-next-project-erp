@@ -16,7 +16,9 @@ export function useOrders(params: FindOrdersParams = {}) {
   const serializedParams = {
     ...params,
     type: Array.isArray(params.type) ? params.type.join(",") : params.type,
-    status: Array.isArray(params.status) ? params.status.join(",") : params.status,
+    status: Array.isArray(params.status)
+      ? params.status.join(",")
+      : params.status,
   };
 
   return useQuery({
@@ -32,6 +34,18 @@ export function useOrders(params: FindOrdersParams = {}) {
     },
   });
 }
+
+export const useOrderStats = (type: "SALE" | "PURCHASE") => {
+  return useQuery({
+    queryKey: ["orders", "stats", type],
+    queryFn: async () => {
+      const { data } = await api.get<{ status: string; count: number }[]>(
+        `/orders/stats?type=${type}`,
+      );
+      return data;
+    },
+  });
+};
 
 export function useOrderMutations() {
   const queryClient = useQueryClient();

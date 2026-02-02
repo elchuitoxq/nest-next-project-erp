@@ -23,6 +23,7 @@ import {
 import { useInvoices } from "@/modules/billing/hooks/use-invoices";
 import { InvoicesTable } from "@/modules/billing/components/invoices-table";
 import { InvoiceDetailsDialog } from "@/modules/billing/components/invoice-details-dialog";
+import { InvoiceStatusCards } from "@/modules/billing/components/invoice-status-cards";
 import { Invoice } from "@/modules/billing/types";
 import { PaginationState } from "@tanstack/react-table";
 
@@ -92,6 +93,10 @@ export default function InvoicesPage() {
             </p>
           </div>
         </div>
+
+        <InvoiceStatusCards
+          type={(typeFilter[0] as "SALE" | "PURCHASE") || "SALE"}
+        />
 
         <Card>
           <CardHeader>

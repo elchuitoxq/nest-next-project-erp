@@ -16,7 +16,20 @@ import {
   creditNotes,
   users,
 } from '@repo/db';
-import { eq, sql, desc, inArray, and, gte, lt, like, ne, ilike, or, SQL } from 'drizzle-orm';
+import {
+  eq,
+  sql,
+  desc,
+  inArray,
+  and,
+  gte,
+  lt,
+  like,
+  ne,
+  ilike,
+  or,
+  SQL,
+} from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import { InventoryService } from '../inventory/inventory.service';
 import { CurrenciesService } from '../settings/currencies/currencies.service';
@@ -412,22 +425,23 @@ export class BillingService {
 
     if (search) {
       // Búsqueda inteligente por múltiples términos separados por comas
-      const searchTerms = search.split(',').map(s => s.trim()).filter(Boolean);
-      
+      const searchTerms = search
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
       if (searchTerms.length > 0) {
         const termConditions = [];
-        
+
         // Buscar partners que coincidan con ALGUNO de los términos
         const matchingPartners = await db
           .select({ id: partners.id })
           .from(partners)
           .where(
-            or(
-              ...searchTerms.map(term => ilike(partners.name, `%${term}%`))
-            )
+            or(...searchTerms.map((term) => ilike(partners.name, `%${term}%`))),
           );
-        
-        const partnerIds = matchingPartners.map(p => p.id);
+
+        const partnerIds = matchingPartners.map((p) => p.id);
 
         // Buscar por código o cliente
         for (const term of searchTerms) {
@@ -454,7 +468,7 @@ export class BillingService {
       .select({ count: sql<number>`count(*)` })
       .from(invoices)
       .where(whereClause!);
-    
+
     const total = Number(countResult?.count || 0);
 
     // 2. Get Paginated Data
@@ -478,7 +492,9 @@ export class BillingService {
 
     // Collect IDs
     const invoiceIds = invoicesList.map((inv) => inv.id);
-    const invoicePartnerIds = [...new Set(invoicesList.map((inv) => inv.partnerId))];
+    const invoicePartnerIds = [
+      ...new Set(invoicesList.map((inv) => inv.partnerId)),
+    ];
     const branchIds = [...new Set(invoicesList.map((inv) => inv.branchId))];
     const currencyIds = [...new Set(invoicesList.map((inv) => inv.currencyId))];
 
@@ -610,12 +626,25 @@ export class BillingService {
     }));
 
     return {
-      data,
+      data: data,
       meta: {
         total,
         page,
         lastPage: Math.ceil(total / limit),
       },
     };
+  }
+
+  async getStats(branchId: string, type: string) {
+    const stats = await db
+      .select({
+        status: invoices.status,
+        count: sql<number>`count(*)`,
+      })
+      .from(invoices)
+      .where(and(eq(invoices.branchId, branchId), eq(invoices.type, type)))
+      .groupBy(invoices.status);
+
+    return stats;
   }
 }

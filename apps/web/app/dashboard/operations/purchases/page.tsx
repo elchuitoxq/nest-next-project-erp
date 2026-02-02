@@ -28,6 +28,7 @@ import {
 import { OrdersTable } from "@/modules/orders/components/orders-table";
 import { OrderDialog } from "@/modules/orders/components/order-dialog";
 import { OrderDetailsDialog } from "@/modules/orders/components/order-details-dialog";
+import { OrderStatusCards } from "@/modules/orders/components/order-status-cards";
 import { Order } from "@/modules/orders/types";
 import { PaginationState } from "@tanstack/react-table";
 
@@ -40,7 +41,11 @@ export default function PurchaseOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
   // Pass 'PURCHASE' to filter
-  const { data: ordersResponse, isLoading, isError } = useOrders({
+  const {
+    data: ordersResponse,
+    isLoading,
+    isError,
+  } = useOrders({
     type: "PURCHASE",
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
@@ -162,12 +167,15 @@ export default function PurchaseOrdersPage() {
           </div>
         </div>
 
+        <OrderStatusCards type="PURCHASE" />
+
         <Card>
           <CardHeader>
             <CardTitle>Historial de Compras</CardTitle>
             <div className="flex items-center justify-between">
               <CardDescription>
-                Registro completo de órdenes de compra y recepciones de mercancía.
+                Registro completo de órdenes de compra y recepciones de
+                mercancía.
               </CardDescription>
             </div>
           </CardHeader>
