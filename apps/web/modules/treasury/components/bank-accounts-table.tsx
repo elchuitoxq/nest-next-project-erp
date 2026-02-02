@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  useToggleBankAccount,
-} from "@/modules/treasury/hooks/use-bank-accounts";
+import { useToggleBankAccount } from "@/modules/treasury/hooks/use-bank-accounts";
 import { formatCurrency } from "@/lib/utils";
 import {
   Table,
@@ -16,27 +14,34 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Edit2, Search, BookOpen } from "lucide-react";
+import { Edit2, Search, BookOpen, Loader2 } from "lucide-react";
 import { BankAccountLedger } from "./bank-account-ledger";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface BankAccountsTableProps {
   accounts: any[];
   onEdit: (acc: any) => void;
+  isLoading?: boolean;
 }
 
-export function BankAccountsTable({ accounts, onEdit }: BankAccountsTableProps) {
+export function BankAccountsTable({
+  accounts,
+  onEdit,
+  isLoading,
+}: BankAccountsTableProps) {
   const { mutate: toggleActive } = useToggleBankAccount();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
 
-  const filteredAccounts = accounts?.filter((acc) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      acc.name.toLowerCase().includes(term) ||
-      acc.accountNumber?.toLowerCase().includes(term) ||
-      acc.currency?.code.toLowerCase().includes(term)
-    );
-  }) || [];
+  const filteredAccounts =
+    accounts?.filter((acc) => {
+      const term = searchTerm.toLowerCase();
+      return (
+        acc.name.toLowerCase().includes(term) ||
+        acc.accountNumber?.toLowerCase().includes(term) ||
+        acc.currency?.code.toLowerCase().includes(term)
+      );
+    }) || [];
 
   return (
     <div className="space-y-4">
@@ -62,7 +67,21 @@ export function BankAccountsTable({ accounts, onEdit }: BankAccountsTableProps) 
         </div>
       </div>
 
-      <div className="border rounded-md">
+      <div className="border rounded-md relative">
+        <AnimatePresence>
+          {isLoading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-background/40 z-10 flex items-center justify-center backdrop-blur-[2px]"
+            >
+              <div className="bg-background/80 p-3 rounded-full shadow-lg border">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <Table>
           <TableHeader>
             <TableRow>
@@ -75,50 +94,70 @@ export function BankAccountsTable({ accounts, onEdit }: BankAccountsTableProps) 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAccounts.map((acc) => (
-              <TableRow key={acc.id}>
-                <TableCell className="font-medium">{acc.name}</TableCell>
-                <TableCell className="font-mono text-xs">
-                  {acc.accountNumber || "-"}
-                </TableCell>
-                <TableCell>{acc.type}</TableCell>
-                <TableCell>{acc.currency?.code}</TableCell>
-                <TableCell className="text-right font-bold">
-                  {formatCurrency(acc.currentBalance, acc.currency?.symbol)}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2 items-center">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => setSelectedAccount(acc)}
-                      title="Ver Libro de Banco"
-                    >
-                      <BookOpen className="h-4 w-4 text-blue-600" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => onEdit(acc)}>
-                      <Edit2 className="h-4 w-4" />
-                    </Button>
-                    <Switch
-                      checked={acc.isActive}
-                      onCheckedChange={() => toggleActive(acc.id)}
-                    />
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filteredAccounts.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={6}
-                  className="text-center py-8 text-muted-foreground"
+            <AnimatePresence mode="wait">
+              {filteredAccounts.map((acc, index) => (
+                <motion.tr
+                  key={acc.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                    transition: { delay: index * 0.05 },
+                  }}
+                  exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                  className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted group"
                 >
-                  {accounts?.length === 0
-                    ? "No hay cuentas bancarias registradas."
-                    : "No se encontraron cuentas con ese criterio."}
-                </TableCell>
-              </TableRow>
-            )}
+                  <TableCell className="font-medium py-3 px-4">
+                    {acc.name}
+                  </TableCell>
+                  <TableCell className="font-mono-data text-xs py-3 px-4">
+                    {acc.accountNumber || "-"}
+                  </TableCell>
+                  <TableCell className="py-3 px-4">{acc.type}</TableCell>
+                  <TableCell className="py-3 px-4">
+                    {acc.currency?.code}
+                  </TableCell>
+                  <TableCell className="text-right font-bold font-mono-data text-sm py-3 px-4">
+                    {formatCurrency(acc.currentBalance, acc.currency?.symbol)}
+                  </TableCell>
+                  <TableCell className="text-right py-3 px-4">
+                    <div className="flex justify-end gap-2 items-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedAccount(acc)}
+                        title="Ver Libro de Banco"
+                      >
+                        <BookOpen className="h-4 w-4 text-blue-600" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onEdit(acc)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Switch
+                        checked={acc.isActive}
+                        onCheckedChange={() => toggleActive(acc.id)}
+                      />
+                    </div>
+                  </TableCell>
+                </motion.tr>
+              ))}
+              {!isLoading && filteredAccounts.length === 0 && (
+                <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <TableCell
+                    colSpan={6}
+                    className="text-center py-8 text-muted-foreground"
+                  >
+                    {accounts?.length === 0
+                      ? "No hay cuentas bancarias registradas."
+                      : "No se encontraron cuentas con ese criterio."}
+                  </TableCell>
+                </motion.tr>
+              )}
+            </AnimatePresence>
           </TableBody>
         </Table>
       </div>

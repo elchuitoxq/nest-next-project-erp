@@ -39,6 +39,7 @@ import {
 import { Partner } from "../types";
 import { Badge } from "@/components/ui/badge";
 import { useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface PartnersTableProps {
   data: Partner[];
@@ -88,6 +89,9 @@ export function PartnersTable({
       {
         accessorKey: "taxId",
         header: "RIF/CI",
+        cell: ({ row }) => (
+          <span className="font-mono-data text-xs">{row.original.taxId}</span>
+        ),
       },
       {
         accessorKey: "type",
@@ -95,9 +99,7 @@ export function PartnersTable({
         cell: ({ row }) => {
           const type = row.original.type;
           return (
-            <Badge
-              variant={type === "CUSTOMER" ? "default" : "secondary"}
-            >
+            <Badge variant={type === "CUSTOMER" ? "default" : "secondary"}>
               {type === "CUSTOMER"
                 ? "Cliente"
                 : type === "SUPPLIER"
@@ -233,11 +235,20 @@ export function PartnersTable({
       </div>
 
       <div className="rounded-md border relative">
-        {isLoading && (
-          <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center backdrop-blur-sm">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        )}
+        <AnimatePresence>
+          {isLoading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-background/40 z-10 flex items-center justify-center backdrop-blur-[2px]"
+            >
+              <div className="bg-background/80 p-3 rounded-full shadow-lg border">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -256,32 +267,41 @@ export function PartnersTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  {isLoading ? "Cargando..." : "No se encontraron resultados."}
-                </TableCell>
-              </TableRow>
-            )}
+            <AnimatePresence mode="wait">
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row, index) => (
+                  <motion.tr
+                    key={row.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                      transition: { delay: index * 0.05 },
+                    }}
+                    exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                    className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted group"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id} className="py-3 px-4">
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </motion.tr>
+                ))
+              ) : (
+                <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    {isLoading ? "" : "No se encontraron resultados."}
+                  </TableCell>
+                </motion.tr>
+              )}
+            </AnimatePresence>
           </TableBody>
         </Table>
       </div>

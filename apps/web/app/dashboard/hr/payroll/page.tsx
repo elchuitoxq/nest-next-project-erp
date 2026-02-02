@@ -2,14 +2,7 @@
 
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Plus, Eye, MoreHorizontal } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,27 +51,19 @@ export default function PayrollListPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="#">RRHH</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Nóminas</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <DynamicBreadcrumb />
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between py-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Gestión de Nómina</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Gestión de Nómina
+            </h1>
             <p className="text-muted-foreground">
               Historial de pagos y generación de nuevas nóminas.
             </p>
@@ -88,7 +73,7 @@ export default function PayrollListPage() {
           </Button>
         </div>
 
-        <Card>
+        <Card className="premium-shadow">
           <CardHeader>
             <CardTitle>Historial</CardTitle>
           </CardHeader>
@@ -123,15 +108,20 @@ export default function PayrollListPage() {
                       <TableRow key={run.id}>
                         <TableCell className="font-mono">{run.code}</TableCell>
                         <TableCell>
-                          {format(new Date(run.startDate), "dd MMM", { locale: es })} -{" "}
-                          {format(new Date(run.endDate), "dd MMM yyyy", { locale: es })}
+                          {format(new Date(run.startDate), "dd MMM", {
+                            locale: es,
+                          })}{" "}
+                          -{" "}
+                          {format(new Date(run.endDate), "dd MMM yyyy", {
+                            locale: es,
+                          })}
                         </TableCell>
                         <TableCell>
                           {run.frequency === "BIWEEKLY"
                             ? "Quincenal"
                             : run.frequency === "WEEKLY"
-                            ? "Semanal"
-                            : "Mensual"}
+                              ? "Semanal"
+                              : "Mensual"}
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(run.totalAmount, run.currency?.code)}
@@ -170,9 +160,9 @@ export default function PayrollListPage() {
         </Card>
       </div>
 
-      <PayrollGeneratorDialog 
-        open={openGenerator} 
-        onOpenChange={setOpenGenerator} 
+      <PayrollGeneratorDialog
+        open={openGenerator}
+        onOpenChange={setOpenGenerator}
       />
     </SidebarInset>
   );

@@ -12,14 +12,7 @@ import {
 } from "@/components/ui/card";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 
 import {
   useOrders,
@@ -31,6 +24,8 @@ import { OrderDetailsDialog } from "@/modules/orders/components/order-details-di
 import { OrderStatusCards } from "@/modules/orders/components/order-status-cards";
 import { Order } from "@/modules/orders/types";
 import { PaginationState } from "@tanstack/react-table";
+
+import { motion } from "framer-motion";
 
 export default function OrdersPage() {
   const [pagination, setPagination] = useState<PaginationState>({
@@ -123,38 +118,33 @@ export default function OrdersPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="#">Operaciones</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Pedidos</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <DynamicBreadcrumb />
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-1 flex-col gap-4 p-4 pt-0"
+      >
         <div className="flex items-center justify-between space-y-2 py-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">
+            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
               Pedidos de Venta
             </h2>
-            <p className="text-muted-foreground">
-              Gestión y seguimiento de pedidos de clientes.
+            <p className="text-muted-foreground text-sm">
+              Gestión y seguimiento de pedidos de clientes
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <Button onClick={() => setIsDialogOpen(true)}>
+            <Button
+              onClick={() => setIsDialogOpen(true)}
+              className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
+            >
               <Plus className="mr-2 h-4 w-4" /> Nuevo Pedido
             </Button>
           </div>
@@ -162,20 +152,20 @@ export default function OrdersPage() {
 
         <OrderStatusCards type="SALE" />
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Historial de Pedidos</CardTitle>
-            <div className="flex items-center justify-between">
-              <CardDescription>
-                Visualiza y administra todos los pedidos de venta registrados en
-                el sistema.
-              </CardDescription>
-            </div>
+        <Card className="border shadow-xl bg-white/60 backdrop-blur-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold">
+              Historial de Pedidos
+            </CardTitle>
+            <CardDescription>
+              Visualiza y administra todos los pedidos de venta registrados en
+              el sistema
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {isError ? (
-              <div className="text-red-500 py-8 text-center">
-                Error al cargar pedidos.
+              <div className="text-red-500 py-12 text-center border-dashed border-2 rounded-xl border-red-200 bg-red-50/50">
+                <p className="font-semibold text-lg">Error al cargar pedidos</p>
               </div>
             ) : (
               <OrdersTable
@@ -204,7 +194,7 @@ export default function OrdersPage() {
           onGenerateInvoice={executeGenerateInvoice}
           onRecalculate={executeRecalculate}
         />
-      </div>
+      </motion.div>
     </SidebarInset>
   );
 }

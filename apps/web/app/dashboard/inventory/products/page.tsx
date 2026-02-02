@@ -12,14 +12,7 @@ import {
 } from "@/components/ui/card";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 
 import { ProductsTable } from "@/modules/inventory/components/products-table";
 import { ProductDialog } from "@/modules/inventory/components/product-dialog";
@@ -27,12 +20,14 @@ import { useProducts } from "@/modules/inventory/hooks/use-products";
 import { Product } from "@/modules/inventory/types";
 import { Input } from "@/components/ui/input";
 
+import { motion } from "framer-motion";
+
 export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const { data: products, isLoading, isError } = useProducts(search);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>(
-    undefined
+    undefined,
   );
 
   const handleCreate = () => {
@@ -47,30 +42,21 @@ export default function ProductsPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="#">Inventario</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Productos</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <DynamicBreadcrumb />
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-1 flex-col gap-4 p-4 pt-0"
+      >
         <div className="flex items-center justify-between space-y-2 py-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">
+            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
               Catálogo de Productos
             </h2>
             <p className="text-muted-foreground">
@@ -78,39 +64,52 @@ export default function ProductsPage() {
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <Button onClick={handleCreate}>
+            <Button onClick={handleCreate} className="premium-shadow">
               <Plus className="mr-2 h-4 w-4" /> Nuevo Producto
             </Button>
           </div>
         </div>
 
-        <Card>
+        <Card className="border shadow-xl bg-white/60 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle>Listado</CardTitle>
             <div className="flex items-center justify-between">
-              <CardDescription>
-                Gestiona tu base de datos de productos.
-              </CardDescription>
+              <div>
+                <CardTitle>Listado</CardTitle>
+                <CardDescription>
+                  Gestiona tu base de datos de productos.
+                </CardDescription>
+              </div>
               <div className="w-[300px]">
                 <Input
                   placeholder="Buscar por nombre o SKU..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  className="bg-muted/30"
                 />
               </div>
             </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                <Loader2 className="h-10 w-10 animate-spin text-primary opacity-50" />
+                <p className="text-sm text-muted-foreground animate-pulse">
+                  Cargando catálogo...
+                </p>
               </div>
             ) : isError ? (
-              <div className="text-red-500 py-8 text-center">
-                Error al cargar productos. Por favor intente nuevamente.
+              <div className="text-red-500 py-12 text-center border-dashed border-2 rounded-xl border-red-200 bg-red-50/50">
+                <p className="font-semibold text-lg">
+                  Error al cargar productos
+                </p>
+                <p className="text-sm">Por favor intente nuevamente.</p>
               </div>
             ) : (
-              <ProductsTable products={products || []} onEdit={handleEdit} />
+              <ProductsTable
+                products={products || []}
+                onEdit={handleEdit}
+                isLoading={isLoading}
+              />
             )}
           </CardContent>
         </Card>
@@ -120,7 +119,7 @@ export default function ProductsPage() {
           onOpenChange={setIsDialogOpen}
           product={selectedProduct}
         />
-      </div>
+      </motion.div>
     </SidebarInset>
   );
 }

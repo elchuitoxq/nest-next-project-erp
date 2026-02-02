@@ -3,7 +3,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOrderStats } from "../hooks/use-orders";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Clock, CheckCircle2, PackageCheck, XCircle } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface OrderStatusCardsProps {
   type: "SALE" | "PURCHASE";
@@ -12,22 +14,26 @@ interface OrderStatusCardsProps {
 const statusConfig = {
   PENDING: {
     label: "Pendientes",
-    color: "bg-yellow-100 text-yellow-700",
+    borderColor: "border-t-yellow-500/50",
+    iconColor: "text-yellow-600",
     icon: Clock,
   },
   CONFIRMED: {
     label: "Confirmados",
-    color: "bg-blue-100 text-blue-700",
+    borderColor: "border-t-blue-500/50",
+    iconColor: "text-blue-600",
     icon: CheckCircle2,
   },
   COMPLETED: {
     label: "Completados",
-    color: "bg-green-100 text-green-700",
+    borderColor: "border-t-teal-500/50",
+    iconColor: "text-teal-600",
     icon: PackageCheck,
   },
   CANCELLED: {
     label: "Cancelados",
-    color: "bg-red-100 text-red-700",
+    borderColor: "border-t-red-500/50",
+    iconColor: "text-red-600",
     icon: XCircle,
   },
 };
@@ -43,9 +49,7 @@ export function OrderStatusCards({ type }: OrderStatusCardsProps) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="animate-pulse">
-            <div className="h-24 bg-muted rounded-lg" />
-          </Card>
+          <Skeleton key={i} className="h-32 rounded-xl" />
         ))}
       </div>
     );
@@ -53,25 +57,37 @@ export function OrderStatusCards({ type }: OrderStatusCardsProps) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {Object.entries(statusConfig).map(([status, config]) => {
+      {Object.entries(statusConfig).map(([status, config], index) => {
         const Icon = config.icon;
         const count = getCount(status);
 
         return (
-          <Card key={status}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {config.label}
-              </CardTitle>
-              <Icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{count}</div>
-              <p className="text-xs text-muted-foreground">
-                Total en estado {config.label.toLowerCase()}
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div
+            key={status}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              transition: { delay: index * 0.1 },
+            }}
+          >
+            <Card
+              className={`premium-shadow border-t-4 ${config.borderColor} transition-all duration-300 hover:bg-muted/50 cursor-default h-full`}
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {config.label}
+                </CardTitle>
+                <Icon className={`h-4 w-4 ${config.iconColor}`} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold font-mono-data">{count}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Total en estado {config.label.toLowerCase()}
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
         );
       })}
     </div>

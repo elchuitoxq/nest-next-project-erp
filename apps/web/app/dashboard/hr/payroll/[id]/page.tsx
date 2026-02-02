@@ -2,17 +2,19 @@
 
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 import { useParams } from "next/navigation";
-import { usePayroll, usePayrollMutations } from "@/modules/hr/hooks/use-payroll";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  usePayroll,
+  usePayrollMutations,
+} from "@/modules/hr/hooks/use-payroll";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Download, CheckCircle, Lock } from "lucide-react";
@@ -65,9 +67,12 @@ export default function PayrollDetailPage() {
   const uniqueBanks = Array.from(
     new Set(
       payroll.items
-        ?.filter((i) => i.employee.paymentMethod === "BANK_TRANSFER" && i.employee.bankId)
-        .map((i) => JSON.stringify(i.employee.bank)) // Store full object string to dedup
-    )
+        ?.filter(
+          (i) =>
+            i.employee.paymentMethod === "BANK_TRANSFER" && i.employee.bankId,
+        )
+        .map((i) => JSON.stringify(i.employee.bank)), // Store full object string to dedup
+    ),
   ).map((s) => JSON.parse(s as string));
 
   const handleStatusChange = (status: string) => {
@@ -78,7 +83,12 @@ export default function PayrollDetailPage() {
     if (!filteredItems || filteredItems.length === 0) return;
 
     const workbook = new ExcelJS.Workbook();
-    const sheetName = filter === "ALL" ? "Nómina Completa" : filter === "CASH" ? "Pago en Efectivo" : "Pago Bancario";
+    const sheetName =
+      filter === "ALL"
+        ? "Nómina Completa"
+        : filter === "CASH"
+          ? "Pago en Efectivo"
+          : "Pago Bancario";
     const worksheet = workbook.addWorksheet(sheetName);
 
     // Define Columns
@@ -107,7 +117,8 @@ export default function PayrollDetailPage() {
       worksheet.addRow({
         name: `${item.employee.firstName} ${item.employee.lastName}`,
         identity: item.employee.identityCard,
-        method: item.employee.paymentMethod === "CASH" ? "Efectivo" : "Transferencia",
+        method:
+          item.employee.paymentMethod === "CASH" ? "Efectivo" : "Transferencia",
         bank: item.employee.bank?.name || "-",
         account: item.employee.accountNumber || "-",
         base: Number(item.baseAmount),
@@ -125,21 +136,11 @@ export default function PayrollDetailPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/dashboard/hr/payroll">Nóminas</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>{payroll.code}</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <DynamicBreadcrumb customLabels={{ [id]: payroll.code }} />
         </div>
       </header>
 
@@ -175,7 +176,7 @@ export default function PayrollDetailPage() {
         </div>
 
         {/* List */}
-        <Card>
+        <Card className="premium-shadow">
           <CardHeader>
             <CardTitle>Detalle de Empleados</CardTitle>
             <div className="flex items-center justify-between">
@@ -206,66 +207,69 @@ export default function PayrollDetailPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Empleado</TableHead>
-                    <TableHead>Cédula</TableHead>
-                    <TableHead>Método Pago</TableHead>
-                    <TableHead>Banco / Cuenta</TableHead>
-                    <TableHead className="text-right">Sueldo Base</TableHead>
-                    <TableHead className="text-right">Cestaticket</TableHead>
-                    <TableHead className="text-right font-bold">Total Neto</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead>Cédula</TableHead>
+                  <TableHead>Método Pago</TableHead>
+                  <TableHead>Banco / Cuenta</TableHead>
+                  <TableHead className="text-right">Sueldo Base</TableHead>
+                  <TableHead className="text-right">Cestaticket</TableHead>
+                  <TableHead className="text-right font-bold">
+                    Total Neto
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredItems?.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">
+                      {item.employee.firstName} {item.employee.lastName}
+                    </TableCell>
+                    <TableCell>{item.employee.identityCard}</TableCell>
+                    <TableCell>
+                      {item.employee.paymentMethod === "CASH" ? (
+                        <Badge variant="secondary">Efectivo</Badge>
+                      ) : (
+                        <Badge variant="outline">Transferencia</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {item.employee.paymentMethod === "CASH" ? (
+                        "-"
+                      ) : (
+                        <>
+                          <div className="font-medium text-foreground">
+                            {item.employee.bank?.name}
+                          </div>
+                          {item.employee.accountNumber}
+                        </>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(item.baseAmount, payroll.currency?.code)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(item.bonuses, payroll.currency?.code)}
+                    </TableCell>
+                    <TableCell className="text-right font-bold">
+                      {formatCurrency(item.netTotal, payroll.currency?.code)}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredItems?.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">
-                        {item.employee.firstName} {item.employee.lastName}
-                      </TableCell>
-                      <TableCell>{item.employee.identityCard}</TableCell>
-                      <TableCell>
-                        {item.employee.paymentMethod === "CASH" ? (
-                          <Badge variant="secondary">Efectivo</Badge>
-                        ) : (
-                          <Badge variant="outline">Transferencia</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {item.employee.paymentMethod === "CASH" ? (
-                          "-"
-                        ) : (
-                          <>
-                            <div className="font-medium text-foreground">
-                              {item.employee.bank?.name}
-                            </div>
-                            {item.employee.accountNumber}
-                          </>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(item.baseAmount, payroll.currency?.code)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(item.bonuses, payroll.currency?.code)}
-                      </TableCell>
-                      <TableCell className="text-right font-bold">
-                        {formatCurrency(item.netTotal, payroll.currency?.code)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredItems?.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        No hay empleados en este filtro.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+                {filteredItems?.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="text-center py-8 text-muted-foreground"
+                    >
+                      No hay empleados en este filtro.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </div>

@@ -30,12 +30,11 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useOrderMutations } from "../hooks/use-orders";
 import { PartnerCombobox } from "@/modules/partners/components/partner-combobox";
 import { ProductCombobox } from "@/modules/inventory/components/product-combobox";
-
 import { useWarehouses } from "@/modules/inventory/hooks/use-inventory";
-// check useWarehouseStock usage
 import { formatCurrency } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { motion, AnimatePresence } from "framer-motion";
 
 const orderSchema = z.object({
   partnerId: z.string().min(1, "Seleccione un cliente"),
@@ -89,7 +88,9 @@ export function OrderDialog({
   const { data: rates } = useQuery({
     queryKey: ["exchange-rates", "latest"],
     queryFn: async () => {
-      const { data } = await api.get<any[]>("/settings/currencies/rates/latest");
+      const { data } = await api.get<any[]>(
+        "/settings/currencies/rates/latest",
+      );
       return data;
     },
   });
@@ -115,16 +116,20 @@ export function OrderDialog({
 
       // Currency Conversion Logic (Fixed)
       // Determine Target Currency based on USER SELECTION, fallback to Base
-      let targetCurrency = currencies?.find((c) => c.id === processedData.currencyId);
-      
+      let targetCurrency = currencies?.find(
+        (c: any) => c.id === processedData.currencyId,
+      );
+
       if (!targetCurrency) {
-          targetCurrency = currencies?.find((c) => c.isBase) || currencies?.find((c) => c.code === "VES");
+        targetCurrency =
+          currencies?.find((c: any) => c.isBase) ||
+          currencies?.find((c: any) => c.code === "VES");
       }
 
       processedData.items = processedData.items.map((item: any) => {
         if (!item.currencyId) return item;
         const productCurrency = currencies?.find(
-          (c) => c.id === item.currencyId,
+          (c: any) => c.id === item.currencyId,
         );
 
         // Conversion Logic:
@@ -138,17 +143,21 @@ export function OrderDialog({
           let exchangeRate = 1;
           // Case 1: Product is Base (USD) -> Order is Foreign (Multiply)
           if (productCurrency.isBase || productCurrency.code === "USD") {
-             const rateEntry = rates.find((r: any) => r.currencyId === targetCurrency.id);
-             if (rateEntry) exchangeRate = Number(rateEntry.rate);
-          } 
+            const rateEntry = rates.find(
+              (r: any) => r.currencyId === targetCurrency.id,
+            );
+            if (rateEntry) exchangeRate = Number(rateEntry.rate);
+          }
           // Case 2: Order is Base (USD) -> Product is Foreign (Divide)
           else if (targetCurrency.isBase || targetCurrency.code === "USD") {
-             const rateEntry = rates.find((r: any) => r.currencyId === productCurrency.id);
-             if (rateEntry) exchangeRate = 1 / Number(rateEntry.rate);
+            const rateEntry = rates.find(
+              (r: any) => r.currencyId === productCurrency.id,
+            );
+            if (rateEntry) exchangeRate = 1 / Number(rateEntry.rate);
           }
           // Case 3: Foreign to Foreign (USD to EUR) -> Cross Rate (Not fully implemented, assuming 1 for now or skip)
           // For now, only Base<->Foreign is critical.
-          
+
           item.price = item.price * exchangeRate;
           item.price = parseFloat(item.price.toFixed(2));
         }
@@ -158,24 +167,28 @@ export function OrderDialog({
       // Global Exchange Rate
       // Store the VES rate for accounting purposes (always relative to USD)
       let globalExchangeRate = 1;
-      
-      const vesCurrency = currencies?.find(c => c.code === "VES");
-      
+
+      const vesCurrency = currencies?.find((c: any) => c.code === "VES");
+
       if (targetCurrency && rates) {
-          if (targetCurrency.isBase || targetCurrency.code === "USD") {
-               // USD -> Store VES Rate (e.g. 45.00)
-               const rateEntry = rates.find((r: any) => r.currencyId === vesCurrency?.id);
-               if (rateEntry) globalExchangeRate = Number(rateEntry.rate);
-          } else if (targetCurrency.code === "VES") {
-               // VES -> Store 1 (1 Bs = 1 Bs)
-               globalExchangeRate = 1;
-          } else {
-               // Other currencies -> Store their rate relative to base
-               const rateEntry = rates.find((r: any) => r.currencyId === targetCurrency.id);
-               if (rateEntry) globalExchangeRate = Number(rateEntry.rate);
-          }
+        if (targetCurrency.isBase || targetCurrency.code === "USD") {
+          // USD -> Store VES Rate (e.g. 45.00)
+          const rateEntry = rates.find(
+            (r: any) => r.currencyId === vesCurrency?.id,
+          );
+          if (rateEntry) globalExchangeRate = Number(rateEntry.rate);
+        } else if (targetCurrency.code === "VES") {
+          // VES -> Store 1 (1 Bs = 1 Bs)
+          globalExchangeRate = 1;
+        } else {
+          // Other currencies -> Store their rate relative to base
+          const rateEntry = rates.find(
+            (r: any) => r.currencyId === targetCurrency.id,
+          );
+          if (rateEntry) globalExchangeRate = Number(rateEntry.rate);
+        }
       }
-      
+
       processedData.exchangeRate = globalExchangeRate;
 
       await createOrder.mutateAsync(processedData);
@@ -189,18 +202,24 @@ export function OrderDialog({
   const calculateTotal = () => {
     const items = form.watch("items");
     const selectedCurrencyId = form.watch("currencyId");
-    
+
     // Determine Target Currency based on USER SELECTION
-    let targetCurrency = currencies?.find((c) => c.id === selectedCurrencyId);
+    let targetCurrency = currencies?.find(
+      (c: any) => c.id === selectedCurrencyId,
+    );
     if (!targetCurrency) {
-       targetCurrency = currencies?.find((c) => c.isBase) || currencies?.find((c) => c.code === "VES");
+      targetCurrency =
+        currencies?.find((c: any) => c.isBase) ||
+        currencies?.find((c: any) => c.code === "VES");
     }
 
     return items.reduce((sum, item) => {
       if (!item.quantity || !item.price) return sum;
       let itemPrice = item.price;
 
-      const productCurrency = currencies?.find((c) => c.id === item.currencyId);
+      const productCurrency = currencies?.find(
+        (c: any) => c.id === item.currencyId,
+      );
 
       // Conversion Logic (Visual)
       if (
@@ -209,22 +228,26 @@ export function OrderDialog({
         productCurrency.id !== targetCurrency.id &&
         rates
       ) {
-         let exchangeRate = 1;
-          // Case 1: Product Base -> Order Foreign (Multiply)
-          if (productCurrency.isBase || productCurrency.code === "USD") {
-             const rateEntry = rates.find((r: any) => r.currencyId === targetCurrency.id);
-             if (rateEntry) exchangeRate = Number(rateEntry.rate);
-          } 
-          // Case 2: Order Base -> Product Foreign (Divide)
-          else if (targetCurrency.isBase || targetCurrency.code === "USD") {
-             const rateEntry = rates.find((r: any) => r.currencyId === productCurrency.id);
-             if (rateEntry) exchangeRate = 1 / Number(rateEntry.rate);
-          }
-          
-          itemPrice = itemPrice * exchangeRate;
+        let exchangeRate = 1;
+        // Case 1: Product Base -> Order Foreign (Multiply)
+        if (productCurrency.isBase || productCurrency.code === "USD") {
+          const rateEntry = rates.find(
+            (r: any) => r.currencyId === targetCurrency.id,
+          );
+          if (rateEntry) exchangeRate = Number(rateEntry.rate);
+        }
+        // Case 2: Order Base -> Product Foreign (Divide)
+        else if (targetCurrency.isBase || targetCurrency.code === "USD") {
+          const rateEntry = rates.find(
+            (r: any) => r.currencyId === productCurrency.id,
+          );
+          if (rateEntry) exchangeRate = 1 / Number(rateEntry.rate);
+        }
+
+        itemPrice = itemPrice * exchangeRate;
       }
-      
-      return sum + (item.quantity * itemPrice);
+
+      return sum + item.quantity * itemPrice;
     }, 0);
   };
 
@@ -290,7 +313,7 @@ export function OrderDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {warehouses?.map((warehouse) => (
+                        {warehouses?.map((warehouse: any) => (
                           <SelectItem key={warehouse.id} value={warehouse.id}>
                             {warehouse.name}
                           </SelectItem>
@@ -318,7 +341,7 @@ export function OrderDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {currencies?.map((currency) => (
+                        {currencies?.map((currency: any) => (
                           <SelectItem key={currency.id} value={currency.id}>
                             {currency.code} ({currency.symbol})
                           </SelectItem>
@@ -353,158 +376,173 @@ export function OrderDialog({
                 </div>
               )}
 
-              {fields.map((field, index) => (
-                <div
-                  key={field.id}
-                  className="grid grid-cols-12 gap-2 items-end border p-4 rounded-md"
-                >
-                  <div className="col-span-12 md:col-span-5">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.productId`}
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel className={index !== 0 ? "sr-only" : ""}>
-                            Producto
-                          </FormLabel>
-                          <ProductCombobox
-                            value={field.value}
-                            onChange={field.onChange}
-                            mode="STOCK"
-                            warehouseId={warehouseId}
-                            onSelectObject={(item) => {
-                              // Price Selection Logic
-                              // Sale: item.price (Retail Price)
-                              // Purchase: item.cost (Cost Price) or item.price if cost unknown?
-                              // Product DTO usually has cost. Assuming item.cost exists or handled.
-                              // If using ProductCombobox STOCK mode, it might return stock item.
-                              // Stock item has relation to product.
+              <AnimatePresence mode="popLayout">
+                {fields.map((field, index) => (
+                  <motion.div
+                    key={field.id}
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{
+                      opacity: 0,
+                      scale: 0.95,
+                      transition: { duration: 0.2 },
+                    }}
+                    layout
+                    className="grid grid-cols-12 gap-2 items-end border p-4 rounded-md premium-shadow bg-card/50"
+                  >
+                    <div className="col-span-12 md:col-span-5">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.productId`}
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel className={index !== 0 ? "sr-only" : ""}>
+                              Producto
+                            </FormLabel>
+                            <ProductCombobox
+                              value={field.value}
+                              onChange={field.onChange}
+                              mode="STOCK"
+                              warehouseId={warehouseId}
+                              onSelectObject={(item) => {
+                                const priceToUse = isPurchase
+                                  ? parseFloat(item.cost || "0")
+                                  : parseFloat(item.price || "0");
 
-                              const priceToUse = isPurchase
-                                ? parseFloat(item.cost || "0") // Use Cost for Purchase
-                                : parseFloat(item.price || "0"); // Use Price for Sale
-
-                              form.setValue(`items.${index}.price`, priceToUse);
-                              form.setValue(
-                                `items.${index}.currencyId`,
-                                item.currencyId,
-                              );
-                              form.setValue(
-                                `items.${index}.maxQuantity`,
-                                item.quantity,
-                              ); // Stock limit (warn for Purchase?)
-                              // Actually for Purchase, stock limit logic is inverted? We are ADDING stock.
-                              // Current validation validates Quantity <= MaxQuantity.
-                              // If Purchase, we shouldn't limit, or limit to infinity.
-                              if (isPurchase) {
+                                form.setValue(
+                                  `items.${index}.price`,
+                                  priceToUse,
+                                );
+                                form.setValue(
+                                  `items.${index}.currencyId`,
+                                  item.currencyId,
+                                );
                                 form.setValue(
                                   `items.${index}.maxQuantity`,
-                                  999999,
+                                  item.quantity,
                                 );
-                              }
-                            }}
-                          />
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-6 md:col-span-3">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.quantity`}
-                      rules={{
-                        required: "Requerido",
-                        validate: (value) => {
-                          const productId = form.getValues(
-                            `items.${index}.productId`,
-                          );
-                          if (!productId) return true;
-                          const max = getMaxQuantity(index);
-                          // Only validate max if SALE
-                          if (!isPurchase && value > max)
-                            return `Máximo: ${max}`;
-                          return true;
-                        },
-                      }}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className={index !== 0 ? "sr-only" : ""}>
-                            Cantidad
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="1"
-                              {...field}
-                              onChange={field.onChange}
+                                if (isPurchase) {
+                                  form.setValue(
+                                    `items.${index}.maxQuantity`,
+                                    999999,
+                                  );
+                                }
+                              }}
                             />
-                          </FormControl>
-                          <FormMessage />
-                          {!isPurchase &&
-                            form.getValues(`items.${index}.productId`) && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Max: {getMaxQuantity(index)}
-                              </div>
-                            )}
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-6 md:col-span-3">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.price`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className={index !== 0 ? "sr-only" : ""}>
-                            {isPurchase ? "Costo Unit." : "Precio Unit."}
-                            {(() => {
-                              const currencyId = form.watch(
-                                `items.${index}.currencyId`,
-                              );
-                              const currency = currencies?.find(
-                                (c) => c.id === currencyId,
-                              );
-                              return currency ? ` (${currency.symbol})` : "";
-                            })()}
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-12 md:col-span-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="text-red-500"
-                      onClick={() => remove(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="col-span-6 md:col-span-3">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.quantity`}
+                        rules={{
+                          required: "Requerido",
+                          validate: (value) => {
+                            const productId = form.getValues(
+                              `items.${index}.productId`,
+                            );
+                            if (!productId) return true;
+                            const max = getMaxQuantity(index);
+                            if (!isPurchase && value > max)
+                              return `Máximo: ${max}`;
+                            return true;
+                          },
+                        }}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className={index !== 0 ? "sr-only" : ""}>
+                              Cantidad
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="1"
+                                {...field}
+                                onChange={field.onChange}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                            {!isPurchase &&
+                              form.getValues(`items.${index}.productId`) && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Max: {getMaxQuantity(index)}
+                                </div>
+                              )}
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="col-span-6 md:col-span-3">
+                      <FormField
+                        control={form.control}
+                        name={`items.${index}.price`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className={index !== 0 ? "sr-only" : ""}>
+                              {isPurchase ? "Costo Unit." : "Precio Unit."}
+                              {(() => {
+                                const currencyId = form.watch(
+                                  `items.${index}.currencyId`,
+                                );
+                                const currency = currencies?.find(
+                                  (c: any) => c.id === currencyId,
+                                );
+                                return currency ? ` (${currency.symbol})` : "";
+                              })()}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="col-span-12 md:col-span-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        onClick={() => remove(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
 
-            <div className="flex justify-end items-center gap-4 pt-4 border-t">
-              <div className="text-lg font-bold">
-                Total Estimado: {(() => {
-                    const selectedId = form.watch("currencyId");
-                    const currency = currencies?.find(c => c.id === selectedId) || currencies?.find(c => c.isBase);
-                    return formatCurrency(calculateTotal().toFixed(2), currency?.code);
+            <div className="flex justify-end items-center gap-6 pt-4 border-t">
+              <motion.div
+                key={calculateTotal()}
+                initial={{ scale: 0.95, opacity: 0.5 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-2xl font-bold font-mono-data text-primary"
+              >
+                <span className="text-sm font-medium text-muted-foreground mr-2">
+                  Total Estimado:
+                </span>
+                {(() => {
+                  const selectedId = form.watch("currencyId");
+                  const currency =
+                    currencies?.find((c: any) => c.id === selectedId) ||
+                    currencies?.find((c: any) => c.isBase);
+                  return formatCurrency(
+                    calculateTotal().toFixed(2),
+                    currency?.code,
+                  );
                 })()}
-              </div>
+              </motion.div>
               <div className="flex gap-2">
                 <Button
                   variant="outline"

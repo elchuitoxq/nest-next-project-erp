@@ -27,14 +27,7 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 
@@ -50,11 +43,13 @@ export default function AccountStatementPage() {
   const [selectedCurrency, setSelectedCurrency] = useState("VES");
   const [search, setSearch] = useState("");
 
-  const currenciesList = statement?.summary ? Object.keys(statement.summary) : [];
+  const currenciesList = statement?.summary
+    ? Object.keys(statement.summary)
+    : [];
   // Auto-select logic: Use selected if valid, otherwise first available, otherwise VES
-  const effectiveCurrency = currenciesList.includes(selectedCurrency) 
-    ? selectedCurrency 
-    : (currenciesList[0] || "VES");
+  const effectiveCurrency = currenciesList.includes(selectedCurrency)
+    ? selectedCurrency
+    : currenciesList[0] || "VES";
 
   const getTypeBadge = (type: string) => {
     switch (type) {
@@ -82,7 +77,10 @@ export default function AccountStatementPage() {
     // Filter and Sort Chronologically
     const filtered = statement.transactions
       .filter((t: any) => t.currency === selectedCurrency)
-      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      .sort(
+        (a: any, b: any) =>
+          new Date(a.date).getTime() - new Date(b.date).getTime(),
+      );
 
     // Calculate Accumulated Balance
     let runningBalance = 0;
@@ -122,33 +120,15 @@ export default function AccountStatementPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <DynamicBreadcrumb
+            customLabels={{
+              [params.partnerId]: partner?.name || "Estado de Cuenta",
+            }}
           />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="#">Operaciones</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink
-                  onClick={() => router.push("/dashboard/operations/partners")}
-                  className="cursor-pointer"
-                >
-                  Clientes
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Estado de Cuenta</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
         </div>
       </header>
 
@@ -167,7 +147,7 @@ export default function AccountStatementPage() {
               </p>
             </div>
           </div>
-          
+
           {currenciesList.length > 0 && (
             <Tabs value={selectedCurrency} onValueChange={setSelectedCurrency}>
               <TabsList>
@@ -182,7 +162,7 @@ export default function AccountStatementPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <Card>
+          <Card className="premium-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Saldo Global (Deuda)
@@ -192,7 +172,9 @@ export default function AccountStatementPage() {
               <div
                 className={cn(
                   "text-3xl font-bold",
-                  currentSummary.balance > 0 ? "text-red-600" : "text-green-600",
+                  currentSummary.balance > 0
+                    ? "text-red-600"
+                    : "text-green-600",
                 )}
               >
                 {formatCurrency(currentSummary.balance, selectedCurrency)}
@@ -205,7 +187,7 @@ export default function AccountStatementPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="premium-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 Saldo Sin Ocupar
@@ -266,7 +248,9 @@ export default function AccountStatementPage() {
                       </TableCell>
                       <TableCell>{t.description}</TableCell>
                       <TableCell className="text-right text-red-600 font-medium whitespace-nowrap">
-                        {t.debit > 0 ? formatCurrency(t.debit, selectedCurrency) : "-"}
+                        {t.debit > 0
+                          ? formatCurrency(t.debit, selectedCurrency)
+                          : "-"}
                       </TableCell>
                       <TableCell className="text-right text-green-600 font-medium whitespace-nowrap">
                         {t.credit > 0 ? (

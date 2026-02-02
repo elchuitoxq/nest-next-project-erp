@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/card";
 import { ActivityItem } from "../types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
 import {
   FileText,
   CreditCard,
@@ -29,16 +30,25 @@ export function ActivityFeed({ data, isLoading }: ActivityFeedProps) {
   }
 
   return (
-    <Card className="col-span-3">
+    <Card className="col-span-3 premium-shadow">
       <CardHeader>
         <CardTitle>Actividad Reciente</CardTitle>
         <CardDescription>Últimas operaciones registradas.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {data?.map((item) => (
-            <div key={item.id} className="flex items-center">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full border bg-muted">
+          {data?.map((item, index) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{
+                opacity: 1,
+                x: 0,
+                transition: { delay: 0.2 + index * 0.1 },
+              }}
+              className="flex items-center"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border bg-muted shadow-sm group-hover:bg-background transition-colors">
                 {item.entity === "INVOICE" && <FileText className="h-4 w-4" />}
                 {item.entity === "PAYMENT" && (
                   <CreditCard className="h-4 w-4" />
@@ -58,7 +68,7 @@ export function ActivityFeed({ data, isLoading }: ActivityFeedProps) {
                   })}
                 </p>
               </div>
-              <div className="ml-auto font-medium">
+              <div className="ml-auto font-medium font-mono-data">
                 {item.total && item.total !== "0" ? (
                   <div className="flex items-center gap-1">
                     {getAmountPrefix(item)}
@@ -70,7 +80,7 @@ export function ActivityFeed({ data, isLoading }: ActivityFeedProps) {
                   </Badge>
                 )}
               </div>
-            </div>
+            </motion.div>
           ))}
           {!data?.length && (
             <p className="text-center text-muted-foreground text-sm py-8">

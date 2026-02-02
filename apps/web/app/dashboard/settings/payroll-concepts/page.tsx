@@ -2,16 +2,35 @@
 
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2 } from "lucide-react";
-import { usePayrollConcepts, usePayrollConceptMutations } from "@/modules/hr/concepts/hooks/use-payroll-concepts";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Plus, Trash2, Loader2 } from "lucide-react";
+import {
+  usePayrollConcepts,
+  usePayrollConceptMutations,
+} from "@/modules/hr/concepts/hooks/use-payroll-concepts";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { ConceptDialog } from "@/modules/hr/concepts/components/concept-dialog";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function PayrollConceptsPage() {
   const { data: concepts, isLoading } = usePayrollConcepts();
@@ -19,108 +38,158 @@ export default function PayrollConceptsPage() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const filteredConcepts = concepts?.filter((c) => {
-    const term = search.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(term) ||
-      c.code.toLowerCase().includes(term)
-    );
-  }) || [];
+  const filteredConcepts =
+    concepts?.filter((c) => {
+      const term = search.toLowerCase();
+      return (
+        c.name.toLowerCase().includes(term) ||
+        c.code.toLowerCase().includes(term)
+      );
+    }) || [];
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="#">Configuración</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Conceptos de Nómina</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <DynamicBreadcrumb />
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-1 flex-col gap-4 p-4 pt-0"
+      >
         <div className="flex justify-between items-center py-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Conceptos de Nómina</h1>
-            <p className="text-muted-foreground">Definición de asignaciones y deducciones.</p>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Conceptos de Nómina
+            </h1>
+            <p className="text-muted-foreground">
+              Definición de asignaciones y deducciones.
+            </p>
           </div>
-          <Button onClick={() => setOpen(true)} className="gap-2">
+          <Button
+            onClick={() => setOpen(true)}
+            className="gap-2 premium-shadow"
+          >
             <Plus className="h-4 w-4" /> Nuevo Concepto
           </Button>
         </div>
 
-        <Card>
+        <Card className="border premium-shadow">
           <CardHeader>
-            <CardTitle>Listado de Conceptos</CardTitle>
             <div className="flex items-center justify-between">
-              <CardDescription>
-                Catálogo de conceptos salariales activos.
-              </CardDescription>
+              <div>
+                <CardTitle>Listado de Conceptos</CardTitle>
+                <CardDescription>
+                  Catálogo de conceptos salariales activos.
+                </CardDescription>
+              </div>
               <div className="w-[300px]">
                 <Input
                   placeholder="Buscar por nombre o código..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  className="bg-muted/30"
                 />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="border rounded-md">
+            <div className="rounded-md border relative">
+              <AnimatePresence>
+                {isLoading && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-background/40 z-10 flex items-center justify-center backdrop-blur-[2px]"
+                  >
+                    <div className="bg-background/80 p-3 rounded-full shadow-lg border">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
+                    <TableHead className="px-4">Código</TableHead>
+                    <TableHead className="px-4">Nombre</TableHead>
+                    <TableHead className="px-4">Categoría</TableHead>
+                    <TableHead className="text-right px-4">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center h-24">Cargando...</TableCell>
-                    </TableRow>
-                  ) : filteredConcepts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                        No se encontraron conceptos.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredConcepts.map((c) => (
-                      <TableRow key={c.id}>
-                        <TableCell className="font-mono">{c.code}</TableCell>
-                        <TableCell>{c.name}</TableCell>
-                        <TableCell>
-                          <Badge variant={c.category === "INCOME" ? "default" : "destructive"}>
-                            {c.category === "INCOME" ? "Asignación" : "Deducción"}
-                          </Badge>
+                  <AnimatePresence mode="wait">
+                    {isLoading || (filteredConcepts.length ?? 0) > 0 ? (
+                      filteredConcepts.map((c, index) => (
+                        <motion.tr
+                          key={c.id}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                          exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                          className="border-b last:border-0 hover:bg-muted/50 transition-colors group"
+                        >
+                          <TableCell className="font-mono-data text-xs font-bold text-primary py-3 px-4">
+                            {c.code}
+                          </TableCell>
+                          <TableCell className="font-bold text-sm py-3 px-4">
+                            {c.name}
+                          </TableCell>
+                          <TableCell className="py-3 px-4">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] uppercase font-bold tracking-tighter",
+                                c.category === "INCOME"
+                                  ? "bg-blue-500/10 text-blue-600 border-blue-200"
+                                  : "bg-red-500/10 text-red-600 border-red-200",
+                              )}
+                            >
+                              {c.category === "INCOME"
+                                ? "Asignación"
+                                : "Deducción"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right py-3 px-4">
+                            {!c.isSystem && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:bg-red-50 transition-colors"
+                                onClick={() => deleteConcept.mutate(c.id)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </motion.tr>
+                      ))
+                    ) : (
+                      <motion.tr
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <TableCell
+                          colSpan={4}
+                          className="text-center h-48 text-muted-foreground italic"
+                        >
+                          No se encontraron conceptos.
                         </TableCell>
-                        <TableCell className="text-right">
-                          {!c.isSystem && (
-                            <Button variant="ghost" size="icon" onClick={() => deleteConcept.mutate(c.id)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
+                      </motion.tr>
+                    )}
+                  </AnimatePresence>
                 </TableBody>
               </Table>
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
       <ConceptDialog open={open} onOpenChange={setOpen} />
     </SidebarInset>
   );

@@ -3,7 +3,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { fiscalReportsApi } from "../reports.api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -23,12 +29,14 @@ import {
 import { Loader2, Download } from "lucide-react";
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
-import { formatCurrency } from "@/lib/utils";
-
+import { formatCurrency, cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function ReportsView() {
-  const [type, setType] = useState<"ventas" | "compras" | "liquidacion">("ventas");
+  const [type, setType] = useState<"ventas" | "compras" | "liquidacion">(
+    "ventas",
+  );
   const [month, setMonth] = useState(new Date().getMonth() + 1 + "");
   const [year, setYear] = useState(new Date().getFullYear() + "");
   const [fortnight, setFortnight] = useState<string>("full"); // "full", "first", "second"
@@ -38,23 +46,37 @@ export function ReportsView() {
     queryFn: async () => {
       const fortnightParam = fortnight === "full" ? undefined : fortnight;
       if (type === "ventas") {
-        return fiscalReportsApi.getLibroVentas(month, year, undefined, fortnightParam);
+        return fiscalReportsApi.getLibroVentas(
+          month,
+          year,
+          undefined,
+          fortnightParam,
+        );
       } else if (type === "compras") {
-        return fiscalReportsApi.getLibroCompras(month, year, undefined, fortnightParam);
+        return fiscalReportsApi.getLibroCompras(
+          month,
+          year,
+          undefined,
+          fortnightParam,
+        );
       } else {
-        return fiscalReportsApi.getFiscalSummary(month, year, undefined, fortnightParam);
+        return fiscalReportsApi.getFiscalSummary(
+          month,
+          year,
+          undefined,
+          fortnightParam,
+        );
       }
     },
   });
 
   const handleExport = async () => {
-    if (type === "liquidacion") return; // No excel for summary yet
+    if (type === "liquidacion") return;
     if (!data || !data.items || data.items.length === 0) return;
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet(`Libro ${type}`);
 
-    // Define columns based on the data structure
     const columns = [
       { header: "#", key: "nro_operacion", width: 5 },
       { header: "Fecha", key: "fecha", width: 15 },
@@ -62,29 +84,54 @@ export function ReportsView() {
       { header: "Nombre", key: "nombre", width: 30 },
       { header: "Factura", key: "numero_factura", width: 15 },
       { header: "Control", key: "numero_control", width: 15 },
-      { header: "Total", key: "total", width: 15, style: { numFmt: '#,##0.00' } },
-      { header: "Base", key: "base_imponible", width: 15, style: { numFmt: '#,##0.00' } },
-      { header: "IVA", key: "impuesto", width: 15, style: { numFmt: '#,##0.00' } },
-      { header: "IVA Retenido", key: "iva_retenido", width: 15, style: { numFmt: '#,##0.00' } },
+      {
+        header: "Total",
+        key: "total",
+        width: 15,
+        style: { numFmt: "#,##0.00" },
+      },
+      {
+        header: "Base",
+        key: "base_imponible",
+        width: 15,
+        style: { numFmt: "#,##0.00" },
+      },
+      {
+        header: "IVA",
+        key: "impuesto",
+        width: 15,
+        style: { numFmt: "#,##0.00" },
+      },
+      {
+        header: "IVA Retenido",
+        key: "iva_retenido",
+        width: 15,
+        style: { numFmt: "#,##0.00" },
+      },
       { header: "N° Comprobante", key: "numero_comprobante", width: 20 },
     ];
 
     if (type === "ventas") {
-      columns.push({ header: "IGTF Percibido", key: "igtf_percibido", width: 15, style: { numFmt: '#,##0.00' } });
+      columns.push({
+        header: "IGTF Percibido",
+        key: "igtf_percibido",
+        width: 15,
+        style: { numFmt: "#,##0.00" },
+      });
     }
 
     worksheet.columns = columns;
 
-    // Add rows and format numbers
     data.items.forEach((row: any) => {
-      const totalValue = row.total_ventas_incluyendo_iva || row.total_compras_incluyendo_iva;
+      const totalValue =
+        row.total_ventas_incluyendo_iva || row.total_compras_incluyendo_iva;
       worksheet.addRow({
         nro_operacion: row.nro_operacion,
         fecha: new Date(row.fecha).toLocaleDateString(),
-        rif: row.rif || '',
-        nombre: row.nombre || '',
-        numero_factura: row.numero_factura || '',
-        numero_control: row.numero_control || '',
+        rif: row.rif || "",
+        nombre: row.nombre || "",
+        numero_factura: row.numero_factura || "",
+        numero_control: row.numero_control || "",
         total: Number(totalValue || 0),
         base_imponible: Number(row.base_imponible || 0),
         impuesto: Number(row.impuesto || 0),
@@ -94,28 +141,49 @@ export function ReportsView() {
       });
     });
 
-    // Add Summary Rows
     worksheet.addRow([]);
     worksheet.addRow(["RESUMEN GENERAL"]);
-    // Apply bold to summary header
     if (worksheet.lastRow) worksheet.lastRow.font = { bold: true };
 
     if (data.summary) {
       if (type === "ventas") {
-        worksheet.addRow(["Total Ventas Gravadas", Number(data.summary.total_ventas_gravadas || 0)]);
-        worksheet.addRow(["Total Base Imponible", Number(data.summary.total_base_imponible || 0)]);
-        worksheet.addRow(["Total Débito Fiscal (IVA)", Number(data.summary.total_debito_fiscal || 0)]);
-        worksheet.addRow(["Total IVA Retenido", Number(data.summary.total_iva_retenido || 0)]);
+        worksheet.addRow([
+          "Total Ventas Gravadas",
+          Number(data.summary.total_ventas_gravadas || 0),
+        ]);
+        worksheet.addRow([
+          "Total Base Imponible",
+          Number(data.summary.total_base_imponible || 0),
+        ]);
+        worksheet.addRow([
+          "Total Débito Fiscal (IVA)",
+          Number(data.summary.total_debito_fiscal || 0),
+        ]);
+        worksheet.addRow([
+          "Total IVA Retenido",
+          Number(data.summary.total_iva_retenido || 0),
+        ]);
         worksheet.addRow(["Total IGTF", Number(data.summary.total_igtf || 0)]);
       } else {
-        worksheet.addRow(["Total Compras Gravadas", Number(data.summary.total_compras_gravadas || 0)]);
-        worksheet.addRow(["Total Base Imponible", Number(data.summary.total_base_imponible || 0)]);
-        worksheet.addRow(["Total Crédito Fiscal (IVA)", Number(data.summary.total_credito_fiscal || 0)]);
-        worksheet.addRow(["Total IVA Retenido a Terceros", Number(data.summary.total_iva_retenido_terceros || 0)]);
+        worksheet.addRow([
+          "Total Compras Gravadas",
+          Number(data.summary.total_compras_gravadas || 0),
+        ]);
+        worksheet.addRow([
+          "Total Base Imponible",
+          Number(data.summary.total_base_imponible || 0),
+        ]);
+        worksheet.addRow([
+          "Total Crédito Fiscal (IVA)",
+          Number(data.summary.total_credito_fiscal || 0),
+        ]);
+        worksheet.addRow([
+          "Total IVA Retenido a Terceros",
+          Number(data.summary.total_iva_retenido_terceros || 0),
+        ]);
       }
     }
 
-    // Style the header
     const headerRow = worksheet.getRow(1);
     headerRow.font = { bold: true };
     headerRow.fill = {
@@ -124,7 +192,6 @@ export function ReportsView() {
       fgColor: { argb: "FFE0E0E0" },
     };
 
-    // Generate buffer and save
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -138,45 +205,57 @@ export function ReportsView() {
         month,
         year,
         undefined,
-        fortnight === "full" ? undefined : fortnight
+        fortnight === "full" ? undefined : fortnight,
       );
       saveAs(blob, `IVA_${year}${month}_${fortnight}.txt`);
     } catch (error) {
       console.error("Failed to download TXT", error);
-      // Optional: Add toast notification here
     }
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center p-2">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Libros Fiscales</h2>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Reportes Fiscales
+          </h2>
           <p className="text-muted-foreground">
-            Consulta y exportación de libros de compra y venta según normativa SENIAT.
+            Consulta y exportación de libros de compra y venta según normativa
+            SENIAT.
           </p>
         </div>
         <div className="flex gap-2">
           {type === "compras" && (
             <Button variant="outline" onClick={handleDownloadTxt}>
-              <Download className="mr-2 h-4 w-4" /> TXT Retenciones
+              <Download className="mr-2 h-4 w-4" /> IVA TXT
             </Button>
           )}
           {type !== "liquidacion" && (
-            <Button onClick={handleExport} disabled={!data || !data.items || data.items.length === 0}>
+            <Button
+              onClick={handleExport}
+              disabled={!data || !data.items || data.items.length === 0}
+            >
               <Download className="mr-2 h-4 w-4" /> Exportar Excel
             </Button>
           )}
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuración</CardTitle>
+      <Card className="premium-shadow overflow-hidden">
+        <CardHeader className="bg-muted/30 pb-4">
+          <CardTitle className="text-lg">Parámetros de Consulta</CardTitle>
+          <CardDescription>
+            Seleccione el tipo de libro y el período fiscal.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex gap-4 items-end">
-          <Tabs value={type} onValueChange={(v: any) => setType(v)} className="w-[400px]">
-            <TabsList>
+        <CardContent className="flex flex-wrap gap-4 items-end pt-6">
+          <Tabs
+            value={type}
+            onValueChange={(v: any) => setType(v)}
+            className="w-full md:w-auto"
+          >
+            <TabsList className="grid w-full grid-cols-3 md:w-[400px]">
               <TabsTrigger value="ventas">Ventas</TabsTrigger>
               <TabsTrigger value="compras">Compras</TabsTrigger>
               <TabsTrigger value="liquidacion">Liquidación</TabsTrigger>
@@ -185,13 +264,15 @@ export function ReportsView() {
 
           <div className="flex gap-2 ml-auto">
             <Select value={month} onValueChange={setMonth}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[130px]">
                 <SelectValue placeholder="Mes" />
               </SelectTrigger>
               <SelectContent>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                   <SelectItem key={m} value={m.toString()}>
-                    Mes {m}
+                    {new Intl.DateTimeFormat("es", { month: "long" }).format(
+                      new Date(2000, m - 1, 1),
+                    )}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -208,8 +289,12 @@ export function ReportsView() {
               </SelectContent>
             </Select>
 
-            <Select value={fortnight} onValueChange={setFortnight}>
-              <SelectTrigger className="w-[180px]">
+            <Select
+              value={fortnight}
+              onValueChange={setFortnight}
+              disabled={type === "liquidacion"}
+            >
+              <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Periodo" />
               </SelectTrigger>
               <SelectContent>
@@ -222,209 +307,428 @@ export function ReportsView() {
         </CardContent>
       </Card>
 
-      {type === "liquidacion" ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {isLoading ? (
-             <div className="col-span-3 flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
-          ) : data ? (
-            <>
-              {/* Card 1: IVA Propio */}
-              <Card className={data.iva_a_pagar > 0 ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Cuota Tributaria (IVA Propio)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className={`text-2xl font-bold ${data.iva_a_pagar > 0 ? "text-red-600" : "text-green-600"}`}>
-                    {data.iva_a_pagar > 0 ? formatCurrency(data.iva_a_pagar, "Bs") : "0,00"}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {data.excedente_credito > 0 
-                      ? `Excedente a favor: ${formatCurrency(data.excedente_credito, "Bs")}`
-                      : "Monto a pagar por operaciones propias"}
-                  </p>
-                  <div className="mt-4 space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span>Débitos Fiscales:</span>
-                      <span>{formatCurrency(data.debitos_fiscales, "Bs")}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>(-) Créditos Fiscales:</span>
-                      <span>{formatCurrency(data.creditos_fiscales, "Bs")}</span>
-                    </div>
-                    <div className="flex justify-between font-medium text-orange-600">
-                      <span>(-) Retenciones Soportadas:</span>
-                      <span>{formatCurrency(data.retenciones_soportadas, "Bs")}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Card 2: Retenciones a Enterar */}
-              <Card className="border-yellow-200 bg-yellow-50/50">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-yellow-800">
-                    Retenciones IVA a Enterar
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-yellow-700">
-                    {formatCurrency(data.retenciones_iva_a_enterar, "Bs")}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Dinero retenido a proveedores. 
-                    <br />
-                    <strong>Debe coincidir con el TXT.</strong>
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Card 3: IGTF */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    IGTF Percibido (3%)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {formatCurrency(data.igtf_a_pagar, "Bs")}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Impuesto percibido por cobros en divisa.
-                  </p>
-                </CardContent>
-              </Card>
-            </>
-          ) : null}
-        </div>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Vista Previa ({data?.items?.length || 0} Registros)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
+      <AnimatePresence mode="wait">
+        {type === "liquidacion" ? (
+          <motion.div
+            key="liquidacion"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+          >
             {isLoading ? (
-              <div className="flex justify-center p-8">
-                <Loader2 className="h-8 w-8 animate-spin" />
+              <div className="col-span-3 flex justify-center p-12">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
               </div>
-            ) : (
+            ) : data ? (
               <>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>#</TableHead>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>RIF</TableHead>
-                      <TableHead>Nombre</TableHead>
-                      <TableHead>Factura</TableHead>
-                      <TableHead>Control</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-right">Base</TableHead>
-                      <TableHead className="text-right">IVA</TableHead>
-                      <TableHead className="text-right">IVA Ret.</TableHead>
-                      <TableHead className="text-right">Comprobante</TableHead>
-                      <TableHead className="text-right">IGTF</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data?.items?.map((row: any, i: number) => (
-                      <TableRow key={i}>
-                        <TableCell>{row.nro_operacion}</TableCell>
-                        <TableCell>
-                          {new Date(row.fecha).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>{row.rif}</TableCell>
-                        <TableCell className="max-w-[150px] truncate" title={row.nombre}>
-                          {row.nombre}
-                        </TableCell>
-                        <TableCell>{row.numero_factura}</TableCell>
-                        <TableCell>{row.numero_control}</TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {formatCurrency(
-                            row.total_ventas_incluyendo_iva ||
-                              row.total_compras_incluyendo_iva,
-                            "Bs",
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {formatCurrency(row.base_imponible, "Bs")}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {formatCurrency(row.impuesto, "Bs")}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs font-bold text-red-600">
-                           {Number(row.iva_retenido) > 0 ? formatCurrency(row.iva_retenido, "Bs") : "-"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {row.numero_comprobante || "-"}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {Number(row.igtf_percibido) > 0 ? formatCurrency(row.igtf_percibido, "Bs") : "-"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {(!data || !data.items || data.items.length === 0) && (
-                      <TableRow>
-                        <TableCell
-                          colSpan={12}
-                          className="text-center py-8 text-muted-foreground"
-                        >
-                          No hay movimientos registrados en este período.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                <Card
+                  className={cn(
+                    "premium-shadow transition-all duration-500",
+                    data.iva_a_pagar > 0
+                      ? "border-red-200 bg-red-50/30 dark:bg-red-950/10"
+                      : "border-green-200 bg-green-50/30 dark:bg-green-950/10",
+                  )}
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+                      Cuota IVA Propio
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className={cn(
+                        "text-3xl font-black font-mono-data mb-1",
+                        data.iva_a_pagar > 0
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-green-600 dark:text-green-400",
+                      )}
+                    >
+                      {formatCurrency(data.iva_a_pagar || 0, "Bs")}
+                    </div>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      {data.excedente_credito > 0
+                        ? `Excedente a favor: ${formatCurrency(data.excedente_credito, "Bs")}`
+                        : "Monto neto a pagar"}
+                    </p>
+                    <div className="mt-6 space-y-2 text-sm border-t pt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">
+                          Débitos Fiscales:
+                        </span>
+                        <span className="font-mono-data font-bold">
+                          {formatCurrency(data.debitos_fiscales, "Bs")}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">
+                          Créditos Fiscales:
+                        </span>
+                        <span className="font-mono-data font-bold">
+                          {formatCurrency(data.creditos_fiscales, "Bs")}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-orange-600">
+                        <span className="font-medium">
+                          Retenciones Soportadas:
+                        </span>
+                        <span className="font-mono-data font-bold">
+                          {formatCurrency(data.retenciones_soportadas, "Bs")}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {/* SUMMARY SECTION */}
-              {data?.summary && (
-                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-muted/30 p-4 rounded-lg border">
-                   {type === 'ventas' ? (
-                     <>
-                        <div className="space-y-1">
-                          <span className="text-xs text-muted-foreground">Total Ventas (Incl. IVA)</span>
-                          <div className="text-lg font-bold">{formatCurrency(data.summary.total_ventas_gravadas, "Bs")}</div>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-xs text-muted-foreground">Débito Fiscal (IVA)</span>
-                          <div className="text-lg font-bold text-blue-600">{formatCurrency(data.summary.total_debito_fiscal, "Bs")}</div>
-                        </div>
-                        <div className="space-y-1">
-                           <span className="text-xs text-muted-foreground">IVA Retenido (Anticipo)</span>
-                           <div className="text-lg font-bold text-orange-600">{formatCurrency(data.summary.total_iva_retenido, "Bs")}</div>
-                        </div>
-                        <div className="space-y-1">
-                           <span className="text-xs text-muted-foreground">IGTF Percibido</span>
-                           <div className="text-lg font-bold text-green-600">{formatCurrency(data.summary.total_igtf, "Bs")}</div>
-                        </div>
-                     </>
-                   ) : (
-                      <>
-                        <div className="space-y-1">
-                          <span className="text-xs text-muted-foreground">Total Compras (Incl. IVA)</span>
-                          <div className="text-lg font-bold">{formatCurrency(data.summary.total_compras_gravadas, "Bs")}</div>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-xs text-muted-foreground">Crédito Fiscal (IVA)</span>
-                          <div className="text-lg font-bold text-blue-600">{formatCurrency(data.summary.total_credito_fiscal, "Bs")}</div>
-                        </div>
-                        <div className="space-y-1 col-span-2 bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded border border-yellow-200 dark:border-yellow-800">
-                           <span className="text-xs text-yellow-800 dark:text-yellow-500 font-bold uppercase">Total Impuesto Retenido a Terceros (A Pagar)</span>
-                           <div className="text-xl font-black text-yellow-900 dark:text-yellow-400 mt-1">{formatCurrency(data.summary.total_iva_retenido_terceros, "Bs")}</div>
-                        </div>
-                      </>
-                   )}
-                 </div>
-              )}
+                <Card className="premium-shadow border-yellow-200 bg-yellow-50/30 dark:bg-yellow-950/10">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-yellow-800 dark:text-yellow-500 uppercase tracking-widest">
+                      Retenciones a Enterar
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-black font-mono-data text-yellow-700 dark:text-yellow-400 mb-1">
+                      {formatCurrency(data.retenciones_iva_a_enterar, "Bs")}
+                    </div>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      Total de IVA retenido a terceros en el periodo.
+                    </p>
+                    <div className="mt-8 p-3 rounded-lg bg-yellow-100/50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-xs text-yellow-900 dark:text-yellow-400 italic">
+                      "Este monto debe ser declarado y pagado íntegramente según
+                      el calendario de sujetos pasivos."
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="premium-shadow">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-widest">
+                      IGTF Percibido
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-black font-mono-data text-blue-600 dark:text-blue-400 mb-1">
+                      {formatCurrency(data.igtf_a_pagar, "Bs")}
+                    </div>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      Impuesto del 3% sobre cobros en divisa.
+                    </p>
+                  </CardContent>
+                </Card>
               </>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            ) : null}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="list"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
+            <Card className="premium-shadow">
+              <CardHeader className="pb-4">
+                <div className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Vista Previa de Movimientos</CardTitle>
+                    <CardDescription>
+                      {data?.items?.length || 0} registros encontrados para el
+                      período fiscal seleccionado.
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="relative border rounded-md">
+                  <AnimatePresence>
+                    {isLoading && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-background/40 z-10 flex items-center justify-center backdrop-blur-[2px]"
+                      >
+                        <div className="bg-background/80 p-3 rounded-full shadow-lg border">
+                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  <Table>
+                    <TableHeader className="bg-muted/50">
+                      <TableRow>
+                        <TableHead className="w-[50px] h-10 px-4">#</TableHead>
+                        <TableHead className="w-[100px] h-10 px-4">
+                          Fecha
+                        </TableHead>
+                        <TableHead className="w-[120px] h-10 px-4">
+                          RIF
+                        </TableHead>
+                        <TableHead className="h-10 px-4">
+                          Contribuyente
+                        </TableHead>
+                        <TableHead className="h-10 px-4">
+                          Factura / Ctrl
+                        </TableHead>
+                        <TableHead className="text-right h-10 px-4">
+                          Total Operación
+                        </TableHead>
+                        <TableHead className="text-right h-10 px-4">
+                          Base
+                        </TableHead>
+                        <TableHead className="text-right h-10 px-4">
+                          Impuesto
+                        </TableHead>
+                        <TableHead className="text-right h-10 px-4">
+                          Retención
+                        </TableHead>
+                        <TableHead className="text-right h-10 px-4">
+                          IGTF
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <AnimatePresence mode="wait">
+                        {!isLoading &&
+                        (!data || !data.items || data.items.length === 0) ? (
+                          <motion.tr
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
+                            <TableCell
+                              colSpan={10}
+                              className="text-center py-12 text-muted-foreground italic h-48"
+                            >
+                              No se encontraron registros para los criterios
+                              seleccionados.
+                            </TableCell>
+                          </motion.tr>
+                        ) : (
+                          data?.items?.map((row: any, i: number) => (
+                            <motion.tr
+                              key={i}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{
+                                opacity: 1,
+                                y: 0,
+                                transition: { delay: i * 0.02 },
+                              }}
+                              exit={{
+                                opacity: 0,
+                                transition: { duration: 0.2 },
+                              }}
+                              className="group border-b transition-colors hover:bg-muted/50 cursor-pointer"
+                            >
+                              <TableCell className="py-3 px-4 text-xs font-medium text-muted-foreground">
+                                {row.nro_operacion}
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-xs whitespace-nowrap font-medium">
+                                {new Date(row.fecha).toLocaleDateString()}
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-xs font-mono font-bold tracking-tight">
+                                {row.rif || "-"}
+                              </TableCell>
+                              <TableCell
+                                className="py-3 px-4 max-w-[200px] truncate text-xs font-medium"
+                                title={row.nombre}
+                              >
+                                {row.nombre}
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-xs font-mono">
+                                <span className="text-foreground">
+                                  {row.numero_factura}
+                                </span>
+                                <span className="text-muted-foreground ml-1">
+                                  / {row.numero_control}
+                                </span>
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-right font-mono-data text-xs font-bold text-foreground">
+                                {formatCurrency(
+                                  row.total_ventas_incluyendo_iva ||
+                                    row.total_compras_incluyendo_iva,
+                                  "Bs",
+                                )}
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-right font-mono-data text-xs text-muted-foreground">
+                                {formatCurrency(row.base_imponible, "Bs")}
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-right font-mono-data text-xs font-bold text-blue-600 dark:text-blue-400">
+                                {formatCurrency(row.impuesto, "Bs")}
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-right">
+                                {Number(row.iva_retenido) > 0 ? (
+                                  <div className="inline-flex flex-col items-end">
+                                    <span className="font-mono-data text-xs font-bold text-orange-600">
+                                      {formatCurrency(row.iva_retenido, "Bs")}
+                                    </span>
+                                    <span className="text-[9px] text-muted-foreground font-medium">
+                                      {row.numero_comprobante}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    -
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-3 px-4 text-right font-mono-data text-xs font-bold text-green-600 dark:text-green-500">
+                                {Number(row.igtf_percibido) > 0 ? (
+                                  formatCurrency(row.igtf_percibido, "Bs")
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    -
+                                  </span>
+                                )}
+                              </TableCell>
+                            </motion.tr>
+                          ))
+                        )}
+                      </AnimatePresence>
+                    </TableBody>
+                  </Table>
+                </div>
+                {data?.summary && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {type === "ventas" ? (
+                        <>
+                          <div className="p-4 rounded-xl border bg-muted/20">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">
+                              Total Ventas (IVA Incl.)
+                            </p>
+                            <p className="text-lg font-black font-mono-data">
+                              {formatCurrency(
+                                data.summary.total_ventas_gravadas,
+                                "Bs",
+                              )}
+                            </p>
+                          </div>
+                          <div className="p-4 rounded-xl border bg-blue-50/30 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900">
+                            <p className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 mb-1">
+                              Débito Fiscal (IVA)
+                            </p>
+                            <p className="text-lg font-black font-mono-data text-blue-600 dark:text-blue-400">
+                              {formatCurrency(
+                                data.summary.total_debito_fiscal,
+                                "Bs",
+                              )}
+                            </p>
+                          </div>
+                          <div className="p-4 rounded-xl border bg-orange-50/30 dark:bg-orange-950/10 border-orange-100 dark:border-orange-900">
+                            <p className="text-[10px] uppercase font-bold text-orange-600 dark:text-orange-400 mb-1">
+                              IVA Retenido
+                            </p>
+                            <p className="text-lg font-black font-mono-data text-orange-600 dark:text-orange-400">
+                              {formatCurrency(
+                                data.summary.total_iva_retenido,
+                                "Bs",
+                              )}
+                            </p>
+                          </div>
+                          <div className="p-4 rounded-xl border bg-green-50/30 dark:bg-green-950/10 border-green-100 dark:border-green-900">
+                            <p className="text-[10px] uppercase font-bold text-green-600 dark:text-green-400 mb-1">
+                              IGTF Percibido
+                            </p>
+                            <p className="text-lg font-black font-mono-data text-green-600 dark:text-green-400">
+                              {formatCurrency(data.summary.total_igtf, "Bs")}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="p-4 rounded-xl border bg-muted/20">
+                            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">
+                              Total Compras (IVA Incl.)
+                            </p>
+                            <p className="text-lg font-black font-mono-data">
+                              {formatCurrency(
+                                data.summary.total_compras_gravadas,
+                                "Bs",
+                              )}
+                            </p>
+                          </div>
+                          <div className="p-4 rounded-xl border bg-blue-50/30 dark:bg-blue-950/10 border-blue-100 dark:border-blue-900">
+                            <p className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 mb-1">
+                              Crédito Fiscal (IVA)
+                            </p>
+                            <p className="text-lg font-black font-mono-data text-blue-600 dark:text-blue-400">
+                              {formatCurrency(
+                                data.summary.total_credito_fiscal,
+                                "Bs",
+                              )}
+                            </p>
+                          </div>
+                          <div className="md:col-span-2 p-4 rounded-xl border bg-yellow-50/30 dark:bg-yellow-950/10 border-yellow-200 dark:border-yellow-800">
+                            <p className="text-[10px] uppercase font-bold text-yellow-800 dark:text-yellow-500 mb-1">
+                              IVA Retenido a Terceros (A Pagar)
+                            </p>
+                            <p className="text-xl font-black font-mono-data text-yellow-700 dark:text-yellow-400">
+                              {formatCurrency(
+                                data.summary.total_iva_retenido_terceros,
+                                "Bs",
+                              )}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="p-4 rounded-xl border bg-muted/30 border-dashed">
+                      <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                        Leyendas de Retenciones Fiscales
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {type === "ventas" ? (
+                          <>
+                            <p className="text-xs text-muted-foreground italic leading-relaxed">
+                              * Se han recibido retenciones de IVA por un monto
+                              de{" "}
+                              <b className="font-mono-data text-orange-600">
+                                {formatCurrency(
+                                  data.summary.total_iva_retenido,
+                                  "Bs",
+                                )}
+                              </b>{" "}
+                              según lo reportado por los clientes en sus
+                              comprobantes de retención.
+                            </p>
+                            <p className="text-xs text-muted-foreground italic leading-relaxed">
+                              * El IGTF percibido acumulado de{" "}
+                              <b className="font-mono-data text-green-600">
+                                {formatCurrency(data.summary.total_igtf, "Bs")}
+                              </b>{" "}
+                              debe ser declarado y enterado quincenalmente ante
+                              el SENIAT.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-muted-foreground italic leading-relaxed">
+                              * Monto total de IVA retenido a proveedores:{" "}
+                              <b className="font-mono-data text-yellow-700 dark:text-yellow-500">
+                                {formatCurrency(
+                                  data.summary.total_iva_retenido_terceros,
+                                  "Bs",
+                                )}
+                              </b>
+                              . Este monto representa una obligación de pago
+                              inmediata al cierre del periodo.
+                            </p>
+                            <p className="text-xs text-muted-foreground italic leading-relaxed">
+                              * Verifique que los números de comprobante
+                              listados coincidan con el archivo TXT generado
+                              para la declaración informativa de retenciones.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

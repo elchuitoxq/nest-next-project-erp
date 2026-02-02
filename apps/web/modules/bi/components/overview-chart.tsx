@@ -30,16 +30,26 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
   }
 
   return (
-    <Card className="col-span-4">
+    <Card className="col-span-4 premium-shadow">
       <CardHeader>
         <CardTitle>Flujo de Caja</CardTitle>
         <CardDescription>
-          Comparativa de Ingresos vs Egresos.
+          Comparativa de Ingresos vs Egresos (Ventas vs Compras).
         </CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
         <ResponsiveContainer width="100%" height={350}>
           <BarChart data={data || []}>
+            <defs>
+              <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#0d9488" stopOpacity={0.8} />
+                <stop offset="100%" stopColor="#0d9488" stopOpacity={0.3} />
+              </linearGradient>
+              <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#ea580c" stopOpacity={0.8} />
+                <stop offset="100%" stopColor="#ea580c" stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
             <XAxis
               dataKey="date"
               stroke="#888888"
@@ -62,30 +72,38 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
               tickFormatter={(value) => formatCurrency(value)}
             />
             <Tooltip
-              cursor={{ fill: "transparent" }}
+              cursor={{ fill: "hsl(var(--muted))", opacity: 0.4 }}
               contentStyle={{
-                borderRadius: "8px",
-                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                border: "1px solid hsl(var(--border))",
+                backgroundColor: "hsl(var(--background) / 0.8)",
+                backdropFilter: "blur(8px)",
+                boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
               }}
-              labelFormatter={(label) => new Date(label).toLocaleDateString("es-VE", {
+              labelStyle={{ fontWeight: "bold", marginBottom: "4px" }}
+              labelFormatter={(label) =>
+                new Date(label).toLocaleDateString("es-VE", {
                   weekday: "long",
                   year: "numeric",
                   month: "long",
                   day: "numeric",
-              })}
+                })
+              }
               formatter={(value: any) => [formatCurrency(value), ""]}
             />
             <Bar
               dataKey="income"
               name="Ventas"
-              fill="#0d9488" // Teal-600
-              radius={[4, 4, 0, 0]}
+              fill="url(#incomeGradient)"
+              radius={[6, 6, 0, 0]}
+              animationDuration={1500}
             />
-             <Bar
+            <Bar
               dataKey="expense"
               name="Compras"
-              fill="#ea580c" // Orange-600
-              radius={[4, 4, 0, 0]}
+              fill="url(#expenseGradient)"
+              radius={[6, 6, 0, 0]}
+              animationDuration={1500}
             />
           </BarChart>
         </ResponsiveContainer>

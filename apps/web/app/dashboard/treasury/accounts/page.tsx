@@ -33,14 +33,7 @@ import api from "@/lib/api";
 import { toast } from "sonner";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+
 import {
   Card,
   CardContent,
@@ -48,6 +41,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+import { motion, AnimatePresence } from "framer-motion";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 
 export default function BankAccountsPage() {
   const [open, setOpen] = useState(false);
@@ -132,45 +128,40 @@ export default function BankAccountsPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="#">Finanzas</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Cuentas y Monedas</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <DynamicBreadcrumb />
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="flex items-center justify-between py-4">
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-1 flex-col gap-4 p-4 pt-0"
+      >
+        <div className="flex items-center justify-between space-y-2 py-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
+            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
               Cuentas Bancarias
-            </h1>
-            <p className="text-muted-foreground">
-              Administra tus cuentas bancarias.
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              Administra tus cuentas bancarias y saldos de tesorería
             </p>
           </div>
           <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
             <DialogTrigger asChild>
-              <Button onClick={() => setOpen(true)}>
+              <Button
+                onClick={() => setOpen(true)}
+                className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
+              >
                 <Plus className="mr-2 h-4 w-4" /> Nueva Cuenta
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md bg-white/95 backdrop-blur-lg border-gray-100 shadow-2xl rounded-2xl">
               <DialogHeader>
-                <DialogTitle>
+                <DialogTitle className="text-xl font-bold text-gray-900">
                   {editingAccount
                     ? "Editar Cuenta"
                     : "Registrar Cuenta Bancaria"}
@@ -183,33 +174,41 @@ export default function BankAccountsPage() {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label>Nombre</Label>
+                  <Label className="text-sm font-semibold text-gray-700">
+                    Nombre de la Cuenta
+                  </Label>
                   <Input
                     placeholder="Ej. Banesco Principal"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    className="bg-gray-50/50 border-gray-200 focus:border-blue-500 transition-all"
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Número de Cuenta</Label>
+                  <Label className="text-sm font-semibold text-gray-700">
+                    Número de Cuenta
+                  </Label>
                   <Input
                     placeholder="0134..."
                     value={accountNumber}
                     onChange={(e) => setAccountNumber(e.target.value)}
+                    className="bg-gray-50/50 border-gray-200 focus:border-blue-500 transition-all font-mono"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label>Tipo</Label>
+                    <Label className="text-sm font-semibold text-gray-700">
+                      Tipo
+                    </Label>
                     <Select value={type} onValueChange={setType}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-gray-50/50 border-gray-200">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="CHECKING">Corriente</SelectItem>
                         <SelectItem value="SAVINGS">Ahorro</SelectItem>
                         <SelectItem value="WALLET">
-                          Billetera Digital (Zelle/PayPal)
+                          Billetera Digital
                         </SelectItem>
                         <SelectItem value="CASH">
                           Caja Física (Efectivo)
@@ -218,9 +217,11 @@ export default function BankAccountsPage() {
                     </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label>Moneda</Label>
+                    <Label className="text-sm font-semibold text-gray-700">
+                      Moneda
+                    </Label>
                     <Select value={currencyId} onValueChange={setCurrencyId}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-gray-50/50 border-gray-200">
                         <SelectValue placeholder="Seleccionar" />
                       </SelectTrigger>
                       <SelectContent>
@@ -234,19 +235,33 @@ export default function BankAccountsPage() {
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Saldo Inicial / Actual</Label>
+                  <Label className="text-sm font-semibold text-gray-700">
+                    Saldo Inicial
+                  </Label>
                   <Input
                     type="number"
                     value={initialBalance}
                     onChange={(e) => setInitialBalance(e.target.value)}
+                    className="bg-gray-50/50 border-gray-200 focus:border-blue-500 transition-all font-bold text-blue-600"
                   />
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={handleClose}>
+              <DialogFooter className="gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={handleClose}
+                  className="text-xs font-bold uppercase tracking-wider"
+                >
                   Cancelar
                 </Button>
-                <Button onClick={handleSubmit} disabled={isPending}>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isPending}
+                  className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider"
+                >
+                  {isPending && (
+                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                  )}
                   {editingAccount ? "Actualizar" : "Guardar"}
                 </Button>
               </DialogFooter>
@@ -254,29 +269,24 @@ export default function BankAccountsPage() {
           </Dialog>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Listado de Cuentas</CardTitle>
-            <div className="flex items-center justify-between">
-              <CardDescription>
-                Visualiza y gestiona las cuentas de tesorería.
-              </CardDescription>
-            </div>
+        <Card className="border shadow-xl bg-white/60 backdrop-blur-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold">
+              Listado de Cuentas
+            </CardTitle>
+            <CardDescription>
+              Visualiza y gestiona las cuentas de tesorería registradas
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : (
-              <BankAccountsTable
-                accounts={accounts || []}
-                onEdit={handleEdit}
-              />
-            )}
+            <BankAccountsTable
+              accounts={accounts || []}
+              onEdit={handleEdit}
+              isLoading={isLoading}
+            />
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
     </SidebarInset>
   );
 }

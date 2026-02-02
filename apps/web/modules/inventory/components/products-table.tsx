@@ -11,33 +11,41 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Pencil } from "lucide-react";
+import { MoreHorizontal, Pencil, Loader2 } from "lucide-react";
 import { Product } from "../types";
-import { formatCurrency } from "@/lib/utils";
-
-import { useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
 import { DualCurrencyDisplay } from "./dual-currency-display";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ProductsTableProps {
   products: Product[];
   onEdit: (product: Product) => void;
+  isLoading?: boolean;
 }
 
-// ... imports will be updated via separate mechanism if I can't do it in one go or if I just remove the function.
-// Actually, I should remove the function and add the import.
-// Since `replace_file_content` is a single block, I'll remove the function definition.
-// I will need another call to add the import. Using `replace_file_content` for the whole file structure is risky if I don't see all lines.
-// But I can replace the function definition with nothing (or the import if I target top).
-// Let's first remove the function definition.
-
-export function ProductsTable({ products, onEdit }: ProductsTableProps) {
+export function ProductsTable({
+  products,
+  onEdit,
+  isLoading,
+}: ProductsTableProps) {
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border relative">
+      <AnimatePresence>
+        {isLoading && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-background/40 z-10 flex items-center justify-center backdrop-blur-[2px]"
+          >
+            <div className="bg-background/80 p-3 rounded-full shadow-lg border">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <Table>
         <TableHeader>
           <TableRow>
@@ -51,42 +59,63 @@ export function ProductsTable({ products, onEdit }: ProductsTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {products.map((product) => (
-            <TableRow key={product.id}>
-              <TableCell className="font-medium">{product.sku}</TableCell>
-              <TableCell>{product.name}</TableCell>
-              <TableCell>
-                <DualCurrencyDisplay
-                  value={Number(product.price)}
-                  currencyId={product.currencyId}
-                />
-              </TableCell>
-              <TableCell>
-                <DualCurrencyDisplay
-                  value={Number(product.cost)}
-                  currencyId={product.currencyId}
-                />
-              </TableCell>
-              <TableCell>{product.minStock}</TableCell>
-              <TableCell>{product.stock}</TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Abrir menú</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => onEdit(product)}>
-                      <Pencil className="mr-2 h-4 w-4" /> Editar
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
+          <AnimatePresence mode="wait">
+            {products.map((product, index) => (
+              <motion.tr
+                key={product.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  transition: { delay: index * 0.05 },
+                }}
+                exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted group"
+              >
+                <TableCell className="font-mono-data text-xs font-bold leading-none py-3 px-4">
+                  {product.sku}
+                </TableCell>
+                <TableCell className="py-3 px-4">{product.name}</TableCell>
+                <TableCell className="py-3 px-4">
+                  <DualCurrencyDisplay
+                    value={Number(product.price)}
+                    currencyId={product.currencyId}
+                  />
+                </TableCell>
+                <TableCell className="py-3 px-4">
+                  <DualCurrencyDisplay
+                    value={Number(product.cost)}
+                    currencyId={product.currencyId}
+                  />
+                </TableCell>
+                <TableCell className="py-3 px-4">{product.minStock}</TableCell>
+                <TableCell className="py-3 px-4">{product.stock}</TableCell>
+                <TableCell className="text-right py-3 px-4">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Abrir menú</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => onEdit(product)}>
+                        <Pencil className="mr-2 h-4 w-4" /> Editar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </motion.tr>
+            ))}
+            {!isLoading && products.length === 0 && (
+              <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <TableCell colSpan={7} className="h-24 text-center">
+                  No se encontraron productos.
+                </TableCell>
+              </motion.tr>
+            )}
+          </AnimatePresence>
         </TableBody>
       </Table>
     </div>

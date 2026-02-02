@@ -1,16 +1,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Package, ShoppingCart, Users } from "lucide-react";
+import {
+  DollarSign,
+  Package,
+  ShoppingCart,
+  Users,
+  TrendingUp,
+} from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { KpiData } from "../types";
+import { KpiData, ChartData } from "../types";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { Line, LineChart, ResponsiveContainer } from "recharts";
 
 interface StatsCardsProps {
   data?: KpiData;
+  chartData?: ChartData[];
   isLoading: boolean;
 }
 
-export function StatsCards({ data, isLoading }: StatsCardsProps) {
+export function StatsCards({ data, chartData, isLoading }: StatsCardsProps) {
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -26,7 +34,7 @@ export function StatsCards({ data, isLoading }: StatsCardsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Link href="/dashboard/operations/sales">
-        <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+        <Card className="hover:bg-muted/50 transition-all duration-300 cursor-pointer h-full premium-shadow border-t-4 border-t-teal-500/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Ventas Totales
@@ -34,18 +42,35 @@ export function StatsCards({ data, isLoading }: StatsCardsProps) {
             <DollarSign className="text-teal-600 h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(data.totalSales)}
+            <div className="flex items-end justify-between">
+              <div className="space-y-1">
+                <div className="text-2xl font-bold font-mono-data">
+                  {formatCurrency(data.totalSales)}
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Ingresos del periodo
+                </p>
+              </div>
+              <div className="h-10 w-24">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData?.slice(-7)}>
+                    <Line
+                      type="monotone"
+                      dataKey="income"
+                      stroke="#0d9488"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <p className="text-muted-foreground text-xs">
-              Ingresos brutos del periodo
-            </p>
           </CardContent>
         </Card>
       </Link>
 
       <Link href="/dashboard/operations/purchases">
-        <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+        <Card className="hover:bg-muted/50 transition-all duration-300 cursor-pointer h-full premium-shadow border-t-4 border-t-orange-500/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Gastos Totales
@@ -53,26 +78,43 @@ export function StatsCards({ data, isLoading }: StatsCardsProps) {
             <ShoppingCart className="text-orange-600 h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(data.totalPurchases)}
+            <div className="flex items-end justify-between">
+              <div className="space-y-1">
+                <div className="text-2xl font-bold font-mono-data">
+                  {formatCurrency(data.totalPurchases)}
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Compras registradas
+                </p>
+              </div>
+              <div className="h-10 w-24">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData?.slice(-7)}>
+                    <Line
+                      type="monotone"
+                      dataKey="expense"
+                      stroke="#ea580c"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <p className="text-muted-foreground text-xs">
-              Compras registradas
-            </p>
           </CardContent>
         </Card>
       </Link>
 
       <Link href="/dashboard/billing/invoices">
-        <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+        <Card className="hover:bg-muted/50 transition-all duration-300 cursor-pointer h-full premium-shadow border-t-4 border-t-blue-500/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Cuentas por Cobrar
             </CardTitle>
-            <Users className="text-muted-foreground h-4 w-4" />
+            <Users className="text-blue-600 h-4 w-4" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="space-y-1">
+            <div className="text-2xl font-bold font-mono-data">
               {formatCurrency(data.accountsReceivable)}
             </div>
             <p className="text-muted-foreground text-xs">
@@ -81,17 +123,17 @@ export function StatsCards({ data, isLoading }: StatsCardsProps) {
           </CardContent>
         </Card>
       </Link>
-      
+
       <Link href="/dashboard/inventory/products">
-        <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+        <Card className="hover:bg-muted/50 transition-all duration-300 cursor-pointer h-full premium-shadow border-t-4 border-t-purple-500/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Valor Inventario
             </CardTitle>
-            <Package className="text-muted-foreground h-4 w-4" />
+            <Package className="text-purple-600 h-4 w-4" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="space-y-1">
+            <div className="text-2xl font-bold font-mono-data">
               {formatCurrency(data.inventoryValue)}
             </div>
             <p className="text-muted-foreground text-xs">

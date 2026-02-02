@@ -7,22 +7,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  SidebarInset,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Table,
   TableBody,
@@ -31,7 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
 import { usePositions, JobPosition } from "@/modules/hr/hooks/use-positions";
 import { PositionDialog } from "@/modules/hr/components/position-dialog";
 import { formatCurrency } from "@/lib/utils";
@@ -40,7 +30,9 @@ import { Input } from "@/components/ui/input";
 export default function PositionsPage() {
   const { data: positions, isLoading } = usePositions();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedPosition, setSelectedPosition] = useState<JobPosition | undefined>();
+  const [selectedPosition, setSelectedPosition] = useState<
+    JobPosition | undefined
+  >();
   const [search, setSearch] = useState("");
 
   const handleEdit = (pos: JobPosition) => {
@@ -64,91 +56,125 @@ export default function PositionsPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="#">RRHH</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Cargos</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <DynamicBreadcrumb />
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-1 flex-col gap-4 p-4 pt-0"
+      >
         <div className="flex items-center justify-between py-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Cargos y Salarios</h1>
-            <p className="text-muted-foreground">Administra los puestos de trabajo y tabuladores salariales.</p>
+            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+              Cargos y Salarios
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              Administra los puestos de trabajo y tabuladores salariales.
+            </p>
           </div>
-          <Button onClick={handleCreate}>
+          <Button
+            onClick={handleCreate}
+            className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
+          >
             <Plus className="mr-2 h-4 w-4" /> Nuevo Cargo
           </Button>
         </div>
 
-        <Card>
+        <Card className="border shadow-xl bg-white/60 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle>Listado de Cargos</CardTitle>
             <div className="flex items-center justify-between">
-              <CardDescription>
-                Estructura organizativa y salarial
-              </CardDescription>
+              <div>
+                <CardTitle>Listado de Cargos</CardTitle>
+                <CardDescription>
+                  Estructura organizativa y salarial
+                </CardDescription>
+              </div>
               <div className="w-[300px]">
                 <Input
                   placeholder="Buscar por nombre o descripción..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
+                  className="bg-muted/30"
                 />
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="border rounded-md">
+            <div className="rounded-md border relative">
+              <AnimatePresence>
+                {isLoading && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-background/40 z-10 flex items-center justify-center backdrop-blur-[2px]"
+                  >
+                    <div className="bg-background/80 p-3 rounded-full shadow-lg border">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead>Rango Salarial (Ref)</TableHead>
-                    <TableHead>Moneda</TableHead>
+                    <TableHead className="px-4">Nombre</TableHead>
+                    <TableHead className="px-4">Descripción</TableHead>
+                    <TableHead className="px-4">Rango Salarial (Ref)</TableHead>
+                    <TableHead className="px-4">Moneda</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center">
-                        <Skeleton className="h-4 w-[250px] mx-auto" />
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredPositions?.map((pos) => (
-                    <TableRow
-                      key={pos.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleEdit(pos)}
-                    >
-                      <TableCell className="font-medium">{pos.name}</TableCell>
-                      <TableCell>{pos.description || "-"}</TableCell>
-                      <TableCell>
-                        {pos.baseSalaryMin && pos.baseSalaryMax
-                          ? `${formatCurrency(pos.baseSalaryMin, pos.currency?.code)} - ${formatCurrency(pos.baseSalaryMax, pos.currency?.code)}`
-                          : "-"}
-                      </TableCell>
-                      <TableCell>{pos.currency?.code || "N/A"}</TableCell>
-                    </TableRow>
-                  ))}
-                  {!isLoading && (!filteredPositions || filteredPositions.length === 0) && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                        No se encontraron cargos.
-                      </TableCell>
-                    </TableRow>
-                  )}
+                  <AnimatePresence mode="wait">
+                    {isLoading || (filteredPositions?.length ?? 0) > 0 ? (
+                      filteredPositions?.map((pos, index) => (
+                        <motion.tr
+                          key={pos.id}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                          exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                          className="cursor-pointer hover:bg-muted/50 border-b last:border-0 transition-colors group"
+                          onClick={() => handleEdit(pos)}
+                        >
+                          <TableCell className="py-3 px-4 font-bold text-sm text-foreground">
+                            {pos.name}
+                          </TableCell>
+                          <TableCell className="py-3 px-4 text-xs text-muted-foreground italic">
+                            {pos.description || "Sin descripción"}
+                          </TableCell>
+                          <TableCell className="py-3 px-4 font-mono-data text-xs font-bold text-primary">
+                            {pos.baseSalaryMin && pos.baseSalaryMax
+                              ? `${formatCurrency(pos.baseSalaryMin, pos.currency?.code)} - ${formatCurrency(pos.baseSalaryMax, pos.currency?.code)}`
+                              : "-"}
+                          </TableCell>
+                          <TableCell className="py-3 px-4">
+                            <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground ring-1 ring-inset ring-muted-foreground/20">
+                              {pos.currency?.code || "N/A"}
+                            </span>
+                          </TableCell>
+                        </motion.tr>
+                      ))
+                    ) : (
+                      <motion.tr
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <TableCell
+                          colSpan={4}
+                          className="h-32 text-center text-muted-foreground italic"
+                        >
+                          No se encontraron cargos.
+                        </TableCell>
+                      </motion.tr>
+                    )}
+                  </AnimatePresence>
                 </TableBody>
               </Table>
             </div>
@@ -160,7 +186,7 @@ export default function PositionsPage() {
           onOpenChange={setDialogOpen}
           position={selectedPosition}
         />
-      </div>
+      </motion.div>
     </SidebarInset>
   );
 }

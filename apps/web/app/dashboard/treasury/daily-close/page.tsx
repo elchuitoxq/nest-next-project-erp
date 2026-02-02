@@ -12,7 +12,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -25,14 +31,9 @@ import { formatCurrency } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
+
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function DailyClosePage() {
   const router = useRouter();
@@ -48,70 +49,59 @@ export default function DailyClosePage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 print:hidden">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="#">Finanzas</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink
-                  onClick={() => router.push("/dashboard/treasury")}
-                >
-                  Caja y Bancos
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Cierre de Caja</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10 print:hidden">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <DynamicBreadcrumb />
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-1 flex-col gap-6 p-4 pt-0"
+      >
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 py-4 print:py-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="icon"
-              className="print:hidden"
+              className="print:hidden rounded-full hover:bg-gray-100 transition-colors"
               onClick={() => router.back()}
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">
+              <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                 Cierre de Caja
-              </h1>
-              <p className="text-muted-foreground">
+              </h2>
+              <p className="text-muted-foreground text-sm">
                 Reporte de ingresos del día{" "}
-                {format(new Date(date), "PPP", { locale: es })}
+                <span className="font-semibold text-blue-600">
+                  {format(new Date(date), "PPP", { locale: es })}
+                </span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 print:hidden">
-            <div className="flex items-center gap-2 border rounded-md px-3 py-1 bg-background">
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-3 print:hidden">
+            <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-1.5 bg-white shadow-sm transition-all hover:border-blue-300">
+              <CalendarIcon className="h-4 w-4 text-blue-500" />
               <input
                 type="date"
                 value={date}
                 max={new Date().toISOString().split("T")[0]}
                 onChange={(e) => setDate(e.target.value)}
-                className="bg-transparent border-none focus:outline-none text-sm"
+                className="bg-transparent border-none focus:outline-none text-sm font-medium"
               />
             </div>
 
-            <Button variant="outline" onClick={handlePrint}>
+            <Button
+              variant="outline"
+              onClick={handlePrint}
+              className="rounded-xl border-gray-200 hover:bg-gray-50 text-xs font-bold uppercase tracking-wider transition-all"
+            >
               <Printer className="mr-2 h-4 w-4" />
               Imprimir
             </Button>
@@ -119,98 +109,135 @@ export default function DailyClosePage() {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin" />
+          <div className="flex flex-col items-center justify-center h-64 space-y-4">
+            <Loader2 className="h-10 w-10 animate-spin text-blue-500 opacity-50" />
+            <p className="text-sm text-muted-foreground animate-pulse">
+              Generando reporte...
+            </p>
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <Card>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+              <Card className="border-none shadow-xl bg-gradient-to-br from-emerald-50 to-white ring-1 ring-emerald-100/50">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
+                  <CardTitle className="text-sm font-bold text-emerald-800 uppercase tracking-wider">
                     Total Bolívares (VES)
                   </CardTitle>
-                  <span className="text-2xl">🇻🇪</span>
+                  <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center text-lg">
+                    🇻🇪
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-3xl font-extrabold text-emerald-900">
                     {formatCurrency(data?.totals?.VES || 0, "Bs")}
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="border-none shadow-xl bg-gradient-to-br from-blue-50 to-white ring-1 ring-blue-100/50">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
+                  <CardTitle className="text-sm font-bold text-blue-800 uppercase tracking-wider">
                     Total Dólares (USD)
                   </CardTitle>
-                  <span className="text-2xl">🇺🇸</span>
+                  <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-lg">
+                    🇺🇸
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-3xl font-extrabold text-blue-900">
                     {formatCurrency(data?.totals?.USD || 0, "$")}
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            <Card className="print:shadow-none print:border-none">
+            <Card className="border shadow-xl bg-white/60 backdrop-blur-sm print:shadow-none print:ring-0">
               <CardHeader>
-                <CardTitle>Desglose por Método de Pago</CardTitle>
+                <CardTitle className="text-lg font-semibold">
+                  Desglose por Método de Pago
+                </CardTitle>
+                <CardDescription>
+                  Resumen detallado de ingresos por canal de recaudo
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Método de Pago</TableHead>
-                      <TableHead>Moneda</TableHead>
-                      <TableHead className="text-center">
-                        Transacciones
-                      </TableHead>
-                      <TableHead className="text-right">
-                        Total Recibido
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data?.byMethod?.map((item: any, idx: number) => (
-                      <TableRow key={idx}>
-                        <TableCell className="font-medium">
-                          {item.method}
-                        </TableCell>
-                        <TableCell>{item.currency}</TableCell>
-                        <TableCell className="text-center">
-                          {item.count}
-                        </TableCell>
-                        <TableCell className="text-right font-bold">
-                          {formatCurrency(
-                            item.amount,
-                            item.currency === "VES" ? "Bs" : "$",
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {!data?.byMethod?.length && (
+                <div className="rounded-md border relative">
+                  <Table>
+                    <TableHeader className="bg-gray-100/50">
                       <TableRow>
-                        <TableCell
-                          colSpan={4}
-                          className="text-center py-8 text-muted-foreground"
-                        >
-                          No hay movimientos registrados en esta fecha.
-                        </TableCell>
+                        <TableHead className="font-bold">
+                          Método de Pago
+                        </TableHead>
+                        <TableHead className="font-bold">Moneda</TableHead>
+                        <TableHead className="text-center font-bold">
+                          Transacciones
+                        </TableHead>
+                        <TableHead className="text-right font-bold">
+                          Total Recibido
+                        </TableHead>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      <AnimatePresence mode="wait">
+                        {data?.byMethod?.map((item: any, idx: number) => (
+                          <motion.tr
+                            key={idx}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{
+                              opacity: 1,
+                              y: 0,
+                              transition: { delay: idx * 0.05 },
+                            }}
+                            exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                            className="hover:bg-blue-50/30 transition-colors border-b last:border-0"
+                          >
+                            <TableCell className="font-medium">
+                              {item.method}
+                            </TableCell>
+                            <TableCell>
+                              <span className="px-2 py-1 rounded-md bg-gray-100 text-[10px] font-bold">
+                                {item.currency}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-center font-mono-data">
+                              {item.count}
+                            </TableCell>
+                            <TableCell className="text-right font-bold font-mono-data text-gray-900">
+                              {formatCurrency(
+                                item.amount,
+                                item.currency === "VES" ? "Bs" : "$",
+                              )}
+                            </TableCell>
+                          </motion.tr>
+                        ))}
+                        {!data?.byMethod?.length && (
+                          <motion.tr
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
+                            <TableCell
+                              colSpan={4}
+                              className="text-center py-12 text-muted-foreground italic"
+                            >
+                              No hay movimientos registrados en esta fecha.
+                            </TableCell>
+                          </motion.tr>
+                        )}
+                      </AnimatePresence>
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
 
-            <div className="hidden print:block mt-8 text-center text-sm text-muted-foreground">
-              <p>Generado automáticmente por el sistema ERP.</p>
+            <div className="hidden print:block mt-12 text-center text-[10px] text-gray-400 border-t pt-4">
+              <p className="uppercase tracking-tighter">
+                Sistema ERP - Reporte de Cierre de Caja
+              </p>
               <p>{new Date().toLocaleString()}</p>
             </div>
           </div>
         )}
-      </div>
+      </motion.div>
     </SidebarInset>
   );
 }

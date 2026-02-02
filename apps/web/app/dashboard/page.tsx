@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { StatsCards } from "@/modules/bi/components/stats-cards";
@@ -25,6 +18,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useState } from "react";
 import { DateRange } from "react-day-picker";
 import { subDays } from "date-fns";
+import { motion } from "framer-motion";
 
 export default function Page() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -39,27 +33,24 @@ export default function Page() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="#">ERP</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Dashboard</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2 px-4 w-full justify-between">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="-ml-1" />
+            <Separator
+              orientation="vertical"
+              className="mr-2 data-[orientation=vertical]:h-4"
+            />
+            <DynamicBreadcrumb />
+          </div>
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="flex flex-1 flex-col gap-4 p-4 pt-4"
+      >
         <div className="flex items-center justify-between space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">Resumen</h2>
           <div className="flex items-center space-x-2">
@@ -75,7 +66,11 @@ export default function Page() {
         </div>
 
         {/* KPI Cards */}
-        <StatsCards data={kpis.data} isLoading={kpis.isLoading} />
+        <StatsCards
+          data={kpis.data}
+          chartData={chart.data}
+          isLoading={kpis.isLoading}
+        />
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
           {/* Main Chart */}
@@ -84,7 +79,7 @@ export default function Page() {
           {/* Recent Activity */}
           <ActivityFeed data={activity.data} isLoading={activity.isLoading} />
         </div>
-      </div>
+      </motion.div>
     </SidebarInset>
   );
 }

@@ -22,15 +22,11 @@ import {
 } from "@/components/ui/card";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+
 import { PaginationState } from "@tanstack/react-table";
+
+import { motion } from "framer-motion";
+import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 
 export default function PartnersPage() {
   const [pagination, setPagination] = useState<PaginationState>({
@@ -75,54 +71,52 @@ export default function PartnersPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="#">Operaciones</BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Clientes y Socios</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <DynamicBreadcrumb />
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-1 flex-col gap-4 p-4 pt-0"
+      >
         <div className="flex items-center justify-between space-y-2 py-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">
+            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
               Clientes y Socios
             </h2>
-            <p className="text-muted-foreground">
-              Gestiona clientes y proveedores de tu negocio.
+            <p className="text-muted-foreground text-sm">
+              Gestiona clientes y proveedores de tu negocio
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <Button onClick={handleCreate}>
+            <Button
+              onClick={handleCreate}
+              className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
+            >
               <Plus className="mr-2 h-4 w-4" /> Nuevo Socio
             </Button>
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Listado de Clientes y Socios</CardTitle>
+        <Card className="border shadow-xl bg-white/60 backdrop-blur-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold">
+              Listado de Clientes y Socios
+            </CardTitle>
             <CardDescription>
-              Visualiza y administra tus socios comerciales.
+              Visualiza y administra tus socios comerciales
             </CardDescription>
           </CardHeader>
           <CardContent>
             {isError ? (
-              <div className="text-red-500 py-8 text-center">
-                Error al cargar socios. Por favor intente nuevamente.
+              <div className="text-red-500 py-12 text-center border-dashed border-2 rounded-xl border-red-200 bg-red-50/50">
+                <p className="font-semibold text-lg">Error al cargar socios</p>
+                <p className="text-sm">Por favor intente nuevamente.</p>
               </div>
             ) : (
               <PartnersTable
@@ -150,7 +144,7 @@ export default function PartnersPage() {
           onOpenChange={setDialogOpen}
           partnerToEdit={editingPartner}
         />
-      </div>
+      </motion.div>
     </SidebarInset>
   );
 }
