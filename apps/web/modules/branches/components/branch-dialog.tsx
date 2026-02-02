@@ -49,6 +49,9 @@ export function BranchDialog({
     defaultValues: {
       name: "",
       address: "",
+      taxId: "",
+      phone: "",
+      email: "",
       isActive: true,
     },
   });
@@ -58,12 +61,18 @@ export function BranchDialog({
       form.reset({
         name: branch.name,
         address: branch.address || "",
+        taxId: branch.taxId || "",
+        phone: branch.phone || "",
+        email: branch.email || "",
         isActive: branch.isActive,
       });
     } else if (!branch && open) {
       form.reset({
         name: "",
         address: "",
+        taxId: "",
+        phone: "",
+        email: "",
         isActive: true,
       });
     }
@@ -126,6 +135,47 @@ export function BranchDialog({
                       placeholder="Av. Bolívar, Edif. Torre..."
                       {...field}
                     />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="taxId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>RIF / Tax ID</FormLabel>
+                    <FormControl>
+                      <Input placeholder="J-12345678-9" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Teléfono</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+58 ..." {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Correo Electrónico</FormLabel>
+                  <FormControl>
+                    <Input placeholder="sucursal@ejemplo.com" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

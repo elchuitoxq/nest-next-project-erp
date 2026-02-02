@@ -40,6 +40,9 @@ export const branches = pgTable("branches", {
     .$defaultFn(() => uuidv7()),
   name: text("name").notNull(),
   address: text("address"),
+  taxId: text("tax_id"), // RIF
+  phone: text("phone"),
+  email: text("email"),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -659,7 +662,7 @@ export const employees = pgTable("employees", {
   bankId: uuid("bank_id").references(() => banks.id), // Link to Bank Master
 
   // Legacy fields (kept for migration safety, to be deprecated)
-  bankName: text("bank_name"), 
+  bankName: text("bank_name"),
   accountNumber: text("account_number"), // 20 digits
   accountType: text("account_type").default("CHECKING"), // CHECKING, SAVINGS
 
@@ -679,7 +682,7 @@ export const payrollRuns = pgTable("payroll_runs", {
   currencyId: uuid("currency_id")
     .references(() => currencies.id)
     .notNull(),
-  
+
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
 
@@ -729,14 +732,16 @@ export const payrollIncidents = pgTable("payroll_incidents", {
   conceptId: uuid("concept_id")
     .references(() => payrollConceptTypes.id)
     .notNull(),
-  
+
   date: timestamp("date").notNull(),
   quantity: numeric("quantity", { precision: 10, scale: 2 }).default("1"), // e.g. 2 hours
   amount: numeric("amount", { precision: 20, scale: 2 }), // Override amount or result
-  
+
   status: text("status").default("PENDING"), // PENDING, PROCESSED
-  processedInRunId: uuid("processed_in_run_id").references(() => payrollRuns.id),
-  
+  processedInRunId: uuid("processed_in_run_id").references(
+    () => payrollRuns.id,
+  ),
+
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -1128,7 +1133,9 @@ export const payrollRunsRelations = relations(payrollRuns, ({ one, many }) => ({
     references: [currencies.id],
   }),
   items: many(payrollItems),
-  processedIncidents: many(payrollIncidents, { relationName: "processedInRun" }),
+  processedIncidents: many(payrollIncidents, {
+    relationName: "processedInRun",
+  }),
 }));
 
 export const payrollItemsRelations = relations(payrollItems, ({ one }) => ({
@@ -1142,25 +1149,31 @@ export const payrollItemsRelations = relations(payrollItems, ({ one }) => ({
   }),
 }));
 
-export const payrollConceptTypesRelations = relations(payrollConceptTypes, ({ one, many }) => ({
-  branch: one(branches, {
-    fields: [payrollConceptTypes.branchId],
-    references: [branches.id],
+export const payrollConceptTypesRelations = relations(
+  payrollConceptTypes,
+  ({ one, many }) => ({
+    branch: one(branches, {
+      fields: [payrollConceptTypes.branchId],
+      references: [branches.id],
+    }),
+    incidents: many(payrollIncidents),
   }),
-  incidents: many(payrollIncidents),
-}));
+);
 
-export const payrollIncidentsRelations = relations(payrollIncidents, ({ one }) => ({
-  employee: one(employees, {
-    fields: [payrollIncidents.employeeId],
-    references: [employees.id],
+export const payrollIncidentsRelations = relations(
+  payrollIncidents,
+  ({ one }) => ({
+    employee: one(employees, {
+      fields: [payrollIncidents.employeeId],
+      references: [employees.id],
+    }),
+    concept: one(payrollConceptTypes, {
+      fields: [payrollIncidents.conceptId],
+      references: [payrollConceptTypes.id],
+    }),
+    processedInRun: one(payrollRuns, {
+      fields: [payrollIncidents.processedInRunId],
+      references: [payrollRuns.id],
+    }),
   }),
-  concept: one(payrollConceptTypes, {
-    fields: [payrollIncidents.conceptId],
-    references: [payrollConceptTypes.id],
-  }),
-  processedInRun: one(payrollRuns, {
-    fields: [payrollIncidents.processedInRunId],
-    references: [payrollRuns.id],
-  }),
-}));
+);

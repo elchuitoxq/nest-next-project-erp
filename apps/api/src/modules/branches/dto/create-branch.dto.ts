@@ -8,6 +8,18 @@ export class CreateBranchDto {
   @IsOptional()
   address?: string;
 
+  @IsString()
+  @IsOptional()
+  taxId?: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @IsString()
+  @IsOptional()
+  email?: string;
+
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;

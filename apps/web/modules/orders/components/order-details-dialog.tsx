@@ -1,5 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle, FileText } from "lucide-react";
+import {
+  CheckCircle2,
+  XCircle,
+  FileText,
+  Printer,
+  RefreshCw,
+} from "lucide-react";
 import { DialogFooter } from "@/components/ui/dialog";
 import {
   Dialog,
@@ -21,14 +27,14 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Order } from "../types";
 import { formatCurrency } from "@/lib/utils";
-
-// ... imports
-import { RefreshCw } from "lucide-react";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import { OrderPdf } from "@/modules/common/components/pdf/order-pdf";
 
 interface OrderDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   order: Order | undefined;
+  type?: "SALE" | "PURCHASE";
   onConfirm?: (order: Order) => void;
   onCancel?: (order: Order) => void;
   onGenerateInvoice?: (order: Order) => void;
@@ -39,6 +45,7 @@ export function OrderDetailsDialog({
   open,
   onOpenChange,
   order,
+  type = "SALE",
   onConfirm,
   onCancel,
   onGenerateInvoice,
@@ -63,7 +70,6 @@ export function OrderDetailsDialog({
 
   const handleRecalculate = () => {
     onRecalculate?.(order);
-    // Modal closing is handled by parent or we can do it here too if we want immediate feedback
   };
 
   const getStatusBadge = (status: string) => {
@@ -201,6 +207,21 @@ export function OrderDetailsDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cerrar
           </Button>
+
+          {/* Print Button */}
+          <PDFDownloadLink
+            document={<OrderPdf order={order} type={type} />}
+            fileName={`Pedido-${order.code}.pdf`}
+          >
+            {/* @ts-ignore */}
+            {({ loading }) => (
+              <Button variant="outline" disabled={loading}>
+                <Printer className="mr-2 h-4 w-4" />
+                {loading ? "Generando..." : "Imprimir"}
+              </Button>
+            )}
+          </PDFDownloadLink>
+
           {(order.status === "PENDING" || order.status === "CONFIRMED") &&
             onRecalculate && (
               <Button variant="secondary" onClick={handleRecalculate}>

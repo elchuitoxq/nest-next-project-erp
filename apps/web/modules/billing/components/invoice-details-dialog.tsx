@@ -41,6 +41,9 @@ import { useWarehouses } from "@/modules/inventory/hooks/use-inventory";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { CreateCreditNoteDialog } from "./create-credit-note-dialog";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import { InvoicePdf } from "@/modules/common/components/pdf/invoice-pdf";
+import { Printer } from "lucide-react";
 
 interface InvoiceDetailsDialogProps {
   open: boolean;
@@ -413,6 +416,19 @@ export function InvoiceDetailsDialog({
                 Emitir Factura
               </Button>
             )}
+
+            {/* Print Button */}
+            <PDFDownloadLink
+              document={<InvoicePdf invoice={invoice} />}
+              fileName={`Factura-${invoice.code}.pdf`}
+            >
+              {({ loading }) => (
+                <Button variant="outline" disabled={loading}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  {loading ? "Generando..." : "Imprimir"}
+                </Button>
+              )}
+            </PDFDownloadLink>
 
             {(invoice.status === "POSTED" || invoice.status === "PAID") && (
               <>

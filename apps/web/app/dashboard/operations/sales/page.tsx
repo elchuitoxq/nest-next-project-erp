@@ -189,6 +189,7 @@ export default function OrdersPage() {
           open={isDetailsOpen}
           onOpenChange={setIsDetailsOpen}
           order={selectedOrder}
+          type="SALE"
           onConfirm={executeConfirm}
           onCancel={executeCancel}
           onGenerateInvoice={executeGenerateInvoice}

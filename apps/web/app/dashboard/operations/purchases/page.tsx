@@ -195,6 +195,7 @@ export default function PurchaseOrdersPage() {
           open={isDetailsOpen}
           onOpenChange={setIsDetailsOpen}
           order={selectedOrder}
+          type="PURCHASE"
           onConfirm={executeConfirm}
           onCancel={executeCancel}
           onGenerateInvoice={executeGenerateInvoice}

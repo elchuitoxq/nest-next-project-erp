@@ -7,6 +7,7 @@ Este documento es la fuente de verdad para el contexto del negocio, reglas fisca
 Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas complejas, **consulta siempre la Skill específica** antes de escribir código.
 
 ### 🧠 Workflows de Agente (Core Agent Skills)
+
 > Reglas de comportamiento y proceso de pensamiento.
 
 - **📜 Superpoderes (Regla #1):** `.agent/skills/using-superpowers/SKILL.md` (Invocar skills antes de actuar).
@@ -16,6 +17,7 @@ Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas comp
 - **🏁 Cierre de Tarea:** `.agent/skills/finishing-a-development-branch/SKILL.md` (Tests, Merge, Cleanup).
 
 ### 🛠️ Ingeniería & Calidad (Core Engineering)
+
 > Estándares técnicos y mejores prácticas.
 
 - **🛡️ Implementación Estricta:** `.agent/skills/implementing-strict-features/SKILL.md` (Validación Zod/DTO, i18n).
@@ -27,12 +29,14 @@ Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas comp
 - **👀 Code Review:** `.agent/skills/requesting-code-review/SKILL.md` & `.agent/skills/receiving-code-review/SKILL.md`.
 
 ### 🎨 Experiencia de Usuario (UI/UX)
+
 > Voz, tono y componentes visuales.
 
 - **🖌️ UI System (Shadcn):** `.agent/skills/using-shadcn-ui/SKILL.md`.
 - **✍️ UX Writing & Estilo:** `.agent/skills/ux-writing-and-style/SKILL.md` (Glosario, Español Neutro, Capitalización).
 
 ### 💼 Reglas de Negocio (Domain Specific)
+
 > Lógica crítica del ERP Venezuela.
 
 - **🇻🇪 Fiscalidad (CRÍTICO):** `.agent/skills/venezuelan-tax-compliance/SKILL.md` (IVA, Retenciones, IGTF, Libros).
@@ -40,6 +44,7 @@ Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas comp
 - **🌱 Seed Data:** `.agent/skills/maintaining-seed-data/SKILL.md` (Reglas de consistencia financiera).
 
 ### 📝 Meta-Skills
+
 - **Planificación:** `.agent/skills/writing-plans/SKILL.md` & `.agent/skills/executing-plans/SKILL.md`.
 - **Mejora Continua:** `.agent/skills/writing-skills/SKILL.md` (Cómo crear/mejorar estas guías).
 
@@ -89,44 +94,44 @@ El sistema opera bajo un modelo de **Multisucursal (Multi-Branch)** por defecto:
 
 1.  **Digitalización (Providencia 0102):** Todo desarrollo de facturación debe soportar "Imprentas Digitales" (Seriales de Control) y exportación XML/JSON.
 2.  **Retenciones (Agente de Retención):**
-    *   **IVA (75%/100%):** Debe ser calculada automáticamente en Compras.
-    *   **ISLR (Decreto 1.808):** Requiere tabla de conceptos y sustraendo (U.T.).
-    *   **Comprobantes:** Obligatorio generar PDF+XML al momento del pago/abono.
-    *   **Unificación de Lógica:** El sistema usa una lógica unificada en `RetentionsService`. Si se registra un pago manual con método `RET_*` (ej. `RET_IVA_75`), el sistema detecta esto y **crea automáticamente el comprobante fiscal** dentro de la misma transacción de base de datos (`tx`), garantizando integridad.
-    *   **Tablas:** `tax_retentions`, `tax_retention_lines`, `tax_concepts`.
+    - **IVA (75%/100%):** Debe ser calculada automáticamente en Compras.
+    - **ISLR (Decreto 1.808):** Requiere tabla de conceptos y sustraendo (U.T.).
+    - **Comprobantes:** Obligatorio generar PDF+XML al momento del pago/abono.
+    - **Unificación de Lógica:** El sistema usa una lógica unificada en `RetentionsService`. Si se registra un pago manual con método `RET_*` (ej. `RET_IVA_75`), el sistema detecta esto y **crea automáticamente el comprobante fiscal** dentro de la misma transacción de base de datos (`tx`), garantizando integridad.
+    - **Tablas:** `tax_retentions`, `tax_retention_lines`, `tax_concepts`.
 3.  **IGTF (3%):**
-    *   Aplicable a pagos en divisa (USD/EUR).
-    *   Discriminación obligatoria en factura (`totalIgtf`).
+    - Aplicable a pagos en divisa (USD/EUR).
+    - Discriminación obligatoria en factura (`totalIgtf`).
 4.  **Tasa BCV (Automatizada):**
-    *   **Servicio:** `BCVScraperService` (Cron jobs/daily 08:00 AM).
-    *   **Fuente:** Scraping directo a `bcv.org.ve`.
-    *   **Persistencia:** Tabla `exchange_rates` con fuente `BCV_SCRAPER`.
+    - **Servicio:** `BCVScraperService` (Cron jobs/daily 08:00 AM).
+    - **Fuente:** Scraping directo a `bcv.org.ve`.
+    - **Persistencia:** Tabla `exchange_rates` con fuente `BCV_SCRAPER`.
 5.  **Pensiones:** Cálculo de contribución especial sobre nómina integral.
 6.  **Reportes Fiscales (Libros de Compra y Venta):**
-    *   **Moneda:** Los libros SIEMPRE se expresan en **Bolívares (VES)**. Si la factura es en divisa, se convierte a la tasa histórica de la fecha de emisión.
-    *   **Columnas Críticas:**
-        *   **IVA / Débito Fiscal:** Muestra el 100% del impuesto de la factura (Derecho a Crédito Fiscal).
-        *   **IVA Retenido:** Muestra el monto retenido (75% o 100%) en una columna separada.
-        *   **N° Comprobante:** Obligatorio si existe retención.
-    *   **Dashboard de Liquidación:** Módulo integrado que cruza Débitos vs Créditos vs Retenciones para calcular la **Cuota Tributaria (A Pagar)** y genera el **TXT de Retenciones** para el portal SENIAT.
+    - **Moneda:** Los libros SIEMPRE se expresan en **Bolívares (VES)**. Si la factura es en divisa, se convierte a la tasa histórica de la fecha de emisión.
+    - **Columnas Críticas:**
+      - **IVA / Débito Fiscal:** Muestra el 100% del impuesto de la factura (Derecho a Crédito Fiscal).
+      - **IVA Retenido:** Muestra el monto retenido (75% o 100%) en una columna separada.
+      - **N° Comprobante:** Obligatorio si existe retención.
+    - **Dashboard de Liquidación:** Módulo integrado que cruza Débitos vs Créditos vs Retenciones para calcular la **Cuota Tributaria (A Pagar)** y genera el **TXT de Retenciones** para el portal SENIAT.
 
 ## 💰 Tesorería Multimoneda (Actualización)
 
 El sistema ha evolucionado para manejar una **Tesorería Multimoneda Real**:
 
-*   **Estado de Cuenta (Wallet):**
-    *   Ya no se mezcla USD y VES en un solo saldo.
-    *   El backend (`getAccountStatement`) agrupa los saldos por moneda.
-*   **Libro de Banco (Audit Ledger):**
-    *   Cada cuenta bancaria tiene un historial detallado de movimientos (`TreasuryService.findAllPayments` con filtro `bankAccountId`).
-    *   **Lógica de Saldos:**
-        *   **Ingresos (`INCOME`):** SUMAN (+) al saldo.
-        *   **Egresos (`EXPENSE`):** RESTAN (-) al saldo.
-*   **Guardia de Saldos (Protección):**
-    *   El sistema **bloquea** cualquier pago (Egreso) si el saldo de la cuenta bancaria es insuficiente (`BadRequestException`). No se permiten saldos negativos.
-*   **Pagos Inteligentes:**
-    *   Si se paga una factura específica, el sistema **hereda la Tasa de Cambio** de la factura original (si no se especifica otra). Esto evita discrepancias contables y "diferencial cambiario" en libros.
-    *   Si es un pago libre (anticipo), usa la tasa del día o la manual.
+- **Estado de Cuenta (Wallet):**
+  - Ya no se mezcla USD y VES en un solo saldo.
+  - El backend (`getAccountStatement`) agrupa los saldos por moneda.
+- **Libro de Banco (Audit Ledger):**
+  - Cada cuenta bancaria tiene un historial detallado de movimientos (`TreasuryService.findAllPayments` con filtro `bankAccountId`).
+  - **Lógica de Saldos:**
+    - **Ingresos (`INCOME`):** SUMAN (+) al saldo.
+    - **Egresos (`EXPENSE`):** RESTAN (-) al saldo.
+- **Guardia de Saldos (Protección):**
+  - El sistema **bloquea** cualquier pago (Egreso) si el saldo de la cuenta bancaria es insuficiente (`BadRequestException`). No se permiten saldos negativos.
+- **Pagos Inteligentes:**
+  - Si se paga una factura específica, el sistema **hereda la Tasa de Cambio** de la factura original (si no se especifica otra). Esto evita discrepancias contables y "diferencial cambiario" en libros.
+  - Si es un pago libre (anticipo), usa la tasa del día o la manual.
 
 ## 👥 Recursos Humanos (RRHH)
 
@@ -148,4 +153,19 @@ El sistema ha evolucionado para manejar una **Tesorería Multimoneda Real**:
   - **Conceptos:** Definición maestra de tipos de movimiento (Ingreso/Egreso). Tabla `payroll_concept_types`.
   - **Incidencias:** Registro diario de eventos (Faltas, Bonos, Horas Extra). Tabla `payroll_incidents`.
   - **Flujo:** Las incidencias se registran como `PENDING`. Al generar la nómina (`DRAFT`), el sistema busca incidencias en el rango de fechas, las suma al cálculo y las marca como `PROCESSED`.
+- **Gestión de Novedades (Incidencias):**
+  - **Conceptos:** Definición maestra de tipos de movimiento (Ingreso/Egreso). Tabla `payroll_concept_types`.
+  - **Incidencias:** Registro diario de eventos (Faltas, Bonos, Horas Extra). Tabla `payroll_incidents`.
+  - **Flujo:** Las incidencias se registran como `PENDING`. Al generar la nómina (`DRAFT`), el sistema busca incidencias en el rango de fechas, las suma al cálculo y las marca como `PROCESSED`.
 - **Relaciones:** Empleados vinculados a Cargos (1:1) y Moneda de Salario (1:1). Cuentas bancarias relacionadas a tabla maestra `banks`.
+
+## 📄 Generación de Documentos (PDF)
+
+- **Tecnología:** `@react-pdf/renderer` (Client-side generation).
+- **Componentes:** `InvoicePdf`, `OrderPdf`.
+- **Datos Dinámicos:**
+  - Los encabezados de documento consumen la configuración de la **Sucursal** (`branch`) asociada al registro (Factura/Pedido).
+  - Campos obligatorios en Sucursal: RIF (`taxId`), Dirección, Teléfono, Email.
+- **Moneda:**
+  - Se visualizan montos con formato explícito de moneda (ej. `Bs 100.00`, `$ 25.00`).
+  - **Disclaimers:** Los pedidos incluyen nota legal sobre la tasa de cambio referencial.

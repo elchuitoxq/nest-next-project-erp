@@ -17,7 +17,6 @@ import { sql } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
 import * as dotenv from "dotenv";
 
-
 import { seedBanks } from "./seed-banks";
 
 export async function seed(isClean = true) {
@@ -69,12 +68,18 @@ export async function seed(isClean = true) {
       .values([
         {
           name: "Sucursal Caracas",
-          address: "Av. Francisco de Miranda",
+          address: "Av. Francisco de Miranda, Edif. Torre Platinum, Piso 5",
+          taxId: "J-12345678-0",
+          phone: "+58 212 555-1234",
+          email: "caracas@erp.com",
           isActive: true,
         },
         {
           name: "Sucursal Valencia",
-          address: "Av. Bolívar Norte",
+          address: "Av. Bolívar Norte, C.C. La Viña, Local 10",
+          taxId: "J-12345678-1",
+          phone: "+58 241 555-4321",
+          email: "valencia@erp.com",
           isActive: true,
         },
       ])
@@ -252,4 +257,3 @@ if (require.main === module) {
     process.exit(0);
   });
 }
-
