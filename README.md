@@ -20,6 +20,7 @@ Un sistema ERP modular y completo diseñado específicamente para el mercado ven
 - **Tesorería Avanzada:**
   - Historial de Pagos Globales con filtros y búsqueda integrada.
   - **Protección de Saldos:** Bloqueo automático de operaciones si no hay fondos suficientes.
+  - **Saldo a Favor & Crédito:** Generación automática de Notas de Crédito por sobrepagos y módulo de cruce de saldos (Balance).
   - **Libro de Banco:** Auditoría detallada de movimientos (Ingresos/Egresos) por cuenta.
   - Gestión de Cuentas Bancarias y Cajas (Efectivo/Digital).
   - Conciliación de facturas con pagos parciales y tasas dinámicas.
@@ -55,7 +56,7 @@ npm install
 
 ### 2. Configuración de Entorno
 
-1. **API:** Crea un archivo `.env` en `apps/api/` (ver `apps/api/README.md`):
+1. **Variables de Entorno (Global):** Crea un único archivo `.env` en la raíz del proyecto:
 
    ```env
    DATABASE_URL="postgres://elchuitoxq:elchuitoxq@localhost:5432/erp_project_db"
@@ -63,10 +64,7 @@ npm install
    JWT_SECRET="alguna-clave-secreta-segura"
    ```
 
-2. **Base de Datos:** Crea un archivo `.env` en `packages/db/src/` para los scripts de mantenimiento:
-   ```env
-   DATABASE_URL="postgres://elchuitoxq:elchuitoxq@localhost:5432/erp_project_db"
-   ```
+   > **Nota:** Este archivo es compartido por el Backend, Scripts de Base de Datos y Herramientas de Desarrollo. No es necesario crear archivos `.env` individuales en cada paquete.
 
 ### 3. Base de Datos
 

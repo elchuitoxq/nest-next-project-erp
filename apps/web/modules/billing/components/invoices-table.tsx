@@ -72,6 +72,11 @@ const ALL_TYPES = [
   { id: "PURCHASE", label: "Compra" },
 ];
 
+import { useDebounce } from "@/hooks/use-debounce";
+import { useState, useEffect } from "react";
+
+// ... existing imports
+
 export function InvoicesTable({
   data,
   pageCount,
@@ -79,13 +84,32 @@ export function InvoicesTable({
   onPaginationChange,
   onViewDetails,
   isLoading,
-  search,
+  search, // Initial/Parent search value
   onSearchChange,
   statusFilter,
   onStatusChange,
   typeFilter,
   onTypeChange,
 }: InvoicesTableProps) {
+  // Internal state for immediate UI feedback
+  const [internalSearch, setInternalSearch] = useState(search);
+  const debouncedInternalSearch = useDebounce(internalSearch, 500);
+
+  // Update parent when debounced value changes
+  useEffect(() => {
+    if (debouncedInternalSearch !== search) {
+      onSearchChange(debouncedInternalSearch);
+    }
+  }, [debouncedInternalSearch, onSearchChange, search]);
+
+  // Sync with parent if parent updates search externally (optional but good practice)
+  useEffect(() => {
+    if (search !== internalSearch && search !== debouncedInternalSearch) {
+      setInternalSearch(search);
+    }
+  }, [search]);
+
+  // ...
   const columns = useMemo<ColumnDef<Invoice>[]>(
     () => [
       {
@@ -232,8 +256,8 @@ export function InvoicesTable({
           <Input
             placeholder="Buscar... (ej: A-001, Cliente X)"
             className="pl-8"
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
+            value={internalSearch}
+            onChange={(e) => setInternalSearch(e.target.value)}
           />
         </div>
         <div className="flex items-center gap-2">
@@ -358,8 +382,8 @@ export function InvoicesTable({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
-            <AnimatePresence mode="wait">
+          <TableBody key={`${typeFilter.join(",")}-${statusFilter.join(",")}`}>
+            <AnimatePresence mode="popLayout">
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row, index) => (
                   <motion.tr

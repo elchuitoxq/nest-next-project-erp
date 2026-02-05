@@ -197,6 +197,22 @@ export async function seed(isClean = true) {
             code: "RET_ISLR",
             currencyId: ves.id, // Usually handled in Base Currency
             branchId: branch.id,
+            branchId: branch.id,
+            isDigital: true,
+          },
+          // --- CREDIT NOTE / BALANCE ---
+          {
+            name: "Uso de Saldo a Favor ($)",
+            code: "BALANCE_USD",
+            currencyId: usd.id,
+            branchId: branch.id,
+            isDigital: true,
+          },
+          {
+            name: "Uso de Saldo a Favor (Bs)",
+            code: "BALANCE_VES",
+            currencyId: ves.id,
+            branchId: branch.id,
             isDigital: true,
           },
         ])

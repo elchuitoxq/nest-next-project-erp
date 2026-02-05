@@ -71,6 +71,11 @@ const ALL_STATUSES = [
   { id: "CANCELLED", label: "Cancelado" },
 ];
 
+import { useDebounce } from "@/hooks/use-debounce";
+import { useState, useEffect } from "react";
+
+// ... existing imports
+
 export function OrdersTable({
   data,
   pageCount,
@@ -78,11 +83,30 @@ export function OrdersTable({
   onPaginationChange,
   onViewDetails,
   isLoading,
-  search,
+  search, // Initial/Parent search value
   onSearchChange,
   statusFilter,
   onStatusChange,
 }: OrdersTableProps) {
+  // Internal state for immediate UI feedback
+  const [internalSearch, setInternalSearch] = useState(search);
+  const debouncedInternalSearch = useDebounce(internalSearch, 500);
+
+  // Update parent when debounced value changes
+  useEffect(() => {
+    if (debouncedInternalSearch !== search) {
+      onSearchChange(debouncedInternalSearch);
+    }
+  }, [debouncedInternalSearch, onSearchChange, search]);
+
+  // Sync with parent if parent updates search externally
+  useEffect(() => {
+    if (search !== internalSearch && search !== debouncedInternalSearch) {
+      setInternalSearch(search);
+    }
+  }, [search]);
+
+  // ...
   const columns = useMemo<ColumnDef<Order>[]>(
     () => [
       {
@@ -223,8 +247,8 @@ export function OrdersTable({
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por código o cliente..."
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
+            value={internalSearch}
+            onChange={(e) => setInternalSearch(e.target.value)}
             className="pl-8"
           />
         </div>
@@ -306,8 +330,8 @@ export function OrdersTable({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
-            <AnimatePresence mode="wait">
+          <TableBody key={statusFilter.join(",")}>
+            <AnimatePresence mode="popLayout">
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row, index) => (
                   <motion.tr

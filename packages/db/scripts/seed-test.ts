@@ -125,13 +125,11 @@ async function main() {
         .values({ userId: newUser.id, branchId: u.branch.id, isDefault: true });
       // Add secondary branch for treasurer
       if (u.role.name === "accountant") {
-        await db
-          .insert(usersBranches)
-          .values({
-            userId: newUser.id,
-            branchId: branchVAL.id,
-            isDefault: false,
-          });
+        await db.insert(usersBranches).values({
+          userId: newUser.id,
+          branchId: branchVAL.id,
+          isDefault: false,
+        });
       }
     }
 
@@ -490,7 +488,7 @@ async function main() {
     // =================================================================================
     console.log("🚚 [L4] Executing Purchase Cycle (Restocking)...");
 
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 30; i++) {
       const branch = i % 2 === 0 ? branchCCS : branchVAL;
       const wh = i % 2 === 0 ? whCCS[0] : whVAL[0];
       const supplier = faker.helpers.arrayElement(suppliers);
@@ -507,12 +505,11 @@ async function main() {
       // Scenario: Purchase in USD (Import) or VES (National)
       const isImport = Math.random() > 0.5;
       const currency = isImport ? currUSD : currVES;
-
-      // Order Header
+      const orderConfigCode = `OC-${(i + 1).toString().padStart(5, "0")}`; // Sequential OC
       const [order] = await db
         .insert(orders)
         .values({
-          code: `OC-${faker.string.numeric(6)}`,
+          code: orderConfigCode,
           partnerId: supplier.id,
           branchId: branch.id,
           warehouseId: wh.id,
@@ -533,7 +530,7 @@ async function main() {
 
       for (let j = 0; j < itemsCount; j++) {
         const prod = faker.helpers.arrayElement(productsData);
-        const qty = faker.number.int({ min: 10, max: 50 });
+        const qty = faker.number.int({ min: 100, max: 300 });
 
         // Cost calculation
         let unitCost = parseFloat(prod.cost!);
@@ -567,13 +564,11 @@ async function main() {
             })
             .where(eq(stock.id, existingStock.id));
         } else {
-          await db
-            .insert(stock)
-            .values({
-              warehouseId: wh.id,
-              productId: prod.id,
-              quantity: qty.toString(),
-            });
+          await db.insert(stock).values({
+            warehouseId: wh.id,
+            productId: prod.id,
+            quantity: qty.toString(),
+          });
         }
       }
 
@@ -587,12 +582,12 @@ async function main() {
       const [move] = await db
         .insert(inventoryMoves)
         .values({
-          code: `MOV-IN-${order.code}`,
+          code: `MOV-IN-${order.code}-${faker.string.alphanumeric(4)}`,
           type: "IN",
           toWarehouseId: wh.id,
           branchId: branch.id,
           date: date,
-          note: `Recepción Orden #${order.code}`,
+          note: `Recepción Orden #${orderConfigCode}`,
           userId: adminUser.id,
         } as any)
         .returning(); // Explicit cast to avoid type issues with relations
@@ -611,8 +606,8 @@ async function main() {
       const totalInv = totalBase + totalTax;
 
       await db.insert(invoices).values({
-        code: `C-${faker.string.numeric(6)}`, // Supplier Invoice Number (Control)
-        invoiceNumber: `CTRL-${faker.string.numeric(8)}`,
+        code: `C-${(i + 1).toString().padStart(5, "0")}`, // Sequential Purchase Invoice
+        invoiceNumber: `CTRL-${faker.string.alphanumeric(10).toUpperCase()}`,
         partnerId: supplier.id,
         branchId: branch.id,
         currencyId: currency.id,
@@ -664,10 +659,11 @@ async function main() {
       const invoiceRate = rate;
 
       // 1. Create Sale Order
+      const saleOrderCode = `PED-${(i + 1).toString().padStart(5, "0")}`;
       const [order] = await db
         .insert(orders)
         .values({
-          code: `PED-${faker.string.numeric(5)}`,
+          code: saleOrderCode,
           partnerId: customer.id,
           branchId: branch.id,
           warehouseId: wh.id,
@@ -731,12 +727,12 @@ async function main() {
       const [move] = await db
         .insert(inventoryMoves)
         .values({
-          code: `MOV-OUT-${order.code}`,
+          code: `MOV-OUT-${order.code}-${faker.string.alphanumeric(4)}`,
           type: "OUT",
           fromWarehouseId: wh.id,
           branchId: branch.id,
           date: date,
-          note: `Despacho Pedido #${order.code}`,
+          note: `Despacho Pedido #${saleOrderCode}`,
           userId: adminUser.id,
         } as any)
         .returning();
@@ -763,7 +759,7 @@ async function main() {
       const [inv] = await db
         .insert(invoices)
         .values({
-          code: `A-${faker.string.numeric(6)}`,
+          code: `A-${(i + 1).toString().padStart(5, "0")}`, // Sequential Sale Invoice
           partnerId: customer.id,
           branchId: branch.id,
           currencyId: currency.id,
@@ -1331,6 +1327,79 @@ async function main() {
       .where(eq(payrollRuns.id, draftRun.id));
     console.log(
       "   ✅ Created sample Payroll Runs (Paid & Draft with Incidents)",
+    );
+
+    // =================================================================================
+    // LEVEL 10: CREDIT NOTES & BALANCE (Positive Balance)
+    // =================================================================================
+    console.log("💳 [L10] Creating Credit Notes (Positive Balance)...");
+
+    const targetCustomer = customers[0]; // Pick first customer
+
+    // 1. Credit Note in USD ($250.00)
+    const [cnUSD] = await db
+      .insert(creditNotes)
+      .values({
+        code: `NC-${faker.string.alphanumeric(8).toUpperCase()}`,
+        partnerId: targetCustomer.id,
+        branchId: branchCCS.id,
+        currencyId: currUSD.id,
+        exchangeRate: "1.000000",
+        status: "POSTED",
+        date: new Date(),
+        reason: "Devolución de mercancía (Ejemplo)",
+        subtotal: "250.00",
+        totalTax: "0.00",
+        total: "250.00",
+        userId: adminUser.id,
+      } as any)
+      .returning();
+
+    await db.insert(creditNoteItems).values({
+      creditNoteId: cnUSD.id,
+      productId: productsData[0].id, // Use first product as placeholder
+      description: "Saldo a favor inicial",
+      quantity: "1",
+      price: "250.00",
+      total: "250.00",
+      taxRate: "0.00",
+    });
+
+    console.log(
+      `   ✅ Created USD Credit Note for ${targetCustomer.name}: $250.00`,
+    );
+
+    // 2. Credit Note in VES (Bs. 5000.00)
+    const [cnVES] = await db
+      .insert(creditNotes)
+      .values({
+        code: `NC-${faker.string.alphanumeric(8).toUpperCase()}-BS`,
+        partnerId: targetCustomer.id,
+        branchId: branchCCS.id,
+        currencyId: currVES.id,
+        exchangeRate: rateVes.toFixed(6), // Nominal rate for same-currency transaction or use market rate? Fiscal requires rate.
+        status: "POSTED",
+        date: new Date(),
+        reason: "Ajuste de facturación",
+        subtotal: "5000.00",
+        totalTax: "0.00",
+        total: "5000.00",
+        userId: adminUser.id,
+      } as any)
+      .returning();
+
+    await db.insert(creditNoteItems).values({
+      creditNoteId: cnVES.id,
+      productId: productsData[0].id, // Use first product as placeholder
+      description: "Ajuste manual",
+      quantity: "1",
+      price: "5000.00",
+      total: "5000.00",
+      taxRate: "0.00",
+    });
+
+    console.log(
+      `   ✅ Created VES Credit Note for ${targetCustomer.name}: Bs. 5000.00`,
     );
 
     console.log("✅ E2E SEED COMPLETED SUCCESSFULLY!");

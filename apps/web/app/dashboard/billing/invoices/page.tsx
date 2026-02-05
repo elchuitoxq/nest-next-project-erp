@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import {
   Card,
@@ -30,6 +30,11 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
 
+  // Reset to first page when filters change
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+  }, [search, statusFilter, typeFilter]);
+
   const {
     data: invoicesResponse,
     isLoading,
@@ -37,7 +42,7 @@ export default function InvoicesPage() {
   } = useInvoices({
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
-    search,
+    search: search,
     // Pass arrays directly if they have items, otherwise undefined
     status: statusFilter.length > 0 ? statusFilter : undefined,
     type: typeFilter.length > 0 ? typeFilter : undefined,

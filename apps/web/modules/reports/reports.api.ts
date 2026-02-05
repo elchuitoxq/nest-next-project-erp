@@ -41,12 +41,12 @@ export const fiscalReportsApi = {
     year: string,
     branchId?: string,
     fortnight?: string,
+    direction?: string,
   ) => {
     const { data } = await api.get("/reports/fiscal/retenciones-txt", {
-      params: { month, year, branchId, fortnight },
+      params: { month, year, branchId, fortnight, direction },
       responseType: "blob", // Important: Receive as Blob
     });
     return data;
   },
 };
-

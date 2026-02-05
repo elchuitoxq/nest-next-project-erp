@@ -1,14 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
 import {
   usePartners,
   usePartnerMutations,
 } from "@/modules/partners/hooks/use-partners";
 import { PartnersTable } from "@/modules/partners/components/partners-table";
 import { PartnerDialog } from "@/modules/partners/components/partner-dialog";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import { Partner } from "@/modules/partners/types";
@@ -22,9 +21,7 @@ import {
 } from "@/components/ui/card";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-
 import { PaginationState } from "@tanstack/react-table";
-
 import { motion } from "framer-motion";
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 
@@ -36,6 +33,11 @@ export default function PartnersPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
 
+  // Reset to first page when filters change
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+  }, [search, typeFilter]);
+
   const {
     data: partnersResponse,
     isLoading,
@@ -43,7 +45,7 @@ export default function PartnersPage() {
   } = usePartners({
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
-    search,
+    search: search,
     type: typeFilter.length > 0 ? typeFilter : undefined,
   });
 

@@ -22,6 +22,7 @@ Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas comp
 
 - **🛡️ Implementación Estricta:** `.agent/skills/implementing-strict-features/SKILL.md` (Validación Zod/DTO, i18n).
 - **🏗️ Estándares ERP:** `.agent/skills/erp-development-standards.md`.
+- **⚡ Performance UI (Tablas):** `.agent/skills/building-performant-tables/SKILL.md` (Patrón Input Lag Zero & Animaciones Estables).
 - **🚀 Paginación Server-Side (Nuevo):** `.agent/skills/implementing-server-side-pagination.md` (Estándar para tablas de alto rendimiento).
 - **🐛 Debugging:** `.agent/skills/systematic-debugging/SKILL.md`.
 - **🧪 Testing:** `.agent/skills/test-driven-development/SKILL.md`.
@@ -115,23 +116,30 @@ El sistema opera bajo un modelo de **Multisucursal (Multi-Branch)** por defecto:
       - **N° Comprobante:** Obligatorio si existe retención.
     - **Dashboard de Liquidación:** Módulo integrado que cruza Débitos vs Créditos vs Retenciones para calcular la **Cuota Tributaria (A Pagar)** y genera el **TXT de Retenciones** para el portal SENIAT.
 
-## 💰 Tesorería Multimoneda (Actualización)
+## 💰 Tesorería Multimoneda & Saldo a Favor
 
-El sistema ha evolucionado para manejar una **Tesorería Multimoneda Real**:
+El sistema maneja una **Tesorería Multimoneda Real** con soporte para **Anticipos y Cruce de Saldos**:
 
 - **Estado de Cuenta (Wallet):**
-  - Ya no se mezcla USD y VES en un solo saldo.
-  - El backend (`getAccountStatement`) agrupa los saldos por moneda.
+  - Los saldos se agrupan estrictamente por moneda.
+  - El backend (`getAccountStatement`) calcula el saldo total y el **"Saldo Sin Ocupar"** (Anticipos + Notas de Crédito no aplicadas).
+- **Saldo a Favor (Advance Payments):**
+  - **Generación Automática:** Si un pago de ingreso (`INCOME`) supera el monto de las facturas seleccionadas (allocations), el sistema crea automáticamente una **Nota de Crédito** por el excedente (`NC-ADV-...`).
+  - **Uso de Saldo (Cruce):** Se utilizan los métodos de pago `BALANCE_USD` y `BALANCE_VES`. Al usarlos, el sistema consume las Notas de Crédito disponibles del cliente (`credit_note_usages`), reduciendo su deuda sin mover efectivo real.
 - **Libro de Banco (Audit Ledger):**
-  - Cada cuenta bancaria tiene un historial detallado de movimientos (`TreasuryService.findAllPayments` con filtro `bankAccountId`).
-  - **Lógica de Saldos:**
-    - **Ingresos (`INCOME`):** SUMAN (+) al saldo.
-    - **Egresos (`EXPENSE`):** RESTAN (-) al saldo.
-- **Guardia de Saldos (Protección):**
-  - El sistema **bloquea** cualquier pago (Egreso) si el saldo de la cuenta bancaria es insuficiente (`BadRequestException`). No se permiten saldos negativos.
-- **Pagos Inteligentes:**
-  - Si se paga una factura específica, el sistema **hereda la Tasa de Cambio** de la factura original (si no se especifica otra). Esto evita discrepancias contables y "diferencial cambiario" en libros.
-  - Si es un pago libre (anticipo), usa la tasa del día o la manual.
+  - Historial detallado por cuenta bancaria.
+  - **Protección:** Bloqueo de egresos si el saldo es insuficiente (No saldos negativos).
+- **Generación de Códigos Secuenciales:**
+  - **Facturas de Venta:** `A-00001`...
+  - **Facturas de Compra:** `C-00001`...
+  - **Pedidos de Venta:** `PED-00001`... (o estampado de tiempo para unicidad rápida).
+  - **Órdenes de Compra:** `OC-00001`...
+  - **Lógica Anti-Colisión:** Al generar el siguiente código, el sistema busca el último registro ignorando el estado (incluyendo `DRAFT` y `VOID`) para evitar errores de unicidad `unique_constraint`.
+
+> [!NOTE]
+> **Gestión de Métodos:** El administrador puede crear y editar métodos de pago en `/dashboard/settings/methods`, vinculándolos a divisas específicas y restringiendo qué cuentas bancarias pueden recibirlos.
+
+---
 
 ## 👥 Recursos Humanos (RRHH)
 

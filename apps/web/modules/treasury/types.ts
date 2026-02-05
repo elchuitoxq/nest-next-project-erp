@@ -14,6 +14,7 @@ export interface Payment {
   methodId: string;
   currencyId: string;
   amount: string;
+  type: "INCOME" | "EXPENSE";
   reference?: string;
   date: string;
   user?: { id: string; name: string };
@@ -26,8 +27,10 @@ export interface CreatePaymentDto {
   methodId: string;
   currencyId: string;
   amount: string;
+  type?: "INCOME" | "EXPENSE";
   reference?: string;
   metadata?: any;
   allocations?: { invoiceId: string; amount: number }[];
   bankAccountId?: string;
+  exchangeRate?: string;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,11 @@ export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
+  // Reset to first page when filters change
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+  }, [search, statusFilter]);
+
   const {
     data: ordersResponse,
     isLoading,
@@ -43,7 +48,7 @@ export default function OrdersPage() {
     type: "SALE",
     page: pagination.pageIndex + 1,
     limit: pagination.pageSize,
-    search,
+    search: search,
     status: statusFilter.length > 0 ? statusFilter : undefined,
   });
 

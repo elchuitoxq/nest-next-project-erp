@@ -7,11 +7,10 @@ import {
   branches,
   invoices,
 } from '@repo/db';
-import { eq, sql, and, desc, gte, lt } from 'drizzle-orm';
+import { eq, sql, and, desc, gte, lt, inArray } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import PDFDocument from 'pdfkit';
 import { uuidv7 } from 'uuidv7';
-
 
 @Injectable()
 export class RetentionsService {
@@ -64,23 +63,39 @@ export class RetentionsService {
       const period = r.period; // YYYYMM
 
       for (const line of r.lines) {
-        const dateStr = r.createdAt
-          ? new Date(r.createdAt).toISOString().split('T')[0]
-          : '';
+        // Legal Date Format: DD/MM/YYYY
+        let dateStr = '';
+        if (r.date) {
+          const d = new Date(r.date);
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          dateStr = `${day}/${month}/${year}`;
+        }
+
         const partnerTaxId = (r.partner?.taxId || '').replace(/-/g, '');
-        const invoiceNumber = line.invoice?.invoiceNumber || line.invoice?.code;
-        const controlNumber = line.invoice?.metadata?.controlNumber || '00';
+
+        // In this ERP, invoice.code is the Control Number, invoice.invoiceNumber is the Document Number
+        const invoiceNumber =
+          line.invoice?.invoiceNumber || line.invoice?.code || '0';
+        const controlNumber = line.invoice?.code || '0';
+
         const total = new Decimal(line.baseAmount)
           .plus(line.taxAmount)
           .toFixed(2);
         const base = line.baseAmount;
         const retained = line.retainedAmount;
-        const affected = '0'; // For credit notes
-        const voucher = r.code;
-        const exempt = '0.00';
-        const alicuota = '16'; // Default
 
-        txt += `${branchTaxId}\t${period}\t${dateStr}\t01\t01\t${partnerTaxId}\t${invoiceNumber}\t${controlNumber}\t${total}\t${base}\t${retained}\t${affected}\t${voucher}\t${exempt}\t${alicuota}\r\n`;
+        // TODO: Detect Credit Notes to set TipoDoc=03 and affected doc
+        const typeDoc = '01';
+        const affected = '0';
+
+        const voucher = r.code;
+        const exempt = '0.00'; // Defaulting to 0 as we don't have explicit line-level exempt yet
+        const alicuota = '16.00';
+
+        // SENIAT Format: RIF;Periodo;Fecha;Operacion;TipoDoc;RIFRetenido;Factura;Control;Total;Base;Retenido;DocAfectado;Comprobante;Exento;Alicuota
+        txt += `${branchTaxId};${period};${dateStr};01;${typeDoc};${partnerTaxId};${invoiceNumber};${controlNumber};${total};${base};${retained};${affected};${voucher};${exempt};${alicuota}\r\n`;
       }
     }
     return txt;
@@ -224,15 +239,27 @@ export class RetentionsService {
     endDate: Date,
     type: 'IVA' | 'ISLR',
     branchId?: string,
+    direction?: 'SALE' | 'PURCHASE',
   ) {
     const whereConditions = [
       eq(taxRetentions.type, type),
-      gte(taxRetentions.createdAt, startDate),
-      lt(taxRetentions.createdAt, endDate),
+      gte(taxRetentions.date, startDate),
+      lt(taxRetentions.date, endDate),
     ];
 
     if (branchId) {
       whereConditions.push(eq(taxRetentions.branchId, branchId));
+    }
+
+    if (direction) {
+      // Find retention IDs that belong to invoices of the specified direction
+      const subquery = db
+        .select({ id: taxRetentionLines.retentionId })
+        .from(taxRetentionLines)
+        .innerJoin(invoices, eq(taxRetentionLines.invoiceId, invoices.id))
+        .where(eq(invoices.type, direction));
+
+      whereConditions.push(inArray(taxRetentions.id, subquery));
     }
 
     return await db.query.taxRetentions.findMany({

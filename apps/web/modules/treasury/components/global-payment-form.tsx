@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { usePartners } from "@/modules/partners/hooks/use-partners";
+import { PartnerCombobox } from "@/modules/partners/components/partner-combobox";
 import { useInvoices } from "@/modules/billing/hooks/use-invoices";
 import {
   usePaymentMethods,
@@ -27,11 +28,12 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency, cn } from "@/lib/utils";
-import { Loader2, Calculator } from "lucide-react";
+import { Loader2, Calculator, List, Plus, ArrowLeftRight } from "lucide-react";
 import { toast } from "sonner";
 import { useBankAccounts } from "@/modules/treasury/hooks/use-bank-accounts";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { BalancePicker } from "./balance-picker";
 
 interface Currency {
   id: string;
@@ -41,24 +43,16 @@ interface Currency {
 }
 
 export function GlobalPaymentForm() {
-  const { data: partnersResponse } = usePartners({
-    limit: 1000, // Fetch many for dropdown, or use specialized component
-  });
-  const partners = partnersResponse?.data || [];
-
-  // Use pagination params to fetch ALL relevant invoices for the selected partner
-  // Note: For a "Global Payment" form, we ideally want ALL unpaid invoices for a client.
-  // The current pagination hook defaults to page 1. We might need a specialized endpoint or hook
-  // for "All Unpaid Invoices By Partner", but for now we can try to use the existing one
-  // with a large limit or rely on the user filtering first.
-
-  // State for partner filter to drive the invoice query
   const [partnerId, setPartnerId] = useState("");
+  const [operationType, setOperationType] = useState<"SALE" | "PURCHASE">(
+    "SALE",
+  );
 
   const { data: invoicesResponse } = useInvoices({
-    partnerId: partnerId || undefined, // Only fetch if partner selected
-    status: "POSTED", // Only fetch posted invoices
-    limit: 100, // Fetch a reasonable amount of pending invoices
+    partnerId: partnerId || undefined,
+    type: operationType,
+    status: ["POSTED", "PARTIALLY_PAID"],
+    limit: 100,
   });
 
   const allInvoices = invoicesResponse?.data || [];
@@ -92,16 +86,12 @@ export function GlobalPaymentForm() {
   const [currencyId, setCurrencyId] = useState("");
   const [amount, setAmount] = useState("");
   const [reference, setReference] = useState("");
-  const [exchangeRateInput, setExchangeRateInput] = useState(""); // Custom rate
+  const [exchangeRateInput, setExchangeRateInput] = useState("");
 
-  // Allocations State: Map<InvoiceId, Amount>
   const [allocations, setAllocations] = useState<Record<string, number>>({});
 
-  // Filter Invoices
   const clientInvoices = useMemo(() => {
     if (!partnerId || !allInvoices) return [];
-    // The query already filters by partnerId and status=POSTED via API
-    // We just double check and sort here
     return allInvoices
       .filter(
         (inv) =>
@@ -114,11 +104,10 @@ export function GlobalPaymentForm() {
       );
   }, [allInvoices, partnerId]);
 
-  // Determine effective exchange rate
   const effectiveRate = useMemo(() => {
-    if (exchangeRateInput) return Number(exchangeRateInput);
+    const rateVal = exchangeRateInput ? Number(exchangeRateInput) : 0;
+    if (rateVal > 0) return rateVal;
 
-    // Find rate for VES (assuming Base is USD)
     const vesCurrency = currencies?.find((c) => c.code === "VES");
     if (!vesCurrency) return 1;
 
@@ -129,22 +118,50 @@ export function GlobalPaymentForm() {
   // Derived Values
   const selectedMethod = methods?.find((m) => m.id === methodId);
   const paymentCurrency = currencies?.find((c) => c.id === currencyId);
-  const isForeignCurrency = paymentCurrency?.code !== "VES"; // Simplified assumption
+  const isBalanceMethod = selectedMethod?.code?.startsWith("BALANCE");
+  const selectedBankAccount = bankAccounts?.find((a) => a.id === bankAccountId);
 
-  // Filter accounts by selected currency
+  const totalClientDebt = useMemo(() => {
+    return clientInvoices.reduce((acc, inv) => {
+      const paid = Number((inv as any).paidAmount || 0);
+      const pending = Number(inv.total) - paid;
+
+      const invCurrencyCode = inv.currency?.code || "USD";
+      const targetCurrencyCode = paymentCurrency?.code || invCurrencyCode;
+
+      if (invCurrencyCode === targetCurrencyCode) return acc + pending;
+
+      if (invCurrencyCode === "USD" && targetCurrencyCode === "VES") {
+        return acc + pending * effectiveRate;
+      }
+      if (invCurrencyCode === "VES" && targetCurrencyCode === "USD") {
+        return acc + pending / effectiveRate;
+      }
+
+      return acc + pending;
+    }, 0);
+  }, [clientInvoices, paymentCurrency, effectiveRate]);
+
   const filteredAccounts = useMemo(() => {
-    if (!currencyId) return bankAccounts;
-    return bankAccounts?.filter((acc) => acc.currencyId === currencyId);
-  }, [bankAccounts, currencyId]);
+    let accs = bankAccounts || [];
+    if (currencyId) {
+      accs = accs.filter((acc) => acc.currencyId === currencyId);
+    }
+    if (selectedMethod?.allowedAccounts?.length) {
+      const allowedIds = selectedMethod.allowedAccounts.map(
+        (a: any) => a.bankAccountId,
+      );
+      accs = accs.filter((acc) => allowedIds.includes(acc.id));
+    }
+    return accs;
+  }, [bankAccounts, currencyId, selectedMethod]);
 
-  // Effect: Auto-set currency if method has restricted currency
   useEffect(() => {
     if (selectedMethod?.currencyId) {
       setCurrencyId(selectedMethod.currencyId);
     }
   }, [selectedMethod]);
 
-  // Effect: Auto-set exchange rate from system if available
   useEffect(() => {
     if (latestRates && currencies && !exchangeRateInput) {
       const vesCurrency = currencies.find((c) => c.code === "VES");
@@ -154,42 +171,27 @@ export function GlobalPaymentForm() {
   }, [latestRates, currencies]);
 
   const totalAllocated = Object.values(allocations).reduce((a, b) => a + b, 0);
-  const remainingAmount = Math.max(0, Number(amount) - totalAllocated);
+  const totalAmountNum = Number(amount) || 0;
+  const remainingAmount = Math.max(0, totalAmountNum - totalAllocated);
+  const isOverAllocated = totalAllocated > totalAmountNum + 0.01;
 
   const handleAutoDistribute = () => {
-    if (!amount) return;
-    let available = Number(amount);
+    if (!totalAmountNum) {
+      toast.error("Debe ingresar un monto antes de distribuir");
+      return;
+    }
+    let available = totalAmountNum;
     const newAllocations: Record<string, number> = {};
 
     for (const inv of clientInvoices) {
-      if (available <= 0) break;
+      if (available <= 0.001) break;
 
-      const paidAlready =
-        inv.payments?.reduce((s, p) => s + Number(p.amount), 0) || 0;
-      const pending = Number(inv.total) - paidAlready; // Pending in Invoice Currency (usually Base/USD)
+      // Use the pre-calculated paidAmount from backend if available
+      const paidAlready = Number((inv as any).paidAmount || 0);
+      const pending = Number(inv.total) - paidAlready;
 
-      // Conversion Logic:
-      // If Payment is USD and Invoice is USD -> 1:1
-      // If Payment is VES and Invoice is USD -> Convert Payment to USD (Amount / Rate)
-      // If Payment is USD and Invoice is VES -> Convert Payment to VES (Amount * Rate)
-
-      // Ideally, the backend handles multi-currency.
-      // For this form, we assume:
-      // - Invoices are tracked in Base Currency (USD) usually.
-      // - Payment Amount is entered in Payment Currency.
-
-      // Let's keep it simple: The allocation amount is in PAYMENT CURRENCY units for now,
-      // and we let the backend handle the cross-rate if they differ.
-      // OR better: We display pending in Payment Currency equivalence.
-
-      // If Payment is VES (Rate 352) and Invoice is $10.
-      // Pending in VES = 10 * 352 = 3520 VES.
-      // If I pay 2000 VES, I allocate 2000.
-
-      // Determination of "Pending in Payment Currency":
       let pendingInPaymentCurrency = pending;
-
-      const invCurrencyCode = inv.currency?.code || "USD"; // Default to base
+      const invCurrencyCode = inv.currency?.code || "USD";
       const payCurrencyCode = paymentCurrency?.code || "USD";
 
       if (invCurrencyCode === "USD" && payCurrencyCode === "VES") {
@@ -201,24 +203,35 @@ export function GlobalPaymentForm() {
       const toPay = Math.min(available, pendingInPaymentCurrency);
 
       if (toPay > 0.001) {
-        // Epsilon check
         newAllocations[inv.id] = Number(toPay.toFixed(2));
         available -= toPay;
       }
     }
     setAllocations(newAllocations);
+    toast.info("Montos distribuidos automáticamente.");
+  };
+
+  const clearAllocations = () => {
+    setAllocations({});
+    toast.info("Asignaciones limpiadas correctamente.");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const requiresBankAccount = !isBalanceMethod;
+
     if (!partnerId || !methodId || !amount) {
-      toast.error("Complete los campos requeridos");
+      toast.error("Por favor complete todos los campos obligatorios.");
       return;
     }
 
-    if (totalAllocated > Number(amount) + 0.01) {
-      // Tolerance
-      toast.error("El monto asignado supera el pago total");
+    if (requiresBankAccount && !bankAccountId) {
+      toast.error("Debe seleccionar una cuenta bancaria de destino.");
+      return;
+    }
+
+    if (isOverAllocated) {
+      toast.error("El monto asignado no puede superar el pago total.");
       return;
     }
 
@@ -235,11 +248,15 @@ export function GlobalPaymentForm() {
         methodId,
         currencyId: currencyId || clientInvoices[0]?.currencyId,
         amount,
-        reference,
-        bankAccountId,
+        exchangeRate: exchangeRateInput || effectiveRate.toString(),
+        reference:
+          reference ||
+          (isBalanceMethod
+            ? `USO-SALDO-${Date.now().toString().slice(-4)}`
+            : ""),
+        bankAccountId: bankAccountId || undefined,
         allocations: payloadAllocations,
-        // We might want to send the exchange rate used
-        // exchangeRate: effectiveRate
+        type: operationType === "SALE" ? "INCOME" : "EXPENSE",
       },
       {
         onSuccess: () => {
@@ -257,292 +274,557 @@ export function GlobalPaymentForm() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="grid gap-6 md:grid-cols-2">
-            {/* Left Column: Payment Details */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Cliente</Label>
-                <Select
-                  value={partnerId}
-                  onValueChange={(val) => {
-                    setPartnerId(val);
-                    setAllocations({});
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar cliente..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {partners?.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {clientInvoices.length > 0 && (
-                  <p className="text-xs text-muted-foreground text-right">
-                    Deuda total:{" "}
-                    {formatCurrency(
-                      clientInvoices.reduce((acc, inv) => {
-                        const paid =
-                          inv.payments?.reduce(
-                            (s, p) => s + Number(p.amount),
-                            0,
-                          ) || 0;
-                        return acc + (Number(inv.total) - paid);
-                      }, 0),
-                    )}
-                  </p>
-                )}
-              </div>
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-6"
+      >
+        {/* Left Column: Form Details (8 cols) */}
+        <div className="lg:col-span-12 xl:col-span-8 space-y-6">
+          <div className="flex justify-start gap-2 bg-gray-100/50 p-1 rounded-lg w-fit">
+            <Button
+              type="button"
+              variant={operationType === "SALE" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setOperationType("SALE");
+                setAllocations({});
+                setPartnerId("");
+                setAmount("");
+              }}
+              className={cn(
+                "h-8 text-xs font-bold transition-all",
+                operationType === "SALE" &&
+                  "bg-teal-600 hover:bg-teal-700 shadow-sm",
+              )}
+            >
+              Gestión de Cobranzas
+            </Button>
+            <Button
+              type="button"
+              variant={operationType === "PURCHASE" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setOperationType("PURCHASE");
+                setAllocations({});
+                setPartnerId("");
+                setAmount("");
+              }}
+              className={cn(
+                "h-8 text-xs font-bold transition-all",
+                operationType === "PURCHASE" &&
+                  "bg-orange-600 hover:bg-orange-700 shadow-sm",
+              )}
+            >
+              Gestión de Pagos
+            </Button>
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Método de Pago</Label>
-                  <Select
-                    value={methodId}
-                    onValueChange={(val) => {
-                      setMethodId(val);
-                      // Reset bank account and allocation when method changes
-                      setBankAccountId("");
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Método" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {methods?.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Cuenta Destino</Label>
-                  <Select
-                    value={bankAccountId}
-                    onValueChange={setBankAccountId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Cuenta Bancaria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredAccounts?.map((acc) => (
-                        <SelectItem key={acc.id} value={acc.id}>
-                          {acc.name} ({acc.currency?.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Referencia</Label>
-                  <Input
-                    value={reference}
-                    onChange={(e) => setReference(e.target.value)}
-                    placeholder="Ref. Bancaria"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tasa de Cambio (Bs/$)</Label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      value={exchangeRateInput}
-                      onChange={(e) => setExchangeRateInput(e.target.value)}
-                      placeholder="0.00"
-                      className="pl-8"
+          <Card>
+            <CardContent className="p-6">
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold flex items-center gap-2">
+                      <div
+                        className={cn(
+                          "w-2 h-2 rounded-full animate-pulse",
+                          operationType === "SALE"
+                            ? "bg-teal-500"
+                            : "bg-orange-500",
+                        )}
+                      />
+                      {operationType === "SALE" ? "Cliente" : "Proveedor"}
+                    </Label>
+                    <PartnerCombobox
+                      value={partnerId}
+                      onChange={setPartnerId}
+                      type={operationType === "SALE" ? "CUSTOMER" : "SUPPLIER"}
                     />
-                    <Calculator className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    {partnerId && (
+                      <div className="flex items-center justify-between px-1">
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
+                          Saldo Pendiente Total (
+                          {paymentCurrency?.code ||
+                            clientInvoices[0]?.currency?.code ||
+                            "USD"}
+                          )
+                        </span>
+                        <span
+                          className={cn(
+                            "text-xs font-black",
+                            operationType === "SALE"
+                              ? "text-red-600"
+                              : "text-orange-600",
+                          )}
+                        >
+                          {formatCurrency(
+                            totalClientDebt,
+                            paymentCurrency?.code ||
+                              clientInvoices[0]?.currency?.code ||
+                              "USD",
+                          )}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">
+                        Método de Pago
+                      </Label>
+                      <Select
+                        value={methodId}
+                        onValueChange={(val) => {
+                          setMethodId(val);
+                          setBankAccountId("");
+                        }}
+                      >
+                        <SelectTrigger className="bg-white/50 border-gray-200">
+                          <SelectValue placeholder="Seleccionar..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {methods?.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {isBalanceMethod ? (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold">
+                          Uso de Saldo a Favor
+                        </Label>
+                        {partnerId && currencyId ? (
+                          <BalancePicker
+                            partnerId={partnerId}
+                            currencyId={currencyId}
+                            amountToPay={totalAmountNum}
+                            onApply={(val) => {
+                              // Set the amount to the available balance
+                              // usually user wants to cover the debt or use all balance
+                              const totalDebt = clientInvoices.reduce(
+                                (acc, inv) => {
+                                  const paid = Number(
+                                    (inv as any).paidAmount || 0,
+                                  );
+                                  return acc + (Number(inv.total) - paid);
+                                },
+                                0,
+                              );
+
+                              // Handle manual rate calculation for totalDebt if needed,
+                              // but easiest is just to let user click "Usar Todo"
+                              // and then they can adjust if needed.
+                              setAmount(val.toFixed(2));
+                              toast.info("Saldo aplicado al monto del pago");
+                            }}
+                          />
+                        ) : (
+                          <div className="text-[10px] text-muted-foreground p-3 border border-dashed rounded-lg bg-gray-50/50 flex flex-col items-center justify-center text-center h-[115px]">
+                            <ArrowLeftRight className="h-5 w-5 mb-1 opacity-20" />
+                            Seleccione cliente y moneda para ver créditos.
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold">
+                          Cuenta Destino
+                        </Label>
+                        <Select
+                          value={bankAccountId}
+                          onValueChange={setBankAccountId}
+                        >
+                          <SelectTrigger className="bg-white/50 border-gray-200">
+                            <SelectValue placeholder="Destino..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredAccounts?.map((acc) => (
+                              <SelectItem key={acc.id} value={acc.id}>
+                                {acc.name} ({acc.currency?.code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {selectedBankAccount && (
+                          <div className="flex items-center justify-between px-1">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
+                              Saldo Actual
+                            </span>
+                            <span className="text-xs font-black text-teal-600">
+                              {formatCurrency(
+                                Number(selectedBankAccount.currentBalance),
+                                selectedBankAccount.currency?.code,
+                              )}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">
+                        Referencia
+                      </Label>
+                      <Input
+                        value={reference}
+                        onChange={(e) => setReference(e.target.value)}
+                        placeholder={
+                          isBalanceMethod ? "Automática" : "EJ: 123456"
+                        }
+                        disabled={isBalanceMethod}
+                        className="bg-white/50"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">
+                        Tasa de Cambio (Bs/$)
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          value={exchangeRateInput}
+                          onChange={(e) => setExchangeRateInput(e.target.value)}
+                          placeholder="0.00"
+                          className="pl-9 bg-white/50"
+                        />
+                        <Calculator className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold flex justify-between">
+                      {operationType === "SALE"
+                        ? "Monto Recibido"
+                        : "Monto a Pagar"}
+                      {paymentCurrency && (
+                        <span
+                          className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded uppercase",
+                            operationType === "SALE"
+                              ? "bg-teal-100 text-teal-700"
+                              : "bg-orange-100 text-orange-700",
+                          )}
+                        >
+                          {paymentCurrency.code}
+                        </span>
+                      )}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        className={cn(
+                          "text-2xl font-black h-14 bg-white/50 border-gray-300 transition-all focus:ring-4",
+                          operationType === "SALE"
+                            ? "focus:ring-teal-100"
+                            : "focus:ring-orange-100",
+                        )}
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0.00"
+                      />
+                      <div className="absolute right-3 top-4">
+                        <span className="text-xl font-bold text-gray-400">
+                          {paymentCurrency?.symbol}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Glassmorphism Summary Panel */}
+                  <div
+                    className={cn(
+                      "rounded-xl p-5 space-y-3 transition-all duration-300",
+                      isOverAllocated
+                        ? "bg-red-50/80 ring-1 ring-red-200"
+                        : operationType === "SALE"
+                          ? "bg-gradient-to-br from-teal-50/80 to-emerald-50/80 ring-1 ring-teal-100 shadow-sm"
+                          : "bg-gradient-to-br from-amber-50/80 to-orange-50/80 ring-1 ring-amber-100 shadow-sm",
+                    )}
+                  >
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-500 font-medium">
+                        Total Aplicado
+                      </span>
+                      <span
+                        className={cn(
+                          "font-black text-lg",
+                          operationType === "SALE"
+                            ? "text-teal-700"
+                            : "text-orange-700",
+                        )}
+                      >
+                        {formatCurrency(
+                          totalAllocated,
+                          paymentCurrency?.code || "Bs",
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs opacity-60">
+                      <span className="text-gray-500">
+                        Excedente (Gana Crédito)
+                      </span>
+                      <span className="font-bold text-gray-700">
+                        {formatCurrency(
+                          remainingAmount,
+                          paymentCurrency?.code || "Bs",
+                        )}
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t border-gray-200/50 flex justify-between items-center">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                        Total del Pago
+                      </span>
+                      <span
+                        className={cn(
+                          "font-black text-xl tracking-tighter",
+                          operationType === "SALE"
+                            ? "text-teal-900"
+                            : "text-orange-900",
+                        )}
+                      >
+                        {formatCurrency(
+                          totalAmountNum,
+                          paymentCurrency?.code || "Bs",
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="gap-2 h-10 font-semibold"
+                      onClick={handleAutoDistribute}
+                      disabled={!totalAmountNum || clientInvoices.length === 0}
+                    >
+                      <List className="h-4 w-4" />
+                      Distribuir Automáticamente
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="gap-2 h-10 text-gray-500 hover:text-red-600 hover:bg-red-50"
+                      onClick={clearAllocations}
+                    >
+                      Limpiar Asignaciones
+                    </Button>
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <Label>Monto Total Recibido</Label>
-                  {paymentCurrency && (
-                    <span className="text-xs font-bold text-primary">
-                      {paymentCurrency.code}
-                    </span>
+        {/* Right Column: Invoice Pile (Stacked in Mobile) */}
+        <div className="lg:col-span-12 xl:col-span-4 h-[600px] flex flex-col">
+          <div className="flex-1 flex flex-col border rounded-md bg-card overflow-hidden">
+            <div className="p-4 border-b bg-muted/40 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                  <ArrowLeftRight
+                    className={cn(
+                      "h-4 w-4",
+                      operationType === "SALE"
+                        ? "text-teal-500"
+                        : "text-orange-500",
+                    )}
+                  />
+                  {operationType === "SALE"
+                    ? "Pila de Pendientes"
+                    : "Cuentas por Pagar"}
+                </h3>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  {operationType === "SALE"
+                    ? "FACTURAS POR COBRAR"
+                    : "FACTURAS DE PROVEEDOR"}
+                </p>
+              </div>
+              <div className="bg-white border rounded px-2 py-1 shadow-sm">
+                <span
+                  className={cn(
+                    "text-xs font-black",
+                    operationType === "SALE"
+                      ? "text-teal-600"
+                      : "text-orange-600",
                   )}
-                </div>
-                <Input
-                  type="number"
-                  step="0.01"
-                  className="text-lg font-bold"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0.00"
-                />
+                >
+                  {clientInvoices.length} FACTURAS
+                </span>
               </div>
-
-              {/* Status Card */}
-              <div className="rounded-lg border p-4 bg-muted/50 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Monto Recibido:</span>
-                  <span className="font-medium">
-                    {formatCurrency(Number(amount), paymentCurrency?.symbol)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Asignado:</span>
-                  <span className="font-medium text-green-600">
-                    {formatCurrency(totalAllocated, paymentCurrency?.symbol)}
-                  </span>
-                </div>
-                <div className="border-t pt-2 flex justify-between font-bold">
-                  <span>Por Asignar (Crédito):</span>
-                  <span className={remainingAmount > 0 ? "text-blue-600" : ""}>
-                    {formatCurrency(remainingAmount, paymentCurrency?.symbol)}
-                  </span>
-                </div>
-              </div>
-
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full"
-                onClick={handleAutoDistribute}
-                disabled={!amount || clientInvoices.length === 0}
-              >
-                Distribuir Automáticamente (Más antiguas primero)
-              </Button>
             </div>
 
-            {/* Right Column: Invoice Allocation */}
-            <div className="border rounded-md flex flex-col h-[500px]">
-              <div className="p-3 border-b bg-muted/40 font-medium text-sm flex justify-between items-center">
-                <span>Facturas Pendientes ({clientInvoices.length})</span>
-                {paymentCurrency && (
-                  <span className="text-xs text-muted-foreground">
-                    Pagando en: {paymentCurrency.code}
-                  </span>
-                )}
-              </div>
+            <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-200">
+              {clientInvoices.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                    <List className="h-6 w-6 text-gray-300" />
+                  </div>
+                  <p className="text-gray-400 text-sm font-medium">
+                    {operationType === "SALE"
+                      ? "Seleccione un cliente para ver sus deudas."
+                      : "Seleccione un proveedor para ver sus facturas."}
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {clientInvoices.map((inv) => {
+                    const paidAlready = Number((inv as any).paidAmount || 0);
+                    const pendingBase = Number(inv.total) - paidAlready;
+                    const currentAlloc = allocations[inv.id] || 0;
 
-              <div className="flex-1 overflow-auto p-0">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background z-10">
-                    <TableRow>
-                      <TableHead className="w-[100px]">Factura</TableHead>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead className="text-right">Pendiente</TableHead>
-                      <TableHead className="text-right w-[130px]">
-                        Abonar ({paymentCurrency?.symbol || "$"})
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {clientInvoices.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={4}
-                          className="text-center py-8 text-muted-foreground"
-                        >
-                          No hay facturas pendientes.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      clientInvoices.map((inv) => {
-                        const paid =
-                          inv.payments?.reduce(
-                            (s, p) => s + Number(p.amount),
-                            0,
-                          ) || 0;
-                        const pendingBase = Number(inv.total) - paid;
-                        const currentAlloc = allocations[inv.id] || 0;
+                    let pendingEquiv = pendingBase;
+                    const invCurrencyCode = inv.currency?.code || "USD";
+                    const payCurrencyCode = paymentCurrency?.code || "USD";
 
-                        // Calculate equivalent pending in PAYMENT currency
-                        let pendingEquiv = pendingBase;
-                        const invCurrencyCode = inv.currency?.code || "USD";
-                        const payCurrencyCode = paymentCurrency?.code || "USD";
+                    if (invCurrencyCode === "USD" && payCurrencyCode === "VES")
+                      pendingEquiv = pendingBase * effectiveRate;
+                    else if (
+                      invCurrencyCode === "VES" &&
+                      payCurrencyCode === "USD"
+                    )
+                      pendingEquiv = pendingBase / effectiveRate;
 
-                        if (
-                          invCurrencyCode === "USD" &&
-                          payCurrencyCode === "VES"
-                        ) {
-                          pendingEquiv = pendingBase * effectiveRate;
-                        } else if (
-                          invCurrencyCode === "VES" &&
-                          payCurrencyCode === "USD"
-                        ) {
-                          pendingEquiv = pendingBase / effectiveRate;
-                        }
+                    const isPayingThis = currentAlloc > 0;
 
-                        return (
-                          <TableRow key={inv.id}>
-                            <TableCell className="font-medium">
+                    return (
+                      <div
+                        key={inv.id}
+                        className={cn(
+                          "p-4 transition-colors",
+                          isPayingThis
+                            ? operationType === "SALE"
+                              ? "bg-teal-50/50"
+                              : "bg-orange-50/50"
+                            : "hover:bg-gray-50/30",
+                        )}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex flex-col">
+                            <span
+                              className={cn(
+                                "text-xs font-black",
+                                operationType === "SALE"
+                                  ? "text-teal-600"
+                                  : "text-orange-600",
+                              )}
+                            >
                               {inv.code}
-                            </TableCell>
-                            <TableCell className="text-xs whitespace-nowrap">
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase">
                               {inv.date
                                 ? new Date(inv.date).toLocaleDateString()
                                 : "-"}
-                            </TableCell>
-                            <TableCell className="text-right text-xs">
-                              <div className="flex flex-col items-end">
-                                <span>
-                                  {formatCurrency(
-                                    pendingBase,
-                                    inv.currency?.symbol,
-                                  )}
-                                </span>
-                                {payCurrencyCode !== invCurrencyCode && (
-                                  <span className="text-[10px] text-muted-foreground">
-                                    ~{" "}
-                                    {formatCurrency(
-                                      pendingEquiv,
-                                      paymentCurrency?.symbol,
-                                    )}
-                                  </span>
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs font-bold text-gray-900">
+                              {formatCurrency(pendingBase, inv.currency?.code)}
+                            </div>
+                            {payCurrencyCode !== invCurrencyCode && (
+                              <div className="text-[9px] text-muted-foreground font-semibold">
+                                ~{" "}
+                                {formatCurrency(
+                                  pendingEquiv,
+                                  paymentCurrency?.code,
                                 )}
                               </div>
-                            </TableCell>
-                            <TableCell className="p-2">
-                              <Input
-                                type="number"
-                                className="h-8 text-right"
-                                value={currentAlloc || ""}
-                                placeholder="0.00"
-                                onChange={(e) => {
-                                  const val = Math.min(
-                                    Number(e.target.value),
-                                    Number(pendingEquiv.toFixed(2)) + 0.05, // Slight tolerance
-                                  );
-                                  setAllocations((prev) => ({
-                                    ...prev,
-                                    [inv.id]: val,
-                                  }));
-                                }}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 items-center">
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-2 text-[10px] font-bold text-gray-400">
+                              {paymentCurrency?.symbol || "$"}
+                            </span>
+                            <Input
+                              type="number"
+                              className={cn(
+                                "h-9 pl-7 text-right font-bold text-sm bg-white/80",
+                                isPayingThis
+                                  ? operationType === "SALE"
+                                    ? "border-teal-300 ring-2 ring-teal-50"
+                                    : "border-orange-300 ring-2 ring-orange-50"
+                                  : "border-gray-200",
+                              )}
+                              value={currentAlloc || ""}
+                              placeholder="0.00"
+                              onChange={(e) => {
+                                const val = Math.min(
+                                  Number(e.target.value),
+                                  Number(pendingEquiv.toFixed(2)) + 0.05,
+                                );
+                                setAllocations((prev) => ({
+                                  ...prev,
+                                  [inv.id]: val,
+                                }));
+                              }}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "h-9 w-9 text-gray-400 transition-colors",
+                              operationType === "SALE"
+                                ? "hover:text-teal-500"
+                                : "hover:text-orange-500",
+                            )}
+                            onClick={() => {
+                              setAllocations((prev) => ({
+                                ...prev,
+                                [inv.id]: Number(pendingEquiv.toFixed(2)),
+                              }));
+                            }}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            <div className="md:col-span-2 flex justify-end">
-              <Button type="submit" size="lg" disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Registrar Pago
+            <div className="p-4 bg-muted/40 border-t">
+              <Button
+                type="submit"
+                className={cn(
+                  "w-full h-12 text-lg font-black shadow-lg transition-all active:scale-[0.98]",
+                  operationType === "SALE"
+                    ? "bg-teal-600 hover:bg-teal-700 shadow-teal-500/20"
+                    : "bg-orange-600 hover:bg-orange-700 shadow-orange-500/20",
+                )}
+                disabled={isPending}
+              >
+                {isPending ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <span className="uppercase tracking-widest">
+                    {operationType === "SALE"
+                      ? "Procesar Cobranza"
+                      : "Registrar Pago"}
+                  </span>
+                )}
               </Button>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </form>
     </div>
   );
 }

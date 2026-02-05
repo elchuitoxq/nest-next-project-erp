@@ -59,12 +59,64 @@ const payload = {
 - **Balance Logic (Critical)**:
   - **Income (Venta/Cobro)**: `balance = balance + amount`
   - **Expense (Compra/Pago)**: `balance = balance - amount`
-  - *Note:* Always validate `paymentType` before applying the math. Do not assume all payments add up.
+  - _Note:_ Always validate `paymentType` before applying the math. Do not assume all payments add up.
 - **Audit (Libro de Banco)**:
   - Users must be able to see the breakdown. Implement `BankAccountLedger` using `findAllPayments` filtered by `bankAccountId`.
 - **Payment Intelligence**:
   - **Rate Inheritance**: If paying a specific Invoice, the payment MUST use the `invoice.exchangeRate` to avoid accounting gaps (diferencial cambiario).
   - **Manual Rate**: Only use manual/daily rate for unlinked payments (Advances).
+
+## 8. Sequential Code Generation Logic
+
+To avoid unique constraint collisions (especially when mixing `DRAFT`, `VOID`, and `POSTED` statuses), follow this pattern:
+
+```typescript
+const prefix = type === "SALE" ? "A" : "C";
+
+// 1. Fetch the last used code REGARDLESS of status
+const lastRecord = await tx.query.invoices.findFirst({
+  where: and(
+    eq(invoices.type, type),
+    like(invoices.code, `${prefix}-%`), // Match the formatting convention
+  ),
+  orderBy: desc(invoices.code),
+});
+
+// 2. Increment safely
+const lastNum = lastRecord?.code.split("-")[1] || "0";
+const nextCode = `${prefix}-${(parseInt(lastNum) + 1).toString().padStart(5, "0")}`;
+```
+
+## 9. "Saldo a Favor" & Credit Note Usages
+
+- **Auto-Credit (Surplus)**: Calculated as `PaymentAmount - TotalAllocations`. If `> 0`, create a `creditNotes` record type `POSTED` with `NC-ADV-` prefix.
+- **Consumption (Cruce)**:
+  - Triggered by `BALANCE_USD` or `BALANCE_VES` method codes.
+  - Logic: Fetch `POSTED` Credit Notes for the partner/currency, calculate `remainingAmount` (Total - Sum of Usages), and insert into `credit_note_usages`.
+  - **Constraint**: `BALANCE` payments NEVER affect `bank_accounts.current_balance` because they don't involve cash movement.
+
+## 10. Drizzle & Nullable UUIDs
+
+When querying columns that can be `null` (like `branchId` for global settings), `eq(table.col, null)` will fail or produce incorrect SQL.
+
+- **The Fix**: Use `isNull(table.col)` for the null case.
+
+```typescript
+import { isNull, eq, and } from "drizzle-orm";
+
+const where = and(
+  eq(paymentMethods.code, data.code),
+  data.branchId
+    ? eq(paymentMethods.branchId, data.branchId)
+    : isNull(paymentMethods.branchId),
+);
+```
+
+## 11. Frontend State & Navigation
+
+- **Payment Methods Management**: `/dashboard/settings/methods` is the unified view for CRUD and Bank Account mapping.
+- **Redux/Query Keys**: Invalidate `['payment-methods']` and `['bank-accounts']` when modifying these settings.
+- **Components**: `BalancePicker` (generic component in `@/modules/treasury/components`) should be used whenever a "Cruce de Saldo" is available. Use `currencies: true` in the query to display correct symbols (USD/VES).
 
 ## 6. Updates & Invalidation
 

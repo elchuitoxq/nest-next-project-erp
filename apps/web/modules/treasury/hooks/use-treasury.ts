@@ -37,8 +37,9 @@ export const usePayments = (filters?: { bankAccountId?: string }) => {
     queryKey: ["payments", filters], // Include filters in key
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (filters?.bankAccountId) params.append("bankAccountId", filters.bankAccountId);
-      
+      if (filters?.bankAccountId)
+        params.append("bankAccountId", filters.bankAccountId);
+
       const { data } = await api.get(`/treasury/payments?${params.toString()}`);
       return data;
     },
@@ -63,5 +64,22 @@ export const useDailyClose = (date: string) => {
       const { data } = await api.get(`/treasury/daily-close?date=${date}`);
       return data;
     },
+  });
+};
+
+export const useAvailableCreditNotes = (
+  partnerId?: string,
+  currencyId?: string,
+) => {
+  return useQuery({
+    queryKey: ["available-credit-notes", partnerId, currencyId],
+    queryFn: async () => {
+      if (!partnerId || !currencyId) return [];
+      const { data } = await api.get(
+        `/treasury/available-credit-notes?partnerId=${partnerId}&currencyId=${currencyId}`,
+      );
+      return data; // formatted as Array of CreditNotes with `remainingAmount`
+    },
+    enabled: !!partnerId && !!currencyId,
   });
 };

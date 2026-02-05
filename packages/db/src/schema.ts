@@ -372,9 +372,7 @@ export const creditNotes = pgTable("credit_notes", {
     .primaryKey()
     .$defaultFn(() => uuidv7()),
   code: text("code").notNull().unique(), // NC-00001
-  invoiceId: uuid("invoice_id")
-    .references(() => invoices.id)
-    .notNull(),
+  invoiceId: uuid("invoice_id").references(() => invoices.id), // Optional: Can be linked to invoice or just Balance
   partnerId: uuid("partner_id")
     .references(() => partners.id)
     .notNull(),
@@ -396,6 +394,7 @@ export const creditNotes = pgTable("credit_notes", {
 
   date: timestamp("date").defaultNow(),
   userId: uuid("user_id").references(() => users.id),
+  parentPaymentId: uuid("parent_payment_id").references(() => payments.id),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -415,6 +414,20 @@ export const creditNoteItems = pgTable("credit_note_items", {
   quantity: numeric("quantity", { precision: 20, scale: 4 }).notNull(),
   price: numeric("price", { precision: 20, scale: 2 }).notNull(), // Unit Price at moment of return (usually same as invoice)
   total: numeric("total", { precision: 20, scale: 2 }).notNull(),
+});
+
+export const creditNoteUsages = pgTable("credit_note_usages", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  creditNoteId: uuid("credit_note_id")
+    .references(() => creditNotes.id)
+    .notNull(),
+  paymentId: uuid("payment_id")
+    .references(() => payments.id)
+    .notNull(),
+  amount: numeric("amount", { precision: 20, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // --- TAX & COMPLIANCE ---

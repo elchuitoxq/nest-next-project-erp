@@ -28,13 +28,17 @@ export class FiscalReportsController {
     @Query('month') month: string,
     @Query('year') year: string,
     @Query('fortnight') fortnight: 'first' | 'second',
+    @Query('direction') direction: 'SALE' | 'PURCHASE',
     @Req() req: any,
     @Res() res: Response,
   ) {
     // 1. Calculate Dates (Reusing Logic - TODO: Refactor to util)
     const m = Number(month).toString().padStart(2, '0');
     const y = year;
-    const nextM = Number(month) === 12 ? '01' : (Number(month) + 1).toString().padStart(2, '0');
+    const nextM =
+      Number(month) === 12
+        ? '01'
+        : (Number(month) + 1).toString().padStart(2, '0');
     const nextY = Number(month) === 12 ? (Number(year) + 1).toString() : year;
 
     let startIso = `${y}-${m}-01`;
@@ -55,10 +59,12 @@ export class FiscalReportsController {
       endDate,
       'IVA',
       req.branchId,
+      direction,
     );
 
     // 3. Generate TXT
-    const txtContent = this.retentionsService.generateConsolidatedTxt(retentions);
+    const txtContent =
+      this.retentionsService.generateConsolidatedTxt(retentions);
 
     // 4. Send File
     res.set({

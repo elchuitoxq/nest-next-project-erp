@@ -61,6 +61,11 @@ const ALL_TYPES = [
   { id: "ADJUST", label: "Ajuste" },
 ];
 
+import { useDebounce } from "@/hooks/use-debounce";
+import { useState, useEffect } from "react";
+
+// ... existing imports
+
 export function MovesTable({
   data,
   pageCount,
@@ -68,11 +73,30 @@ export function MovesTable({
   onPaginationChange,
   onSelectMove,
   isLoading,
-  search,
+  search, // Initial/Parent search value
   onSearchChange,
   typeFilter,
   onTypeChange,
 }: MovesTableProps) {
+  // Internal state for immediate UI feedback
+  const [internalSearch, setInternalSearch] = useState(search);
+  const debouncedInternalSearch = useDebounce(internalSearch, 500);
+
+  // Update parent when debounced value changes
+  useEffect(() => {
+    if (debouncedInternalSearch !== search) {
+      onSearchChange(debouncedInternalSearch);
+    }
+  }, [debouncedInternalSearch, onSearchChange, search]);
+
+  // Sync with parent if parent updates search externally
+  useEffect(() => {
+    if (search !== internalSearch && search !== debouncedInternalSearch) {
+      setInternalSearch(search);
+    }
+  }, [search]);
+
+  // ...
   const getTypeBadge = (type: string) => {
     switch (type) {
       case "IN":
@@ -168,8 +192,8 @@ export function MovesTable({
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por código o nota..."
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
+            value={internalSearch}
+            onChange={(e) => setInternalSearch(e.target.value)}
             className="pl-8"
           />
         </div>
@@ -251,8 +275,8 @@ export function MovesTable({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
-            <AnimatePresence mode="wait">
+          <TableBody key={typeFilter.join(",")}>
+            <AnimatePresence mode="popLayout">
               {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row, index) => (
                   <motion.tr

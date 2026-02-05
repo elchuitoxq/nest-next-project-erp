@@ -12,9 +12,10 @@ import {
   paymentMethodAccounts,
   users,
   partners,
+  creditNoteUsages,
 } from '@repo/db';
 
-import { eq, sql, and, desc } from 'drizzle-orm';
+import { eq, sql, and, desc, ne, isNull } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import { CurrenciesService } from '../settings/currencies/currencies.service';
 import { RetentionsService } from '../accounting/retentions.service';
@@ -29,12 +30,14 @@ export class TreasuryService {
   // ... (existing code) ...
 
   async findAllMethods(branchId?: string) {
-    return await db.query.paymentMethods.findMany({
+    const methods = await db.query.paymentMethods.findMany({
       where: branchId ? eq(paymentMethods.branchId, branchId) : undefined,
       with: {
         allowedAccounts: true,
       },
     });
+
+    return methods;
   }
 
   async updateMethodAccounts(methodId: string, accountIds: string[]) {
@@ -57,6 +60,83 @@ export class TreasuryService {
     });
   }
 
+  async createMethod(data: {
+    name: string;
+    code: string;
+    branchId: string;
+    currencyId?: string;
+    isDigital: boolean;
+  }) {
+    const existing = await db.query.paymentMethods.findFirst({
+      where: and(
+        eq(paymentMethods.code, data.code),
+        eq(paymentMethods.branchId, data.branchId),
+      ),
+    });
+
+    if (existing) {
+      throw new BadRequestException(
+        `El código "${data.code}" ya existe en esta sucursal.`,
+      );
+    }
+
+    const [method] = await db
+      .insert(paymentMethods)
+      .values({
+        name: data.name,
+        code: data.code,
+        branchId: data.branchId,
+        currencyId: data.currencyId || null,
+        isDigital: data.isDigital,
+      } as any)
+      .returning();
+    return method;
+  }
+
+  async updateMethod(
+    id: string,
+    data: {
+      name?: string;
+      code?: string;
+      currencyId?: string;
+      isDigital?: boolean;
+    },
+  ) {
+    const current = await db.query.paymentMethods.findFirst({
+      where: eq(paymentMethods.id, id),
+    });
+    if (!current) throw new BadRequestException('Método no encontrado');
+
+    if (data.code && data.code !== current.code) {
+      const existing = await db.query.paymentMethods.findFirst({
+        where: and(
+          eq(paymentMethods.code, data.code),
+          current.branchId
+            ? eq(paymentMethods.branchId, current.branchId)
+            : isNull(paymentMethods.branchId),
+        ),
+      });
+
+      if (existing) {
+        throw new BadRequestException(
+          `El código "${data.code}" ya está en uso en esta sucursal.`,
+        );
+      }
+    }
+
+    const [updated] = await db
+      .update(paymentMethods)
+      .set({
+        name: data.name,
+        code: data.code,
+        currencyId: data.currencyId || null,
+        isDigital: data.isDigital,
+      })
+      .where(eq(paymentMethods.id, id))
+      .returning();
+    return updated;
+  }
+
   async registerPayment(data: {
     invoiceId?: string;
     partnerId: string;
@@ -70,6 +150,7 @@ export class TreasuryService {
     userId?: string;
     branchId?: string;
     exchangeRate?: string;
+    type?: 'INCOME' | 'EXPENSE';
   }) {
     return await db.transaction(async (tx) => {
       // Check for duplicate reference
@@ -116,7 +197,7 @@ export class TreasuryService {
       const amount = new Decimal(data.amount);
 
       let exchangeRate = '1.0000000000';
-      let paymentType = 'INCOME';
+      let paymentType = data.type || 'INCOME';
       let invoice: any = null;
 
       if (data.invoiceId) {
@@ -134,6 +215,19 @@ export class TreasuryService {
           if (!data.exchangeRate && invoice.exchangeRate) {
             exchangeRate = invoice.exchangeRate;
           }
+        }
+      } else if (
+        !data.type &&
+        data.allocations &&
+        data.allocations.length > 0
+      ) {
+        // INFER FROM FIRST ALLOCATION
+        const [firstInv] = await tx
+          .select()
+          .from(invoices)
+          .where(eq(invoices.id, data.allocations[0].invoiceId));
+        if (firstInv && firstInv.type === 'PURCHASE') {
+          paymentType = 'EXPENSE';
         }
       }
 
@@ -182,6 +276,50 @@ export class TreasuryService {
           userId: data.userId,
         } as any)
         .returning();
+
+      // --- BALANCE PAYMENT (CRUCE) LOGIC ---
+      if (method && method.code.startsWith('BALANCE')) {
+        // 1. Get Available Credit Notes
+        const availableCNs = await this.getAvailableCreditNotes(
+          data.partnerId,
+          data.currencyId,
+          tx,
+        );
+
+        // 2. Distribute amount
+        let remainingToCover = amount; // Decimal
+
+        // Verify total availability
+        const totalAvailable = availableCNs.reduce(
+          (sum, cn) => sum.plus(new Decimal(cn.remainingAmount)),
+          new Decimal(0),
+        );
+
+        if (totalAvailable.lt(remainingToCover)) {
+          throw new BadRequestException(
+            `Saldo insuficiente. Disponible: ${totalAvailable.toFixed(2)}, Requerido: ${remainingToCover.toFixed(2)}`,
+          );
+        }
+
+        // 3. Consume Credit Notes
+        for (const cn of availableCNs) {
+          if (remainingToCover.lte(0)) break;
+
+          const canTake = new Decimal(cn.remainingAmount);
+          let take = canTake;
+          if (canTake.gt(remainingToCover)) {
+            take = remainingToCover;
+          }
+
+          await tx.insert(creditNoteUsages).values({
+            creditNoteId: cn.id,
+            paymentId: payment.id,
+            amount: take.toFixed(2),
+          });
+
+          remainingToCover = remainingToCover.minus(take);
+        }
+      }
 
       // --- CHECK MANUAL RETENTION PAYMENT ---
       // If the payment method itself IS a retention (e.g. user selected "RET_IVA_75" in dialog)
@@ -348,6 +486,51 @@ export class TreasuryService {
             amount: a.amount.toString(),
           })),
         );
+      }
+
+      // --- AUTOMATIC CREDIT NOTE FOR SURPLUS (SALDO A FAVOR) ---
+      // If the payment amount is greater than the sum of allocations,
+      // generate a Credit Note for the difference so it can be used later.
+      if (true) {
+        // Allow for both INCOME and EXPENSE
+        const totalAllocated = allocations.reduce(
+          (sum, a) => sum.plus(new Decimal(a.amount)),
+          new Decimal(0),
+        );
+
+        // If legacy invoiceId is present and NO allocations were explicit,
+        // we assume full amount was for that invoice (unless specific logic says otherwise).
+        // But here we are strict: Allocations define usage.
+        // If invoiceId was provided but not in allocations list (legacy handled above),
+        // totalAllocated includes it.
+
+        const unallocated = amount.minus(totalAllocated);
+
+        if (unallocated.gt(0.01)) {
+          // Verify if we should create a credit note.
+          // Yes, create it as an "Advance Payment"
+          const codeSuffix = Math.random()
+            .toString(36)
+            .substring(7)
+            .toUpperCase();
+          await tx.insert(creditNotes).values({
+            code: `NC-ADV-${Date.now()}-${codeSuffix}`,
+            partnerId: data.partnerId,
+            branchId: data.branchId,
+            currencyId: data.currencyId,
+            exchangeRate: exchangeRate,
+            warehouseId: null, // No stock return involved
+            status: 'POSTED',
+            reason: `Excedente de pago Ref: ${data.reference || 'S/R'}`,
+            total: unallocated.toFixed(2),
+            totalBase: unallocated.toFixed(2), // Treat as nontaxable base or just total
+            totalTax: '0',
+            totalIgtf: '0',
+            date: new Date(),
+            userId: data.userId,
+            parentPaymentId: payment.id,
+          } as any);
+        }
       }
 
       // Helper to update invoice status
@@ -561,10 +744,12 @@ export class TreasuryService {
         date: new Date(date),
         type: 'CREDIT_NOTE',
         reference: cn.code,
-        description: `Nota de Crédito ${cn.code}`,
+        description: `Nota de Crédito ${cn.code}${(cn as any).parentPaymentId || cn.code.startsWith('NC-ADV') ? ' (Excedente)' : ''}`,
         debit: 0,
         credit:
-          Number(cn.totalBase) + Number(cn.totalTax) + Number(cn.totalIgtf), // Reduces balance
+          (cn as any).parentPaymentId || cn.code.startsWith('NC-ADV')
+            ? 0
+            : Number(cn.totalBase) + Number(cn.totalTax) + Number(cn.totalIgtf), // Reduces balance
         currency: cn.currency ? cn.currency.code : 'VES',
         status: cn.status,
       });
@@ -633,7 +818,28 @@ export class TreasuryService {
           allocated += amount; // Assume fully allocated
         }
 
-        const rem = Math.max(0, amount - allocated);
+        // --- PREVENT DOUBLE COUNTING OF SURPLUS ---
+        // If this payment has associated Credit Notes (surplus/advance),
+        // those Credit Notes are ALREADY adding to unusedBalance in the loop above.
+        // We should only add the portion of 'rem' that is NOT covered by Credit Notes.
+
+        // Fetch child credit notes for this payment (using pre-fetched list to avoid N+1)
+        // Heuristic: Link by parentPaymentId OR by NC-ADV code + matching amount (for legacy/failed links)
+        const unallocatedSurplus = amount - allocated;
+        const childCNs = partnerCreditNotes.filter(
+          (cn) =>
+            (cn as any).parentPaymentId === p.id ||
+            (cn.code.startsWith('NC-ADV') &&
+              Math.abs(Number(cn.total) - unallocatedSurplus) < 0.01 &&
+              cn.currencyId === p.currencyId),
+        );
+
+        const childCNTotal = childCNs.reduce(
+          (sum, cn) => sum + Number(cn.total),
+          0,
+        );
+        const rem = Math.max(0, unallocatedSurplus - childCNTotal);
+
         summary[curr].unusedBalance += rem;
       }
     }
@@ -859,7 +1065,65 @@ export class TreasuryService {
       doc.text('__________________________', { align: 'center' });
       doc.text('Firma y Sello', { align: 'center' });
 
+      // Footer
+      doc
+        .fontSize(10)
+        .text(
+          'Este comprobante se emite conforme a la Providencia Administrativa SNAT/2013/0030.',
+          50,
+          700,
+          { align: 'center' },
+        );
+
       doc.end();
     });
+  }
+
+  async getAvailableCreditNotes(
+    partnerId: string,
+    currencyId: string,
+    tx?: any,
+  ) {
+    const dbHandler = tx || db;
+
+    // 1. Fetch POSTED Credit Notes
+    const creditNotesList = await dbHandler.query.creditNotes.findMany({
+      where: and(
+        eq(creditNotes.partnerId, partnerId),
+        eq(creditNotes.currencyId, currencyId),
+        eq(creditNotes.status, 'POSTED'),
+      ),
+      with: { currency: true },
+      orderBy: desc(creditNotes.date),
+    });
+
+    if (creditNotesList.length === 0) return [];
+
+    const results = [];
+    for (const cn of creditNotesList) {
+      const usage = await dbHandler
+        .select({
+          amount: creditNoteUsages.amount,
+        })
+        .from(creditNoteUsages)
+        .where(eq(creditNoteUsages.creditNoteId, cn.id));
+
+      const totalUsed = usage.reduce(
+        (sum: Decimal, u: { amount: string }) =>
+          sum.plus(new Decimal(u.amount)),
+        new Decimal(0),
+      );
+      const totalAmount = new Decimal(cn.total || 0);
+
+      const remaining = totalAmount.minus(totalUsed);
+      if (remaining.gt(0)) {
+        results.push({
+          ...cn,
+          remainingAmount: remaining.toNumber(),
+        });
+      }
+    }
+
+    return results;
   }
 }

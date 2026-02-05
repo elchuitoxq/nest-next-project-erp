@@ -15,6 +15,7 @@ import {
   paymentMethods,
   creditNotes,
   users,
+  paymentAllocations,
 } from '@repo/db';
 import {
   eq,
@@ -216,21 +217,22 @@ export class BillingService {
       let nextCode = `DRAFT-${Date.now()}`; // Default temporary
 
       if (status === 'POSTED') {
-        // Generate Sequential ONLY if creating directly as POSTED (which shouldn't happen often)
+        // Generate Sequential ONLY if creating directly as POSTED
+        const prefix = type === InvoiceType.SALE ? 'A' : 'C'; // A = Sale, C = Compra (Internal)
+
         const lastInvoice = await tx.query.invoices.findFirst({
-          where: and(eq(invoices.type, type), ne(invoices.status, 'DRAFT')),
+          where: and(
+            eq(invoices.type, type),
+            like(invoices.code, `${prefix}-%`),
+          ),
           orderBy: desc(invoices.code),
         });
 
-        let prefix = type === InvoiceType.SALE ? 'A' : 'C'; // A = Sale, C = Compra (Internal)
         let nextNum = 1;
 
         if (lastInvoice && lastInvoice.code) {
-          // Try to parse A-00001
           const match = lastInvoice.code.match(/([A-Z]+)-(\d+)/);
           if (match) {
-            // If prefix matches, increment.
-            // But careful, if we had DRAFTS before, lastInvoice query filters them out.
             nextNum = parseInt(match[2]) + 1;
           }
         }
@@ -308,12 +310,16 @@ export class BillingService {
 
       // Always generate sequence on Post if it's currently a Draft code
       if (invoice.code.startsWith('DRAFT')) {
+        const prefix = type === InvoiceType.SALE ? 'A' : 'C';
+
         const lastInvoice = await tx.query.invoices.findFirst({
-          where: and(eq(invoices.type, type), ne(invoices.status, 'DRAFT')),
+          where: and(
+            eq(invoices.type, type),
+            like(invoices.code, `${prefix}-%`),
+          ),
           orderBy: desc(invoices.code),
         });
 
-        let prefix = type === InvoiceType.SALE ? 'A' : 'C';
         let nextNum = 1;
 
         if (lastInvoice && lastInvoice.code) {
@@ -506,6 +512,7 @@ export class BillingService {
       fetchedItems,
       fetchedPayments,
       fetchedCreditNotes,
+      fetchedAllocations,
       fetchedUsers,
     ] = await Promise.all([
       invoicePartnerIds.length > 0
@@ -537,6 +544,11 @@ export class BillingService {
       invoiceIds.length > 0
         ? db.query.creditNotes.findMany({
             where: inArray(creditNotes.invoiceId, invoiceIds),
+          })
+        : [],
+      invoiceIds.length > 0
+        ? db.query.paymentAllocations.findMany({
+            where: inArray(paymentAllocations.invoiceId, invoiceIds),
           })
         : [],
       // Fetch Users
@@ -611,19 +623,49 @@ export class BillingService {
       }
     }
 
+    const allocationsByInvoice = new Map();
+    for (const alloc of fetchedAllocations) {
+      if (!allocationsByInvoice.has(alloc.invoiceId)) {
+        allocationsByInvoice.set(alloc.invoiceId, []);
+      }
+      allocationsByInvoice.get(alloc.invoiceId).push(alloc);
+    }
+
     const userMap = new Map(fetchedUsers.map((u) => [u.id, u]));
 
     // 5. Enrich and return
-    const data = invoicesList.map((inv) => ({
-      ...inv,
-      partner: partnerMap.get(inv.partnerId) || null,
-      branch: branchMap.get(inv.branchId) || null,
-      currency: currencyMap.get(inv.currencyId) || null,
-      user: (inv.userId ? userMap.get(inv.userId) : null) || null,
-      items: itemsByInvoice.get(inv.id) || [],
-      payments: paymentsByInvoice.get(inv.id) || [],
-      creditNotes: creditNotesByInvoice.get(inv.id) || [],
-    }));
+    const data = invoicesList.map((inv) => {
+      const invPayments = paymentsByInvoice.get(inv.id) || [];
+      const invAllocations = allocationsByInvoice.get(inv.id) || [];
+
+      // Calculate Paid Amount without double counting
+      const allocatedPaymentIds = new Set(
+        invAllocations.map((a: any) => a.paymentId),
+      );
+      let paidSum = invAllocations.reduce(
+        (sum: Decimal, a: any) => sum.plus(new Decimal(a.amount)),
+        new Decimal(0),
+      );
+
+      for (const p of invPayments) {
+        if (!allocatedPaymentIds.has(p.id)) {
+          paidSum = paidSum.plus(new Decimal(p.amount));
+        }
+      }
+
+      return {
+        ...inv,
+        partner: partnerMap.get(inv.partnerId) || null,
+        branch: branchMap.get(inv.branchId) || null,
+        currency: currencyMap.get(inv.currencyId) || null,
+        user: (inv.userId ? userMap.get(inv.userId) : null) || null,
+        items: itemsByInvoice.get(inv.id) || [],
+        payments: invPayments,
+        allocations: invAllocations,
+        creditNotes: creditNotesByInvoice.get(inv.id) || [],
+        paidAmount: paidSum.toFixed(2),
+      };
+    });
 
     return {
       data: data,

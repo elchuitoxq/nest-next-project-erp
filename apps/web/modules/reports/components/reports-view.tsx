@@ -32,6 +32,17 @@ import { saveAs } from "file-saver";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
+import { FiscalGuidance } from "./fiscal-guidance";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Info, HelpCircle, FileText, CheckCircle2 } from "lucide-react";
 
 export function ReportsView() {
   const [type, setType] = useState<"ventas" | "compras" | "liquidacion">(
@@ -40,6 +51,7 @@ export function ReportsView() {
   const [month, setMonth] = useState(new Date().getMonth() + 1 + "");
   const [year, setYear] = useState(new Date().getFullYear() + "");
   const [fortnight, setFortnight] = useState<string>("full"); // "full", "first", "second"
+  const [isHelpMode, setIsHelpMode] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["fiscal-report", type, month, year, fortnight],
@@ -201,13 +213,15 @@ export function ReportsView() {
 
   const handleDownloadTxt = async () => {
     try {
+      const direction = type === "compras" ? "PURCHASE" : "SALE";
       const blob = await fiscalReportsApi.getRetencionesTxt(
         month,
         year,
         undefined,
         fortnight === "full" ? undefined : fortnight,
+        direction,
       );
-      saveAs(blob, `IVA_${year}${month}_${fortnight}.txt`);
+      saveAs(blob, `IVA_${year}${month}_${fortnight}_${direction}.txt`);
     } catch (error) {
       console.error("Failed to download TXT", error);
     }
@@ -215,32 +229,115 @@ export function ReportsView() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center p-2">
+      <div className="flex justify-between items-start p-2">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">
             Reportes Fiscales
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Consulta y exportación de libros de compra y venta según normativa
             SENIAT.
           </p>
         </div>
-        <div className="flex gap-2">
-          {type === "compras" && (
-            <Button variant="outline" onClick={handleDownloadTxt}>
-              <Download className="mr-2 h-4 w-4" /> IVA TXT
-            </Button>
-          )}
-          {type !== "liquidacion" && (
-            <Button
-              onClick={handleExport}
-              disabled={!data || !data.items || data.items.length === 0}
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex items-center space-x-2 bg-blue-50/50 dark:bg-blue-900/10 px-3 py-1.5 rounded-full border border-blue-100 dark:border-blue-800">
+            <Switch
+              id="help-mode"
+              checked={isHelpMode}
+              onCheckedChange={setIsHelpMode}
+            />
+            <Label
+              htmlFor="help-mode"
+              className="text-xs font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1 cursor-pointer select-none"
             >
-              <Download className="mr-2 h-4 w-4" /> Exportar Excel
-            </Button>
-          )}
+              <HelpCircle className="h-3 w-3" /> Guía Interactiva
+            </Label>
+          </div>
+          <div className="flex gap-2">
+            {type !== "liquidacion" && (
+              <Button variant="outline" onClick={handleDownloadTxt} size="sm">
+                <Download className="mr-2 h-4 w-4" /> IVA TXT
+              </Button>
+            )}
+            {type !== "liquidacion" && (
+              <Button
+                onClick={handleExport}
+                disabled={!data || !data.items || data.items.length === 0}
+                size="sm"
+              >
+                <Download className="mr-2 h-4 w-4" /> Exportar Excel
+              </Button>
+            )}
+          </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isHelpMode && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <Card className="mb-4 border-blue-200 bg-blue-50/20 dark:bg-blue-950/5">
+              <CardContent className="py-4">
+                <FiscalGuidance type={type} />
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Context Summary Banner */}
+      {!isLoading && data && type !== "liquidacion" && (
+        <Card className="mb-4 border-green-100 bg-green-50/30 dark:bg-green-950/10">
+          <CardContent className="py-3 flex items-start gap-3">
+            <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-green-800 dark:text-green-400">
+                Resumen del Periodo:{" "}
+                {fortnight === "full"
+                  ? "Mes Completo"
+                  : fortnight === "first"
+                    ? "1ra Quincena"
+                    : "2da Quincena"}
+              </p>
+              <div className="text-xs text-green-700 dark:text-green-500 mt-1 leading-relaxed">
+                {type === "ventas" ? (
+                  <>
+                    Tienes{" "}
+                    <strong className="font-bold">
+                      {data.items?.length || 0}
+                    </strong>{" "}
+                    documentos para declarar.
+                    {isHelpMode && (
+                      <span className="ml-1 italic opacity-80">
+                        (Recuerde reportar el IGTF y el IVA Percibido).
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    Se detectaron{" "}
+                    <strong className="font-bold">
+                      {data.items?.length || 0}
+                    </strong>{" "}
+                    compras facturadas. Monto a enterar por retenciones:{" "}
+                    <strong className="font-mono">
+                      {formatCurrency(
+                        data.summary?.total_iva_retenido_terceros || 0,
+                        "Bs",
+                      )}
+                    </strong>
+                    .
+                  </>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="premium-shadow overflow-hidden">
         <CardHeader className="bg-muted/30 pb-4">
@@ -467,7 +564,7 @@ export function ReportsView() {
                           Contribuyente
                         </TableHead>
                         <TableHead className="h-10 px-4">
-                          Factura / Ctrl
+                          Factura / Tipo
                         </TableHead>
                         <TableHead className="text-right h-10 px-4">
                           Total Operación
@@ -486,8 +583,8 @@ export function ReportsView() {
                         </TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
-                      <AnimatePresence mode="wait">
+                    <TableBody key={type}>
+                      <AnimatePresence mode="popLayout">
                         {!isLoading &&
                         (!data || !data.items || data.items.length === 0) ? (
                           <motion.tr
@@ -531,15 +628,60 @@ export function ReportsView() {
                                 className="py-3 px-4 max-w-[200px] truncate text-xs font-medium"
                                 title={row.nombre}
                               >
-                                {row.nombre}
+                                <div className="flex items-center gap-1.5">
+                                  <span>{row.nombre}</span>
+                                  {isHelpMode && row.explainer && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="cursor-help">
+                                            <Info className="h-3 w-3 text-blue-500" />
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-[300px] text-xs p-3">
+                                          <p className="font-semibold mb-1">
+                                            Contexto Fiscal:
+                                          </p>
+                                          <p className="text-muted-foreground leading-relaxed">
+                                            {row.explainer}
+                                          </p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell className="py-3 px-4 text-xs font-mono">
-                                <span className="text-foreground">
-                                  {row.numero_factura}
-                                </span>
-                                <span className="text-muted-foreground ml-1">
-                                  / {row.numero_control}
-                                </span>
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-foreground font-bold">
+                                      {row.numero_factura}
+                                    </span>
+                                    <Badge
+                                      variant={
+                                        row.tipo_documento === "INV"
+                                          ? "outline"
+                                          : "destructive"
+                                      }
+                                      className="text-[8px] h-3 px-1.5 uppercase leading-none"
+                                    >
+                                      {row.tipo_documento}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground text-[10px]">
+                                      Ctrl: {row.numero_control}
+                                    </span>
+                                    {row.isCriterioCaja && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-[8px] h-3 px-1 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-400 border-amber-200 dark:border-amber-800 font-black"
+                                      >
+                                        RET. CAJA
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
                               </TableCell>
                               <TableCell className="py-3 px-4 text-right font-mono-data text-xs font-bold text-foreground">
                                 {formatCurrency(
@@ -587,7 +729,7 @@ export function ReportsView() {
                   </Table>
                 </div>
                 {data?.summary && (
-                  <div className="space-y-4">
+                  <div className="space-y-4" key={`${type}-summary`}>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       {type === "ventas" ? (
                         <>

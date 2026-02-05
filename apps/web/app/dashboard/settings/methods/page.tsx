@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Edit2, Loader2, Save } from "lucide-react";
+import { Edit2, Loader2, Plus, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -36,14 +36,32 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useBankAccounts } from "@/modules/treasury/hooks/use-treasury";
+import { useCurrencies } from "@/modules/settings/currencies/hooks/use-currencies";
 
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function MethodsPage() {
   const queryClient = useQueryClient();
   const [editingMethod, setEditingMethod] = useState<any>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    name: "",
+    code: "",
+    currencyId: "ALL",
+    isDigital: false,
+  });
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([]);
   const [search, setSearch] = useState("");
 
@@ -55,6 +73,9 @@ export default function MethodsPage() {
     },
   });
 
+  const { data: currencies } = useCurrencies();
+  const { data: accounts } = useBankAccounts();
+
   // Client-side filtering
   const filteredMethods =
     methods?.filter((m: any) => {
@@ -65,9 +86,39 @@ export default function MethodsPage() {
       );
     }) || [];
 
-  const { data: accounts } = useBankAccounts();
+  const createMutation = useMutation({
+    mutationFn: async (vars: any) => {
+      const payload = {
+        ...vars,
+        currencyId: vars.currencyId === "ALL" ? null : vars.currencyId,
+      };
+      await api.post("/treasury/methods", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-methods"] });
+      setIsCreating(false);
+      toast.success("Método creado correctamente");
+    },
+    onError: () => toast.error("Error al crear método"),
+  });
 
-  const updateMutation = useMutation({
+  const updateDetailsMutation = useMutation({
+    mutationFn: async (vars: { id: string; data: any }) => {
+      const payload = {
+        ...vars.data,
+        currencyId:
+          vars.data.currencyId === "ALL" ? null : vars.data.currencyId,
+      };
+      await api.patch(`/treasury/methods/${vars.id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-methods"] });
+      toast.success("Detalles actualizados");
+    },
+    onError: () => toast.error("Error al actualizar detalles"),
+  });
+
+  const updateAccountsMutation = useMutation({
     mutationFn: async (vars: { id: string; accounts: string[] }) => {
       await api.post(`/treasury/methods/${vars.id}/accounts`, {
         accountIds: vars.accounts,
@@ -75,18 +126,37 @@ export default function MethodsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payment-methods"] });
-      setEditingMethod(null);
+      // We don't close dialog here to allow further editing if needed, or we could.
       toast.success("Cuentas asociadas actualizadas");
     },
-    onError: () => toast.error("Error al actualizar"),
+    onError: () => toast.error("Error al actualizar cuentas"),
   });
 
   const handleEdit = (method: any) => {
     setEditingMethod(method);
-    // Extract existing IDs from allowedAccounts relation
+    setIsCreating(false);
+    setFormData({
+      name: method.name,
+      code: method.code,
+      currencyId: method.currencyId || "ALL",
+      isDigital: method.isDigital || false,
+    });
+    // Extract existing IDs
     const existing =
       method.allowedAccounts?.map((a: any) => a.bankAccountId) || [];
     setSelectedAccounts(existing);
+  };
+
+  const handleCreateOpen = () => {
+    setEditingMethod(null);
+    setIsCreating(true);
+    setFormData({
+      name: "",
+      code: "",
+      currencyId: "ALL",
+      isDigital: false,
+    });
+    setSelectedAccounts([]);
   };
 
   const handleToggleAccount = (accId: string) => {
@@ -96,13 +166,29 @@ export default function MethodsPage() {
     });
   };
 
-  const handleSave = () => {
-    if (editingMethod) {
-      updateMutation.mutate({
+  const handleSave = async () => {
+    if (isCreating) {
+      createMutation.mutate(formData);
+    } else if (editingMethod) {
+      // 1. Update Details
+      await updateDetailsMutation.mutateAsync({
+        id: editingMethod.id,
+        data: formData,
+      });
+      // 2. Update Accounts
+      await updateAccountsMutation.mutateAsync({
         id: editingMethod.id,
         accounts: selectedAccounts,
       });
+
+      setEditingMethod(null);
     }
+  };
+
+  // Helper to close
+  const closeDialog = () => {
+    setEditingMethod(null);
+    setIsCreating(false);
   };
 
   return (
@@ -119,12 +205,18 @@ export default function MethodsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="py-4">
-          <h2 className="text-3xl font-bold tracking-tight">Métodos de Pago</h2>
-          <p className="text-muted-foreground">
-            Configura qué cuentas bancarias pueden recibir fondos por cada
-            método.
-          </p>
+        <div className="py-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">
+              Métodos de Pago
+            </h2>
+            <p className="text-muted-foreground">
+              Configura métodos, divisas permitidas y cuentas asociadas.
+            </p>
+          </div>
+          <Button onClick={handleCreateOpen} className="premium-shadow">
+            <Plus className="mr-2 h-4 w-4" /> Nuevo Método
+          </Button>
         </div>
 
         <Card className="border premium-shadow">
@@ -133,7 +225,7 @@ export default function MethodsPage() {
               <div>
                 <CardTitle>Listado de Métodos</CardTitle>
                 <CardDescription>
-                  Define restricciones operativas para evitar errores en caja.
+                  Gestiona las opciones de pago disponibles en el sistema.
                 </CardDescription>
               </div>
               <div className="w-[300px]">
@@ -167,6 +259,8 @@ export default function MethodsPage() {
                   <TableRow>
                     <TableHead className="px-4">Método</TableHead>
                     <TableHead className="px-4">Código</TableHead>
+                    <TableHead className="px-4">Divisa Exclusiva</TableHead>
+                    <TableHead className="px-4">Tipo</TableHead>
                     <TableHead className="px-4">Cuentas Permitidas</TableHead>
                     <TableHead className="text-right px-4">Acciones</TableHead>
                   </TableRow>
@@ -188,6 +282,39 @@ export default function MethodsPage() {
                           </TableCell>
                           <TableCell className="font-mono-data text-[10px] py-3 px-4 text-primary font-bold">
                             {m.code}
+                          </TableCell>
+                          <TableCell className="py-3 px-4">
+                            {m.currencyId ? (
+                              <Badge variant="outline" className="text-[10px]">
+                                {currencies?.find(
+                                  (c: any) => c.id === m.currencyId,
+                                )?.code || "N/A"}
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] bg-green-100 text-green-700 hover:bg-green-100"
+                              >
+                                MULTIDIVISA
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="py-3 px-4">
+                            {m.isDigital ? (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] bg-blue-100 text-blue-700"
+                              >
+                                Digital
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px]"
+                              >
+                                Físico
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="py-3 px-4">
                             <div className="flex flex-wrap gap-1">
@@ -213,7 +340,7 @@ export default function MethodsPage() {
                               className="h-8 hover:bg-primary/10 hover:text-primary transition-colors text-xs font-bold"
                               onClick={() => handleEdit(m)}
                             >
-                              <Edit2 className="h-3.5 w-3.5 mr-2" /> CONFIGURAR
+                              <Edit2 className="h-3.5 w-3.5 mr-2" /> EDITAR
                             </Button>
                           </TableCell>
                         </motion.tr>
@@ -225,7 +352,7 @@ export default function MethodsPage() {
                         exit={{ opacity: 0 }}
                       >
                         <TableCell
-                          colSpan={4}
+                          colSpan={6}
                           className="text-center py-20 text-muted-foreground italic"
                         >
                           No se encontraron métodos.
@@ -239,67 +366,161 @@ export default function MethodsPage() {
           </CardContent>
         </Card>
 
+        {/* Create/Edit Dialog */}
         <Dialog
-          open={!!editingMethod}
-          onOpenChange={(o) => !o && setEditingMethod(null)}
+          open={!!editingMethod || isCreating}
+          onOpenChange={(o) => !o && closeDialog()}
         >
-          <DialogContent className="max-w-md premium-shadow border-none">
+          <DialogContent className="max-w-lg premium-shadow border-none">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold">
-                Configurar: {editingMethod?.name}
+                {isCreating
+                  ? "Nuevo Método de Pago"
+                  : `Editar: ${editingMethod?.name}`}
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Selecciona las cuentas bancarias donde este método puede
-                depositar fondos. Si no seleccionas ninguna, se permitirán
-                todas.
+                {isCreating
+                  ? "Registra un nuevo método de pago en el sistema."
+                  : "Modifica los detalles y las cuentas asociadas."}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-2 py-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-              {accounts?.map((acc) => (
-                <div
-                  key={acc.id}
-                  className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => handleToggleAccount(acc.id)}
-                >
-                  <Checkbox
-                    id={acc.id}
-                    checked={selectedAccounts.includes(acc.id)}
-                    onCheckedChange={() => handleToggleAccount(acc.id)}
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nombre</Label>
+                  <Input
+                    placeholder="Ej. Transferencia Banesco"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData((p) => ({ ...p, name: e.target.value }))
+                    }
                   />
-                  <Label
-                    htmlFor={acc.id}
-                    className="cursor-pointer flex flex-1 items-center justify-between text-sm font-medium"
+                </div>
+                <div className="space-y-2">
+                  <Label>Código Interno</Label>
+                  <Input
+                    placeholder="Ej. TRANSF_BANESCO"
+                    value={formData.code}
+                    onChange={(e) =>
+                      setFormData((p) => ({ ...p, code: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 items-center">
+                <div className="space-y-2">
+                  <Label>Divisa Exclusiva</Label>
+                  <Select
+                    value={formData.currencyId}
+                    onValueChange={(val) =>
+                      setFormData((p) => ({ ...p, currencyId: val }))
+                    }
                   >
-                    {acc.name}
-                    <Badge
-                      variant="outline"
-                      className="ml-2 font-mono-data text-[10px]"
-                    >
-                      {acc.currency?.code}
-                    </Badge>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">Multidivisa (Todas)</SelectItem>
+                      {currencies?.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} ({c.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    Si seleccionas una, este método solo aparecerá para esa
+                    moneda.
+                  </p>
+                </div>
+
+                <div className="flex items-center space-x-2 border p-3 rounded-lg mt-5">
+                  <Switch
+                    id="digital"
+                    checked={formData.isDigital}
+                    onCheckedChange={(c) =>
+                      setFormData((p) => ({ ...p, isDigital: c }))
+                    }
+                  />
+                  <Label htmlFor="digital" className="cursor-pointer">
+                    Es Digital / Electrónico
                   </Label>
                 </div>
-              ))}
+              </div>
+
+              {!isCreating && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <Label>Cuentas Permitidas (Entrada de Dinero)</Label>
+                    <p className="text-[10px] text-muted-foreground mb-2">
+                      Define a qué cuentas puede llegar dinero con este método.
+                    </p>
+                    <div className="max-h-[150px] overflow-y-auto custom-scrollbar border rounded-md p-2">
+                      {accounts
+                        ?.filter(
+                          (acc) =>
+                            formData.currencyId === "ALL" ||
+                            acc.currencyId === formData.currencyId,
+                        )
+                        .map((acc) => (
+                          <div
+                            key={acc.id}
+                            className="flex items-center space-x-3 p-2 rounded hover:bg-muted/50 transition-colors cursor-pointer"
+                            onClick={() => handleToggleAccount(acc.id)}
+                          >
+                            <Checkbox
+                              id={acc.id}
+                              checked={selectedAccounts.includes(acc.id)}
+                              onCheckedChange={() =>
+                                handleToggleAccount(acc.id)
+                              }
+                            />
+                            <Label
+                              htmlFor={acc.id}
+                              className="cursor-pointer flex flex-1 items-center justify-between text-xs font-medium"
+                            >
+                              {acc.name}
+                              <Badge
+                                variant="outline"
+                                className="ml-2 font-mono-data text-[10px]"
+                              >
+                                {acc.currency?.code}
+                              </Badge>
+                            </Label>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <DialogFooter className="gap-2">
               <Button
                 variant="ghost"
-                onClick={() => setEditingMethod(null)}
+                onClick={closeDialog}
                 className="text-xs font-bold uppercase"
               >
                 Cancelar
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={updateMutation.isPending}
+                disabled={
+                  createMutation.isPending ||
+                  updateDetailsMutation.isPending ||
+                  updateAccountsMutation.isPending
+                }
                 className="premium-shadow text-xs font-bold uppercase"
               >
-                {updateMutation.isPending && (
+                {(createMutation.isPending ||
+                  updateDetailsMutation.isPending ||
+                  updateAccountsMutation.isPending) && (
                   <Loader2 className="animate-spin mr-2 h-4 w-4" />
                 )}
-                Guardar Cambios
+                {isCreating ? "Crear Método" : "Guardar Cambios"}
               </Button>
             </DialogFooter>
           </DialogContent>

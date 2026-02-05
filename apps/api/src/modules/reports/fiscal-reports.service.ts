@@ -56,9 +56,7 @@ export class FiscalReportsService {
 
     const debitos = new Decimal(sales.summary.total_debito_fiscal);
     const creditos = new Decimal(purchases.summary.total_credito_fiscal);
-    const retencionesSoportadas = new Decimal(
-      sales.summary.total_iva_retenido,
-    );
+    const retencionesSoportadas = new Decimal(sales.summary.total_iva_retenido);
     const retencionesEnterar = new Decimal(
       purchases.summary.total_iva_retenido_terceros,
     );
@@ -66,7 +64,7 @@ export class FiscalReportsService {
 
     // Calculation: (Debit - Credit) - RetentionsHeldByClients
     let cuotaIVA = debitos.minus(creditos).minus(retencionesSoportadas);
-    
+
     // Logic: If Credit > Debit, result is negative (Excedent), Payable is 0
     let aPagarIVA = cuotaIVA.isPos() ? cuotaIVA : new Decimal(0);
     let excedente = cuotaIVA.isNeg() ? cuotaIVA.abs() : new Decimal(0);
@@ -75,7 +73,7 @@ export class FiscalReportsService {
       debitos_fiscales: debitos.toNumber(),
       creditos_fiscales: creditos.toNumber(),
       retenciones_soportadas: retencionesSoportadas.toNumber(), // Credits
-      
+
       // Results
       cuota_tributaria_iva: cuotaIVA.toNumber(), // Raw result
       iva_a_pagar: aPagarIVA.toNumber(),
@@ -94,104 +92,169 @@ export class FiscalReportsService {
     fortnight?: 'first' | 'second',
   ) {
     const { startIso, endIso } = this.getDates(month, year, fortnight);
+    const startDate = new Date(startIso);
+    const endDate = new Date(endIso);
 
-    // Use SQL raw comparison to ignore timezone shifts and compare literal calendar date
-    const whereClause = and(
-      sql`${invoices.date} >= ${startIso}::date`,
-      sql`${invoices.date} < ${endIso}::date`,
-      eq(invoices.type, 'SALE'),
-      // Relaxed status: posted, paid, partially paid are all valid for fiscal books
-      sql`${invoices.status} IN ('POSTED', 'PAID', 'PARTIALLY_PAID')`,
-      branchId ? eq(invoices.branchId, branchId) : undefined,
-    );
-
-    const rows = await db.query.invoices.findMany({
-      where: whereClause,
-      with: {
-        partner: true,
-        currency: true,
-      },
-      orderBy: [asc(invoices.code)], // Must be sequential
+    // 1. Fetch Invoices issued in the period
+    const invoiceRows = await db.query.invoices.findMany({
+      where: and(
+        sql`${invoices.date} >= ${startIso}::date`,
+        sql`${invoices.date} < ${endIso}::date`,
+        eq(invoices.type, 'SALE'),
+        sql`${invoices.status} IN ('POSTED', 'PAID', 'PARTIALLY_PAID')`,
+        branchId ? eq(invoices.branchId, branchId) : undefined,
+      ),
+      with: { partner: true, currency: true },
     });
 
-    // Fetch Retentions for these invoices (when we are the ones being retained)
-    const invoiceIds = rows.map((inv) => inv.id);
-    const retentions =
-      invoiceIds.length > 0
-        ? await db.query.taxRetentionLines.findMany({
-            where: sql`${taxRetentionLines.invoiceId} IN ${invoiceIds}`,
-            with: {
-              retention: true,
-            },
-          })
-        : [];
+    // 2. Fetch Credit Notes issued in the period
+    // Join with partners to ensure they are sales CNs (Customer)
+    const creditNoteRows = await db.query.creditNotes.findMany({
+      where: and(
+        sql`${invoices.date} >= ${startIso}::date`,
+        sql`${invoices.date} < ${endIso}::date`,
+        branchId ? eq(invoices.branchId, branchId) : undefined,
+      ),
+      with: { partner: true, currency: true },
+    });
+    // Note: Since NC doesn't have a 'type', we'll rely on the partner role or linked invoice in the mapping below.
 
-    const retentionMap = new Map();
-    const retentionCodeMap = new Map();
+    // 3. Fetch Retentions generated in the period (CRITERIO DE CAJA)
+    const retentionsInPeriod = await db.query.taxRetentions.findMany({
+      where: and(
+        eq(taxRetentions.type, 'IVA'),
+        gte(taxRetentions.date, startDate),
+        lt(taxRetentions.date, endDate),
+        branchId ? eq(taxRetentions.branchId, branchId) : undefined,
+      ),
+      with: {
+        partner: true,
+        lines: {
+          with: { invoice: { with: { partner: true, currency: true } } },
+        },
+      },
+    });
 
-    retentions.forEach((r) => {
-      const current = retentionMap.get(r.invoiceId) || 0;
-      retentionMap.set(r.invoiceId, Number(current) + Number(r.retainedAmount));
-      
-      if (r.retention?.code) {
-        retentionCodeMap.set(r.invoiceId, r.retention.code);
+    const summary = {
+      total_ventas_gravadas: new Decimal(0),
+      total_ventas_exentas: new Decimal(0),
+      total_base_imponible: new Decimal(0),
+      total_debito_fiscal: new Decimal(0),
+      total_iva_retenido: new Decimal(0),
+      total_igtf: new Decimal(0),
+    };
+
+    const finalItems: any[] = [];
+    const processedDocIds = new Set<string>();
+
+    // Mapping Helper
+    const mapDocument = (
+      doc: any,
+      type: 'INV' | 'NC',
+      isRetentionOnly = false,
+    ) => {
+      const isForeignCurrency = doc.currency?.code !== 'VES';
+      const rate = isForeignCurrency
+        ? new Decimal(doc.exchangeRate || 1)
+        : new Decimal(1);
+      const sign = type === 'NC' ? -1 : 1;
+
+      const convert = (val: any) =>
+        new Decimal(val || 0).times(rate).times(sign);
+
+      const base = isRetentionOnly ? new Decimal(0) : convert(doc.totalBase);
+      const tax = isRetentionOnly ? new Decimal(0) : convert(doc.totalTax);
+      const igtf = isRetentionOnly ? new Decimal(0) : convert(doc.totalIgtf);
+      const total = isRetentionOnly ? new Decimal(0) : convert(doc.total);
+
+      // Find retentions for this doc that occurred THIS month
+      let retainedThisMonth = new Decimal(0);
+      let voucherCode = '';
+
+      retentionsInPeriod.forEach((r) => {
+        const line = r.lines.find((l) => l.invoiceId === doc.id);
+        if (line) {
+          retainedThisMonth = retainedThisMonth.plus(
+            new Decimal(line.retainedAmount).times(rate),
+          );
+          voucherCode = r.code;
+        }
+      });
+
+      // Update Summary
+      summary.total_base_imponible = summary.total_base_imponible.plus(base);
+      summary.total_debito_fiscal = summary.total_debito_fiscal.plus(tax);
+      summary.total_igtf = summary.total_igtf.plus(igtf);
+      summary.total_ventas_gravadas = summary.total_ventas_gravadas.plus(total);
+      summary.total_iva_retenido =
+        summary.total_iva_retenido.plus(retainedThisMonth);
+
+      return {
+        fecha: doc.date,
+        rif: doc.partner?.taxId || 'N/A',
+        nombre: doc.partner?.name || 'N/A',
+        numero_control: doc.code,
+        numero_factura: doc.code,
+        tipo_documento: type,
+        isRetentionOnly,
+        isCriterioCaja: isRetentionOnly,
+        explainer: isRetentionOnly
+          ? 'Factura de mes anterior incluida porque su retención fue certificada en este periodo (Criterio de Caja).'
+          : type === 'NC'
+            ? 'Nota de Crédito que disminuye el débito fiscal del periodo.'
+            : 'Documento emitido y reportado en el periodo actual.',
+        numero_comprobante: voucherCode,
+        total_ventas_incluyendo_iva: total.toNumber(),
+        ventas_exentas: 0,
+        base_imponible: base.toNumber(),
+        aliquota: '16%',
+        impuesto: tax.toNumber(),
+        iva_retenido: retainedThisMonth.toNumber(),
+        igtf_percibido: igtf.toNumber(),
+      };
+    };
+
+    // Process Invoices of the period
+    invoiceRows.forEach((inv) => {
+      finalItems.push(mapDocument(inv, 'INV'));
+      processedDocIds.add(inv.id);
+    });
+
+    // Process Credit Notes of the period (only if they are Sales related)
+    creditNoteRows.forEach((nc) => {
+      // Heuristic: If partner is CUSTOMER or BOTH, assume it's a sales NC
+      if (nc.partner?.type === 'CUSTOMER' || nc.partner?.type === 'BOTH') {
+        finalItems.push(mapDocument(nc, 'NC'));
+        processedDocIds.add(nc.id);
       }
     });
 
-    // Initialize Summary
-    const summary = {
-      total_ventas_gravadas: 0,
-      total_ventas_exentas: 0,
-      total_base_imponible: 0,
-      total_debito_fiscal: 0, // IVA
-      total_iva_retenido: 0,
-      total_igtf: 0,
-    };
-
-    // Transform to Libro Format
-    const items = rows.map((inv, index) => {
-      const isForeignCurrency = inv.currency?.code !== 'VES';
-      const rate = isForeignCurrency ? new Decimal(inv.exchangeRate) : new Decimal(1);
-
-      const convert = (amount: string | number | null) => {
-        return new Decimal(amount || 0).times(rate).toNumber();
-      };
-
-      const total = convert(inv.total);
-      const base = convert(inv.totalBase);
-      const tax = convert(inv.totalTax);
-      const igtf = convert(inv.totalIgtf);
-      // Retention is usually tracked in VES if generated properly, but apply conversion if needed logic implies it was stored in USD. 
-      // Assuming retention lines stored in payment currency. If payment was USD, retention is USD.
-      const retainedRaw = retentionMap.get(inv.id) || 0;
-      const retained = convert(retainedRaw);
-
-      // Accumulate Summary
-      summary.total_ventas_gravadas += total; // This might need review if total includes exempt
-      summary.total_base_imponible += base;
-      summary.total_debito_fiscal += tax;
-      summary.total_iva_retenido += retained;
-      summary.total_igtf += igtf;
-
-      return {
-        nro_operacion: index + 1,
-        fecha: inv.date,
-        rif: inv.partner.taxId,
-        nombre: inv.partner.name,
-        numero_control: inv.code, // Should be Control Number, using Code for now
-        numero_factura: inv.code,
-        numero_comprobante: retentionCodeMap.get(inv.id) || '',
-        total_ventas_incluyendo_iva: total,
-        ventas_exentas: 0, // TODO: calculate from items
-        base_imponible: base,
-        aliquota: '16%',
-        impuesto: tax,
-        iva_retenido: retained,
-        igtf_percibido: igtf,
-      };
+    // Process "Orphan" Retentions (documents from other periods paid/certified now)
+    retentionsInPeriod.forEach((r) => {
+      r.lines.forEach((line) => {
+        if (line.invoice && !processedDocIds.has(line.invoice.id)) {
+          // If invoice is a SALE, include it as retention-only
+          if (line.invoice.type === 'SALE') {
+            finalItems.push(mapDocument(line.invoice, 'INV', true));
+            processedDocIds.add(line.invoice.id);
+          }
+        }
+      });
     });
 
-    return { items, summary };
+    return {
+      items: finalItems.sort(
+        (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
+      ),
+      summary: {
+        total_ventas_gravadas: summary.total_ventas_gravadas.toNumber(),
+        total_ventas_exentas: summary.total_ventas_exentas.toNumber(),
+        total_base_imponible: summary.total_base_imponible.toNumber(),
+        total_debito_fiscal: summary.total_debito_fiscal.toNumber(),
+        total_iva_retenido: summary.total_iva_retenido.toNumber(),
+        total_igtf: summary.total_igtf.toNumber(),
+      },
+    };
   }
 
   async getLibroCompras(
@@ -201,92 +264,161 @@ export class FiscalReportsService {
     fortnight?: 'first' | 'second',
   ) {
     const { startIso, endIso } = this.getDates(month, year, fortnight);
+    const startDate = new Date(startIso);
+    const endDate = new Date(endIso);
 
-    const whereClause = and(
-      sql`${invoices.date} >= ${startIso}::date`,
-      sql`${invoices.date} < ${endIso}::date`,
-      eq(invoices.type, 'PURCHASE'),
-      sql`${invoices.status} IN ('POSTED', 'PAID', 'PARTIALLY_PAID')`,
-      branchId ? eq(invoices.branchId, branchId) : undefined,
-    );
-
-    const rows = await db.query.invoices.findMany({
-      where: whereClause,
-      with: {
-        partner: true,
-        currency: true,
-      },
-      orderBy: [asc(invoices.date)],
+    // 1. Fetch Invoices issued in the period
+    const invoiceRows = await db.query.invoices.findMany({
+      where: and(
+        sql`${invoices.date} >= ${startIso}::date`,
+        sql`${invoices.date} < ${endIso}::date`,
+        eq(invoices.type, 'PURCHASE'),
+        sql`${invoices.status} IN ('POSTED', 'PAID', 'PARTIALLY_PAID')`,
+        branchId ? eq(invoices.branchId, branchId) : undefined,
+      ),
+      with: { partner: true, currency: true },
     });
 
-    // Fetch Retentions for these invoices
-    const invoiceIds = rows.map((inv) => inv.id);
-    const retentions =
-      invoiceIds.length > 0
-        ? await db.query.taxRetentionLines.findMany({
-            where: sql`${taxRetentionLines.invoiceId} IN ${invoiceIds}`,
-            with: {
-              retention: true,
-            },
-          })
-        : [];
+    // 2. Fetch Credit Notes issued in the period
+    const creditNoteRows = await db.query.creditNotes.findMany({
+      where: and(
+        sql`${invoices.date} >= ${startIso}::date`,
+        sql`${invoices.date} < ${endIso}::date`,
+        branchId ? eq(invoices.branchId, branchId) : undefined,
+      ),
+      with: { partner: true, currency: true },
+    });
 
-    const retentionMap = new Map();
-    const retentionCodeMap = new Map();
-    
-    retentions.forEach((r) => {
-      const current = retentionMap.get(r.invoiceId) || 0;
-      retentionMap.set(r.invoiceId, Number(current) + Number(r.retainedAmount));
-
-      if (r.retention?.code) {
-         retentionCodeMap.set(r.invoiceId, r.retention.code);
-      }
+    // 3. Fetch Retentions generated in the period (CRITERIO DE CAJA)
+    const retentionsInPeriod = await db.query.taxRetentions.findMany({
+      where: and(
+        eq(taxRetentions.type, 'IVA'),
+        gte(taxRetentions.date, startDate),
+        lt(taxRetentions.date, endDate),
+        branchId ? eq(taxRetentions.branchId, branchId) : undefined,
+      ),
+      with: {
+        partner: true,
+        lines: {
+          with: { invoice: { with: { partner: true, currency: true } } },
+        },
+      },
     });
 
     const summary = {
-      total_compras_gravadas: 0,
-      total_compras_exentas: 0,
-      total_base_imponible: 0,
-      total_credito_fiscal: 0, // IVA
-      total_iva_retenido_terceros: 0,
+      total_compras_gravadas: new Decimal(0),
+      total_compras_exentas: new Decimal(0),
+      total_base_imponible: new Decimal(0),
+      total_credito_fiscal: new Decimal(0),
+      total_iva_retenido_terceros: new Decimal(0),
     };
 
-    const items = rows.map((inv, index) => {
-      const isForeignCurrency = inv.currency?.code !== 'VES';
-      const rate = isForeignCurrency ? new Decimal(inv.exchangeRate) : new Decimal(1);
+    const finalItems: any[] = [];
+    const processedDocIds = new Set<string>();
 
-      const convert = (amount: string | number | null) => {
-        return new Decimal(amount || 0).times(rate).toNumber();
-      };
+    // Mapping Helper
+    const mapDocument = (
+      doc: any,
+      type: 'INV' | 'NC',
+      isRetentionOnly = false,
+    ) => {
+      const isForeignCurrency = doc.currency?.code !== 'VES';
+      const rate = isForeignCurrency
+        ? new Decimal(doc.exchangeRate || 1)
+        : new Decimal(1);
+      const sign = type === 'NC' ? -1 : 1;
 
-      const total = convert(inv.total);
-      const base = convert(inv.totalBase);
-      const tax = convert(inv.totalTax);
-      const retainedRaw = retentionMap.get(inv.id) || 0;
-      const retained = convert(retainedRaw);
+      const convert = (val: any) =>
+        new Decimal(val || 0).times(rate).times(sign);
 
-      summary.total_compras_gravadas += total;
-      summary.total_base_imponible += base;
-      summary.total_credito_fiscal += tax;
-      summary.total_iva_retenido_terceros += retained;
+      const base = isRetentionOnly ? new Decimal(0) : convert(doc.totalBase);
+      const tax = isRetentionOnly ? new Decimal(0) : convert(doc.totalTax);
+      const total = isRetentionOnly ? new Decimal(0) : convert(doc.total);
+
+      // Find retentions for this doc that occurred THIS month
+      let retainedThisMonth = new Decimal(0);
+      let voucherCode = '';
+
+      retentionsInPeriod.forEach((r) => {
+        const line = r.lines.find((l) => l.invoiceId === doc.id);
+        if (line) {
+          retainedThisMonth = retainedThisMonth.plus(
+            new Decimal(line.retainedAmount).times(rate),
+          );
+          voucherCode = r.code;
+        }
+      });
+
+      // Update Summary
+      summary.total_base_imponible = summary.total_base_imponible.plus(base);
+      summary.total_credito_fiscal = summary.total_credito_fiscal.plus(tax);
+      summary.total_compras_gravadas =
+        summary.total_compras_gravadas.plus(total);
+      summary.total_iva_retenido_terceros =
+        summary.total_iva_retenido_terceros.plus(retainedThisMonth);
 
       return {
-        nro_operacion: index + 1,
-        fecha: inv.date,
-        rif: inv.partner.taxId,
-        nombre: inv.partner.name,
-        numero_control: inv.code, // Control Number (External)
-        numero_factura: inv.invoiceNumber, // Provider's Invoice Number
-        numero_comprobante: retentionCodeMap.get(inv.id) || '',
-        total_compras_incluyendo_iva: total,
+        fecha: doc.date,
+        rif: doc.partner?.taxId || 'N/A',
+        nombre: doc.partner?.name || 'N/A',
+        numero_control: doc.code,
+        numero_factura: type === 'INV' ? doc.invoiceNumber : doc.code,
+        tipo_documento: type,
+        isRetentionOnly,
+        isCriterioCaja: isRetentionOnly,
+        explainer: isRetentionOnly
+          ? 'Factura de mes anterior incluida porque la retención al proveedor se realizó en este periodo.'
+          : type === 'NC'
+            ? 'Nota de Crédito de proveedor que disminuye el crédito fiscal.'
+            : 'Compra realizada y reportada en el periodo actual.',
+        numero_comprobante: voucherCode,
+        total_compras_incluyendo_iva: total.toNumber(),
         compras_exentas: 0,
-        base_imponible: base,
+        base_imponible: base.toNumber(),
         aliquota: '16%',
-        impuesto: tax,
-        iva_retenido: retained,
+        impuesto: tax.toNumber(),
+        iva_retenido: retainedThisMonth.toNumber(),
       };
+    };
+
+    // Process Invoices
+    invoiceRows.forEach((inv) => {
+      finalItems.push(mapDocument(inv, 'INV'));
+      processedDocIds.add(inv.id);
     });
 
-    return { items, summary };
+    // Process Credit Notes (Supplier related)
+    creditNoteRows.forEach((nc) => {
+      if (nc.partner?.type === 'SUPPLIER' || nc.partner?.type === 'BOTH') {
+        finalItems.push(mapDocument(nc, 'NC'));
+        processedDocIds.add(nc.id);
+      }
+    });
+
+    // Process Orphan Retentions
+    retentionsInPeriod.forEach((r) => {
+      r.lines.forEach((line) => {
+        if (line.invoice && !processedDocIds.has(line.invoice.id)) {
+          if (line.invoice.type === 'PURCHASE') {
+            finalItems.push(mapDocument(line.invoice, 'INV', true));
+            processedDocIds.add(line.invoice.id);
+          }
+        }
+      });
+    });
+
+    return {
+      items: finalItems.sort(
+        (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
+      ),
+      summary: {
+        total_compras_gravadas: summary.total_compras_gravadas.toNumber(),
+        total_compras_exentas: summary.total_compras_exentas.toNumber(),
+        total_base_imponible: summary.total_base_imponible.toNumber(),
+        total_credito_fiscal: summary.total_credito_fiscal.toNumber(),
+        total_iva_retenido_terceros:
+          summary.total_iva_retenido_terceros.toNumber(),
+      },
+    };
   }
 }

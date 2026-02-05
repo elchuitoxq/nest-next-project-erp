@@ -8,6 +8,7 @@ import {
   Query,
   Req,
   UseInterceptors,
+  Patch,
 } from '@nestjs/common';
 import { TreasuryService } from './treasury.service';
 import { JwtAuthGuard } from '../../modules/auth/jwt-auth.guard';
@@ -35,6 +36,27 @@ export class TreasuryController {
     return this.treasuryService.findAllMethods(req.branchId);
   }
 
+  @Post('methods')
+  createMethod(@Body() body: any, @Req() req: any) {
+    return this.treasuryService.createMethod({
+      ...body,
+      branchId: req.branchId,
+    });
+  }
+
+  @Patch('methods/:id')
+  updateMethod(@Param('id') id: string, @Body() body: any) {
+    return this.treasuryService.updateMethod(id, body);
+  }
+
+  @Post('methods/:id/accounts')
+  updateMethodAccounts(
+    @Param('id') id: string,
+    @Body('accountIds') accountIds: string[],
+  ) {
+    return this.treasuryService.updateMethodAccounts(id, accountIds);
+  }
+
   @Get('payments')
   findAll(@Req() req: any, @Query('bankAccountId') bankAccountId?: string) {
     return this.treasuryService.findAllPayments(req.branchId, bankAccountId);
@@ -49,5 +71,13 @@ export class TreasuryController {
   getDailyClose(@Query('date') date: string, @Req() req: any) {
     const targetDate = date || new Date().toISOString();
     return this.treasuryService.getDailyClose(targetDate, req.branchId);
+  }
+
+  @Get('available-credit-notes')
+  getAvailableCreditNotes(
+    @Query('partnerId') partnerId: string,
+    @Query('currencyId') currencyId: string,
+  ) {
+    return this.treasuryService.getAvailableCreditNotes(partnerId, currencyId);
   }
 }

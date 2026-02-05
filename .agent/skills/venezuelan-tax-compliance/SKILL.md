@@ -72,6 +72,12 @@ This skill provides the strict business rules and technical requirements for mai
 
 - **Pension Contribution**: New 2024/2025 liability. Calculated on "Total Payments to Workers" (Salaries + Bonuses).
 - **Alerts**: System should warn SPEs about declaration deadlines based on their RIF terminal digit.
+- **Critical Rules (Report Generation)**:
+  - **Date Basis**: Reports MUST ALWAYS filter by **Operation Date** (`date`), NEVER by System Creation Date (`createdAt`). This ensures that backdated documents appear in the correct fiscal period.
+  - **TXT & View Consistency**: The generated TXT file must use the EXACT same identifiers as the Visual Report:
+    - **Factura**: Use `invoiceNumber` (or `code` if legacy).
+    - **Control**: Use `code` (standard field for Control Number in this ERP).
+    - **RIF**: Explicitly map Agent (Branch) and Retained (Partner).
 
 ## Checklist for New Features
 

@@ -222,10 +222,11 @@ export class OrdersService {
           '1.0000000000';
       }
 
+      const prefix = data.type === 'PURCHASE' ? 'OC' : 'PED';
       const [order] = await tx
         .insert(orders)
         .values({
-          code: `PED-${Date.now()}`, // Temporary Code Gen
+          code: `${prefix}-${Date.now()}`, // Temporary Code Gen
           partnerId: data.partnerId,
           branchId: data.branchId,
           warehouseId: data.warehouseId,
