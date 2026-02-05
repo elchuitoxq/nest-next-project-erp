@@ -22,6 +22,7 @@ import { WarehouseStockDialog } from "@/modules/inventory/components/warehouse-s
 import { Warehouse } from "@/modules/inventory/types";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function WarehousesPage() {
   const { data: warehouses, isLoading, isError } = useWarehouses();
@@ -61,19 +62,14 @@ export default function WarehousesPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="flex items-center justify-between space-y-2 py-4">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">Almacenes</h2>
-            <p className="text-muted-foreground">
-              Gestiona los almacenes y depósitos de inventario.
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button onClick={handleCreate} className="premium-shadow">
-              <Plus className="mr-2 h-4 w-4" /> Nuevo Almacén
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title="Almacenes"
+          description="Gestiona los almacenes y depósitos de inventario."
+        >
+          <Button onClick={handleCreate} className="premium-shadow">
+            <Plus className="mr-2 h-4 w-4" /> Nuevo Almacén
+          </Button>
+        </PageHeader>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <AnimatePresence>

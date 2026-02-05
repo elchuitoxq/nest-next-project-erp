@@ -19,6 +19,7 @@ import { InvoiceDetailsDialog } from "@/modules/billing/components/invoice-detai
 import { InvoiceStatusCards } from "@/modules/billing/components/invoice-status-cards";
 import { Invoice } from "@/modules/billing/types";
 import { PaginationState } from "@tanstack/react-table";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function InvoicesPage() {
   const [pagination, setPagination] = useState<PaginationState>({
@@ -70,14 +71,10 @@ export default function InvoicesPage() {
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="flex items-center justify-between space-y-2 py-4">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">Facturas</h2>
-            <p className="text-muted-foreground">
-              Gestiona las facturas de venta.
-            </p>
-          </div>
-        </div>
+        <PageHeader
+          title="Facturas"
+          description="Gestiona las facturas de venta."
+        />
 
         <InvoiceStatusCards
           type={(typeFilter[0] as "SALE" | "PURCHASE") || "SALE"}

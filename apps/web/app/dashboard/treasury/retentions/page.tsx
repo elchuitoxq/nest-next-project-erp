@@ -19,6 +19,7 @@ import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 type RetentionType = "IVA" | "ISLR";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function RetentionsPage() {
   const [activeTab, setActiveTab] = useState<RetentionType>("IVA");
@@ -38,14 +39,10 @@ export default function RetentionsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="flex flex-col gap-2 py-4">
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-            Retenciones de Impuestos
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            Consulta y descarga de comprobantes de retención IVA e ISLR.
-          </p>
-        </div>
+        <PageHeader
+          title="Retenciones de Impuestos"
+          description="Consulta y descarga de comprobantes de retención IVA e ISLR."
+        />
 
         <div className="flex items-center gap-2 border-b border-gray-100 pb-4">
           <Button

@@ -19,6 +19,7 @@ type Tab = "history" | "new";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function TreasuryPage() {
   const [activeTab, setActiveTab] = useState<Tab>("history");
@@ -33,15 +34,10 @@ export default function TreasuryPage() {
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Pagos y Cobranzas
-          </h1>
-          <p className="text-muted-foreground">
-            Gestión centralizada de pagos recibidos, cuentas bancarias y flujo
-            de caja.
-          </p>
-        </div>
+        <PageHeader
+          title="Pagos y Cobranzas"
+          description="Gestión centralizada de pagos recibidos, cuentas bancarias y flujo de caja."
+        />
 
         <div className="flex items-center gap-2 border-b pb-4">
           <Button

@@ -43,6 +43,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Info, HelpCircle, FileText, CheckCircle2 } from "lucide-react";
+import { PageHeader } from "@/components/layout/page-header";
 
 export function ReportsView() {
   const [type, setType] = useState<"ventas" | "compras" | "liquidacion">(
@@ -229,16 +230,11 @@ export function ReportsView() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-start p-2">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">
-            Reportes Fiscales
-          </h2>
-          <p className="text-muted-foreground text-sm">
-            Consulta y exportación de libros de compra y venta según normativa
-            SENIAT.
-          </p>
-        </div>
+      <PageHeader
+        title="Reportes Fiscales"
+        description="Consulta y exportación de libros de compra y venta según normativa SENIAT."
+        className="items-start"
+      >
         <div className="flex flex-col items-end gap-3">
           <div className="flex items-center space-x-2 bg-blue-50/50 dark:bg-blue-900/10 px-3 py-1.5 rounded-full border border-blue-100 dark:border-blue-800">
             <Switch
@@ -270,7 +266,7 @@ export function ReportsView() {
             )}
           </div>
         </div>
-      </div>
+      </PageHeader>
 
       <AnimatePresence>
         {isHelpMode && (

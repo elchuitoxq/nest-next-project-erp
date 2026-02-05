@@ -19,6 +19,7 @@ import { useState } from "react";
 import { DateRange } from "react-day-picker";
 import { subDays } from "date-fns";
 import { motion } from "framer-motion";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function Page() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -51,8 +52,7 @@ export default function Page() {
         transition={{ duration: 0.5 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-4"
       >
-        <div className="flex items-center justify-between space-y-2">
-          <h2 className="text-3xl font-bold tracking-tight">Resumen</h2>
+        <PageHeader title="Resumen">
           <div className="flex items-center space-x-2">
             <span className="text-sm text-muted-foreground hidden sm:inline-block">
               Periodo:
@@ -63,7 +63,7 @@ export default function Page() {
               align="end"
             />
           </div>
-        </div>
+        </PageHeader>
 
         {/* KPI Cards */}
         <StatsCards

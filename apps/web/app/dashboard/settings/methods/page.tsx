@@ -47,6 +47,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { PageHeader } from "@/components/layout/page-header";
 
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -205,19 +206,14 @@ export default function MethodsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="py-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">
-              Métodos de Pago
-            </h2>
-            <p className="text-muted-foreground">
-              Configura métodos, divisas permitidas y cuentas asociadas.
-            </p>
-          </div>
+        <PageHeader
+          title="Métodos de Pago"
+          description="Configura métodos, divisas permitidas y cuentas asociadas."
+        >
           <Button onClick={handleCreateOpen} className="premium-shadow">
             <Plus className="mr-2 h-4 w-4" /> Nuevo Método
           </Button>
-        </div>
+        </PageHeader>
 
         <Card className="border premium-shadow">
           <CardHeader>

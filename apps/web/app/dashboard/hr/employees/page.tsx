@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { PageHeader } from "@/components/layout/page-header";
 import {
   Table,
   TableBody,
@@ -71,19 +72,14 @@ export default function EmployeesPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="flex items-center justify-between py-4">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-              Empleados
-            </h2>
-            <p className="text-muted-foreground">
-              Gestión de personal y nómina.
-            </p>
-          </div>
+        <PageHeader
+          title="Empleados"
+          description="Gestión de personal y nómina."
+        >
           <Button onClick={handleCreate} className="premium-shadow">
             <Plus className="mr-2 h-4 w-4" /> Nuevo Empleado
           </Button>
-        </div>
+        </PageHeader>
 
         <Card className="border shadow-xl bg-white/60 backdrop-blur-sm">
           <CardHeader>

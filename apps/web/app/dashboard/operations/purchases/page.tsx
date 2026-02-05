@@ -24,6 +24,7 @@ import { OrderDetailsDialog } from "@/modules/orders/components/order-details-di
 import { OrderStatusCards } from "@/modules/orders/components/order-status-cards";
 import { Order } from "@/modules/orders/types";
 import { PaginationState } from "@tanstack/react-table";
+import { PageHeader } from "@/components/layout/page-header";
 
 import { motion } from "framer-motion";
 
@@ -139,24 +140,17 @@ export default function PurchaseOrdersPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="flex items-center justify-between space-y-2 py-4">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-              Órdenes de Compra
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Gestión de abastecimiento y pedidos a proveedores
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              onClick={() => setIsDialogOpen(true)}
-              className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
-            >
-              <Plus className="mr-2 h-4 w-4" /> Nueva Orden
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title="Órdenes de Compra"
+          description="Gestión de abastecimiento y pedidos a proveedores"
+        >
+          <Button
+            onClick={() => setIsDialogOpen(true)}
+            className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
+          >
+            <Plus className="mr-2 h-4 w-4" /> Nueva Orden
+          </Button>
+        </PageHeader>
 
         <OrderStatusCards type="PURCHASE" />
 

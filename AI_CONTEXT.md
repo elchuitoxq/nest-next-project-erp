@@ -34,6 +34,8 @@ Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas comp
 > Voz, tono y componentes visuales.
 
 - **🖌️ UI System (Shadcn):** `.agent/skills/using-shadcn-ui/SKILL.md`.
+- **🧩 Componentes Estándar:**
+  - `PageHeader`: Encabezado unificado para todas las páginas del dashboard (`apps/web/components/layout/page-header.tsx`). Debe usarse siempre en lugar de `div` manuales.
 - **✍️ UX Writing & Estilo:** `.agent/skills/ux-writing-and-style/SKILL.md` (Glosario, Español Neutro, Capitalización).
 
 ### 💼 Reglas de Negocio (Domain Specific)

@@ -26,6 +26,7 @@ import { usePositions, JobPosition } from "@/modules/hr/hooks/use-positions";
 import { PositionDialog } from "@/modules/hr/components/position-dialog";
 import { formatCurrency } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function PositionsPage() {
   const { data: positions, isLoading } = usePositions();
@@ -68,22 +69,17 @@ export default function PositionsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="flex items-center justify-between py-4">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-              Cargos y Salarios
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Administra los puestos de trabajo y tabuladores salariales.
-            </p>
-          </div>
+        <PageHeader
+          title="Cargos y Salarios"
+          description="Administra los puestos de trabajo y tabuladores salariales."
+        >
           <Button
             onClick={handleCreate}
             className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
           >
             <Plus className="mr-2 h-4 w-4" /> Nuevo Cargo
           </Button>
-        </div>
+        </PageHeader>
 
         <Card className="border shadow-xl bg-white/60 backdrop-blur-sm">
           <CardHeader>

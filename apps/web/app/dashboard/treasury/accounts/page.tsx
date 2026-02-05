@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/card";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { PageHeader } from "@/components/layout/page-header";
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 
 export default function BankAccountsPage() {
@@ -141,15 +142,10 @@ export default function BankAccountsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="flex items-center justify-between space-y-2 py-4">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-              Cuentas Bancarias
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Administra tus cuentas bancarias y saldos de tesorería
-            </p>
-          </div>
+        <PageHeader
+          title="Cuentas Bancarias"
+          description="Administra tus cuentas bancarias y saldos de tesorería"
+        >
           <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
             <DialogTrigger asChild>
               <Button
@@ -267,7 +263,7 @@ export default function BankAccountsPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
+        </PageHeader>
 
         <Card className="border shadow-xl bg-white/60 backdrop-blur-sm">
           <CardHeader className="pb-2">

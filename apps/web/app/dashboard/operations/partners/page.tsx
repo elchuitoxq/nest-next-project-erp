@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { PaginationState } from "@tanstack/react-table";
 import { motion } from "framer-motion";
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function PartnersPage() {
   const [pagination, setPagination] = useState<PaginationState>({
@@ -86,24 +87,17 @@ export default function PartnersPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="flex items-center justify-between space-y-2 py-4">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-              Clientes y Socios
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Gestiona clientes y proveedores de tu negocio
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              onClick={handleCreate}
-              className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
-            >
-              <Plus className="mr-2 h-4 w-4" /> Nuevo Socio
-            </Button>
-          </div>
-        </div>
+        <PageHeader
+          title="Clientes y Socios"
+          description="Gestiona clientes y proveedores de tu negocio"
+        >
+          <Button
+            onClick={handleCreate}
+            className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
+          >
+            <Plus className="mr-2 h-4 w-4" /> Nuevo Socio
+          </Button>
+        </PageHeader>
 
         <Card className="border shadow-xl bg-white/60 backdrop-blur-sm">
           <CardHeader className="pb-2">

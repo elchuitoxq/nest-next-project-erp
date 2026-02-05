@@ -30,6 +30,8 @@ import { useRouter } from "next/navigation";
 import { PayrollGeneratorDialog } from "@/modules/hr/components/payroll/generator-dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { PageHeader } from "@/components/layout/page-header";
+import { motion } from "framer-motion";
 
 export default function PayrollListPage() {
   const { data: payrolls, isLoading } = usePayrolls();
@@ -58,20 +60,19 @@ export default function PayrollListPage() {
           <DynamicBreadcrumb />
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="flex items-center justify-between py-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Gestión de Nómina
-            </h1>
-            <p className="text-muted-foreground">
-              Historial de pagos y generación de nuevas nóminas.
-            </p>
-          </div>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-1 flex-col gap-4 p-4 pt-0"
+      >
+        <PageHeader
+          title="Gestión de Nómina"
+          description="Historial de pagos y generación de nuevas nóminas."
+        >
           <Button onClick={() => setOpenGenerator(true)} className="gap-2">
             <Plus className="h-4 w-4" /> Procesar Nómina
           </Button>
-        </div>
+        </PageHeader>
 
         <Card className="premium-shadow">
           <CardHeader>
@@ -158,7 +159,7 @@ export default function PayrollListPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
       <PayrollGeneratorDialog
         open={openGenerator}
