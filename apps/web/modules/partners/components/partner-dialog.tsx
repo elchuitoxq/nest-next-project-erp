@@ -29,6 +29,8 @@ import { usePartnerMutations } from "../hooks/use-partners";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { GuideCard } from "@/components/guide/guide-card";
+import { GuideHint } from "@/components/guide/guide-hint";
 
 interface PartnerDialogProps {
   open: boolean;
@@ -166,7 +168,10 @@ export function PartnerDialog({
                 name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Tipo Relación</FormLabel>
+                    <FormLabel className="flex items-center">
+                      Tipo Relación
+                      <GuideHint text="Si marcas 'Ambos', podrás usar estra entidad tanto para comprarle como para venderle." />
+                    </FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}

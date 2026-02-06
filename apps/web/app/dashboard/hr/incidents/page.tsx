@@ -29,8 +29,10 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { IncidentDialog } from "@/modules/hr/incidents/components/incident-dialog";
 import { formatCurrency, cn } from "@/lib/utils";
+import { PageHeader } from "@/components/layout/page-header";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { GuideCard } from "@/components/guide/guide-card";
 
 export default function PayrollIncidentsPage() {
   const { data: incidents, isLoading } = useIncidents();
@@ -51,22 +53,38 @@ export default function PayrollIncidentsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="flex justify-between items-center py-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Registro de Novedades
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              Faltas, horas extra, bonos y deducciones.
-            </p>
-          </div>
+        <PageHeader
+          title="Registro de Novedades"
+          description="Faltas, horas extra, bonos y deducciones."
+        >
           <Button
             onClick={() => setOpen(true)}
             className="gap-2 premium-shadow"
           >
             <Plus className="h-4 w-4" /> Registrar Novedad
           </Button>
-        </div>
+        </PageHeader>
+
+        <GuideCard
+          title="Gestión de Novedades (Incidencias)"
+          variant="info"
+          className="mb-4"
+        >
+          <p>
+            Registro de eventos ocasionales que afectan el pago de nómina del
+            periodo en curso.
+          </p>
+          <ul className="list-disc pl-4 mt-1 space-y-0.5">
+            <li>
+              <strong>Ingresos (+):</strong> Bonificaciones, comisiones, horas
+              extras, reintegros.
+            </li>
+            <li>
+              <strong>Deducciones (-):</strong> Faltas injustificadas,
+              préstamos, anticipos, sanciones.
+            </li>
+          </ul>
+        </GuideCard>
 
         <Card className="border premium-shadow">
           <CardHeader>

@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { fiscalReportsApi } from "../reports.api";
+import { useGuideStore } from "@/stores/use-guide-store";
 import {
   Card,
   CardContent,
@@ -52,7 +53,7 @@ export function ReportsView() {
   const [month, setMonth] = useState(new Date().getMonth() + 1 + "");
   const [year, setYear] = useState(new Date().getFullYear() + "");
   const [fortnight, setFortnight] = useState<string>("full"); // "full", "first", "second"
-  const [isHelpMode, setIsHelpMode] = useState(false);
+  const { isHelpMode } = useGuideStore();
 
   const { data, isLoading } = useQuery({
     queryKey: ["fiscal-report", type, month, year, fortnight],
@@ -236,19 +237,6 @@ export function ReportsView() {
         className="items-start"
       >
         <div className="flex flex-col items-end gap-3">
-          <div className="flex items-center space-x-2 bg-blue-50/50 dark:bg-blue-900/10 px-3 py-1.5 rounded-full border border-blue-100 dark:border-blue-800">
-            <Switch
-              id="help-mode"
-              checked={isHelpMode}
-              onCheckedChange={setIsHelpMode}
-            />
-            <Label
-              htmlFor="help-mode"
-              className="text-xs font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1 cursor-pointer select-none"
-            >
-              <HelpCircle className="h-3 w-3" /> Guía Interactiva
-            </Label>
-          </div>
           <div className="flex gap-2">
             {type !== "liquidacion" && (
               <Button variant="outline" onClick={handleDownloadTxt} size="sm">
@@ -268,6 +256,7 @@ export function ReportsView() {
         </div>
       </PageHeader>
 
+      {/* Context Summary Banner */}
       <AnimatePresence>
         {isHelpMode && (
           <motion.div
@@ -285,7 +274,6 @@ export function ReportsView() {
         )}
       </AnimatePresence>
 
-      {/* Context Summary Banner */}
       {!isLoading && data && type !== "liquidacion" && (
         <Card className="mb-4 border-green-100 bg-green-50/30 dark:bg-green-950/10">
           <CardContent className="py-3 flex items-start gap-3">
@@ -626,25 +614,6 @@ export function ReportsView() {
                               >
                                 <div className="flex items-center gap-1.5">
                                   <span>{row.nombre}</span>
-                                  {isHelpMode && row.explainer && (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <div className="cursor-help">
-                                            <Info className="h-3 w-3 text-blue-500" />
-                                          </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-[300px] text-xs p-3">
-                                          <p className="font-semibold mb-1">
-                                            Contexto Fiscal:
-                                          </p>
-                                          <p className="text-muted-foreground leading-relaxed">
-                                            {row.explainer}
-                                          </p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
                                 </div>
                               </TableCell>
                               <TableCell className="py-3 px-4 text-xs font-mono">

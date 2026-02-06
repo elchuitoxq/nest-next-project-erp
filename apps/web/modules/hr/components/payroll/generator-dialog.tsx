@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { usePayrollMutations } from "../../hooks/use-payroll";
 import { Label } from "@/components/ui/label";
+import { GuideHint } from "@/components/guide/guide-hint";
 
 interface GeneratorProps {
   open: boolean;
@@ -33,7 +34,7 @@ export function PayrollGeneratorDialog({ open, onOpenChange }: GeneratorProps) {
 
   const handleSubmit = async () => {
     if (!startDate || !endDate) return;
-    
+
     await generatePayroll.mutateAsync({
       startDate,
       endDate,
@@ -50,7 +51,10 @@ export function PayrollGeneratorDialog({ open, onOpenChange }: GeneratorProps) {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Frecuencia de Pago</Label>
+            <Label className="flex items-center gap-2">
+              Frecuencia de Pago
+              <GuideHint text="Determina el periodo de cálculo para deducciones y asignaciones fijas." />
+            </Label>
             <Select value={frequency} onValueChange={setFrequency}>
               <SelectTrigger>
                 <SelectValue />
@@ -62,28 +66,33 @@ export function PayrollGeneratorDialog({ open, onOpenChange }: GeneratorProps) {
               </SelectContent>
             </Select>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Desde</Label>
-              <Input 
-                type="date" 
-                value={startDate} 
-                onChange={(e) => setStartDate(e.target.value)} 
+              <Label className="flex items-center gap-2">
+                Desde
+                <GuideHint text="Fecha de inicio del periodo fiscal." />
+              </Label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
               />
             </div>
             <div className="space-y-2">
               <Label>Hasta</Label>
-              <Input 
-                type="date" 
-                value={endDate} 
-                onChange={(e) => setEndDate(e.target.value)} 
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
               />
             </div>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
           <Button onClick={handleSubmit} disabled={generatePayroll.isPending}>
             {generatePayroll.isPending ? "Generando..." : "Generar Borrador"}
           </Button>

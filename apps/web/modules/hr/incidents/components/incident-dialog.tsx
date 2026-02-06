@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { GuideHint } from "@/components/guide/guide-hint";
 import {
   Select,
   SelectContent,
@@ -69,7 +70,10 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
           </div>
 
           <div className="space-y-2">
-            <Label>Concepto</Label>
+            <Label className="flex items-center gap-2">
+              Concepto
+              <GuideHint text="Seleccione el tipo de incidencia (Ej. Bono de Productividad, Descuento por Préstamo)." />
+            </Label>
             <Select value={conceptId} onValueChange={setConceptId}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar..." />
@@ -86,7 +90,10 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Fecha</Label>
+              <Label className="flex items-center gap-2">
+                Fecha
+                <GuideHint text="Día en que ocurrió la novedad. Debe estar dentro del periodo de nómina." />
+              </Label>
               <Input
                 type="date"
                 value={date}
@@ -107,7 +114,10 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
           </div>
 
           <div className="space-y-2">
-            <Label>Nota</Label>
+            <Label className="flex items-center gap-2">
+              Nota
+              <GuideHint text="Detalle justificativo (Ej. 'Aprobado por Gerencia'). Visible en el recibo de pago." />
+            </Label>
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
 

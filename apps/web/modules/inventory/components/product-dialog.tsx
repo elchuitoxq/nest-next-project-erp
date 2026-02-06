@@ -32,6 +32,8 @@ import {
   createProductSchema,
   CreateProductFormValues,
 } from "../schemas/product.schema";
+import { GuideCard } from "@/components/guide/guide-card";
+import { GuideHint } from "@/components/guide/guide-hint";
 
 interface ProductDialogProps {
   product?: Product;
@@ -118,6 +120,26 @@ export function ProductDialog({
               : "Ingresa los datos del nuevo producto del catálogo."}
           </DialogDescription>
         </DialogHeader>
+
+        <GuideCard
+          title="Definición de Producto"
+          variant="tip"
+          className="mx-4 mt-2"
+        >
+          <p className="mb-1">
+            Una correcta definición evita errores en facturación:
+          </p>
+          <ul className="list-disc pl-4 space-y-1">
+            <li>
+              <strong>Exento de IVA:</strong> Para productos de canasta básica o
+              legales.
+            </li>
+            <li>
+              <strong>Moneda USD:</strong> El sistema convertirá automáticamente
+              a Bolívares según la tasa del día al facturar.
+            </li>
+          </ul>
+        </GuideCard>
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(onSubmit)}
@@ -263,7 +285,10 @@ export function ProductDialog({
 
                   return (
                     <FormItem>
-                      <FormLabel>Moneda de Precio</FormLabel>
+                      <FormLabel className="flex items-center">
+                        Moneda de Precio
+                        <GuideHint text="Define en qué moneda se mantiene fijo el precio. Recomendado: USD para evitar ajustes constantes por inflación." />
+                      </FormLabel>
                       <select
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         value={field.value || ""}

@@ -44,6 +44,8 @@ import { CreateCreditNoteDialog } from "./create-credit-note-dialog";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { InvoicePdf } from "@/modules/common/components/pdf/invoice-pdf";
 import { Printer } from "lucide-react";
+import { GuideCard } from "@/components/guide/guide-card";
+import { GuideHint } from "@/components/guide/guide-hint";
 
 interface InvoiceDetailsDialogProps {
   open: boolean;
@@ -222,6 +224,27 @@ export function InvoiceDetailsDialog({
             </DialogTitle>
             <DialogDescription>Detalle de la factura.</DialogDescription>
           </DialogHeader>
+
+          <GuideCard
+            title="Control Fiscal del Documento"
+            variant="warning"
+            className="mt-4"
+          >
+            <ul className="list-disc pl-4 space-y-1">
+              <li>
+                <strong>Emitir:</strong> Asigna correlativo fiscal permanente.
+                Irreversible.
+              </li>
+              <li>
+                <strong>Anular (Borrador):</strong> Elimina el documento sin
+                rastro fiscal.
+              </li>
+              <li>
+                <strong>Nota de Crédito:</strong> Única vía legal para anular
+                una factura ya emitida (Publicada).
+              </li>
+            </ul>
+          </GuideCard>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-4">
             <div className="space-y-1">
@@ -411,10 +434,15 @@ export function InvoiceDetailsDialog({
 
           <DialogFooter className="gap-2 mt-4">
             {invoice.status === "DRAFT" && (
-              <Button onClick={handlePost} disabled={isPosting}>
-                {isPosting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Emitir Factura
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button onClick={handlePost} disabled={isPosting}>
+                  {isPosting && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Emitir Factura
+                </Button>
+                <GuideHint text="Esta acción asignará un Número de Control Fiscal consecutivo. No se puede deshacer." />
+              </div>
             )}
 
             {/* Print Button */}

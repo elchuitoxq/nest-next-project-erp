@@ -28,6 +28,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useEmployeeMutations, Employee } from "../hooks/use-employees";
+import { GuideCard } from "@/components/guide/guide-card";
 import { employeeSchema, EmployeeFormValues } from "../schemas/hr.schema";
 import { useCurrencies } from "@/modules/settings/currencies/hooks/use-currencies";
 import { usePositions } from "../hooks/use-positions";
@@ -273,7 +274,21 @@ export function EmployeeDialog({
             </div>
 
             <div className="p-4 border rounded-md bg-muted/20">
-              <h3 className="text-sm font-medium mb-4">Configuración Salarial</h3>
+              <h3 className="text-sm font-medium mb-4">
+                Configuración Salarial
+              </h3>
+
+              <GuideCard
+                title="Anclaje de Salario"
+                variant="tip"
+                className="mb-4"
+              >
+                <p>
+                  Seleccionar una <strong>Moneda Fuerte (USD/EUR)</strong>{" "}
+                  protege el valor del salario. El sistema calculará el pago en
+                  Bolívares a la tasa del día de pago.
+                </p>
+              </GuideCard>
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -321,7 +336,7 @@ export function EmployeeDialog({
 
             <div className="p-4 border rounded-md bg-muted/20">
               <h3 className="text-sm font-medium mb-4">Información de Pago</h3>
-              
+
               <FormField
                 control={form.control}
                 name="paymentMethod"
@@ -339,9 +354,13 @@ export function EmployeeDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="BANK_TRANSFER">Transferencia Bancaria</SelectItem>
+                        <SelectItem value="BANK_TRANSFER">
+                          Transferencia Bancaria
+                        </SelectItem>
                         <SelectItem value="CASH">Efectivo</SelectItem>
-                        <SelectItem value="MOBILE_PAYMENT">Pago Móvil</SelectItem>
+                        <SelectItem value="MOBILE_PAYMENT">
+                          Pago Móvil
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

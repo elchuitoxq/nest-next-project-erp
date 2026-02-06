@@ -27,6 +27,7 @@ import { PositionDialog } from "@/modules/hr/components/position-dialog";
 import { formatCurrency } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";
+import { GuideCard } from "@/components/guide/guide-card";
 
 export default function PositionsPage() {
   const { data: positions, isLoading } = usePositions();
@@ -80,6 +81,27 @@ export default function PositionsPage() {
             <Plus className="mr-2 h-4 w-4" /> Nuevo Cargo
           </Button>
         </PageHeader>
+
+        <GuideCard
+          title="Gestión de Cargos y Salarios"
+          variant="info"
+          className="mb-4"
+        >
+          <p>
+            Defina la estructura organizativa y las bandas salariales de la
+            empresa.
+          </p>
+          <ul className="list-disc pl-4 mt-1 space-y-0.5">
+            <li>
+              <strong>Rango Salarial:</strong> Límites de remuneración (Min/Max)
+              para control presupuestario.
+            </li>
+            <li>
+              <strong>Moneda Base:</strong> Referencia para cálculos de nómina y
+              beneficios legales.
+            </li>
+          </ul>
+        </GuideCard>
 
         <Card className="border shadow-xl bg-white/60 backdrop-blur-sm">
           <CardHeader>

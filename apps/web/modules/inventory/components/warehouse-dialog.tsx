@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
+import { GuideHint } from "@/components/guide/guide-hint";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -150,7 +151,10 @@ export function WarehouseDialog({
               name="branchId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Sucursal (Sede)</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    Sucursal (Sede)
+                    <GuideHint text="Empresa o sucursal legal a la que pertenece este almacén." />
+                  </FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
@@ -199,7 +203,10 @@ export function WarehouseDialog({
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel>Activo</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      Activo
+                      <GuideHint text="Desactivar impide realizar nuevos movimientos, pero mantiene el histórico." />
+                    </FormLabel>
                   </div>
                 </FormItem>
               )}

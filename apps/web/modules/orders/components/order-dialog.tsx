@@ -35,6 +35,8 @@ import { formatCurrency } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
+import { GuideCard } from "@/components/guide/guide-card";
+import { GuideHint } from "@/components/guide/guide-hint";
 
 const orderSchema = z.object({
   partnerId: z.string().min(1, "Seleccione un cliente"),
@@ -269,6 +271,23 @@ export function OrderDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <GuideCard
+          title="Ciclo del Pedido"
+          variant="info"
+          className="mx-4 mt-2"
+        >
+          <ul className="list-disc pl-4 space-y-1">
+            <li>
+              <strong>Reserva de Stock:</strong> Al crear el pedido, el
+              inventario se "compromete" pero no se descuenta hasta facturar.
+            </li>
+            <li>
+              <strong>Multimoneda:</strong> Si selecciona USD, los precios en Bs
+              se recalcularán al momento de la factura según la tasa del día.
+            </li>
+          </ul>
+        </GuideCard>
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -330,7 +349,10 @@ export function OrderDialog({
                 name="currencyId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Moneda de Transacción</FormLabel>
+                    <FormLabel className="flex items-center">
+                      Moneda de Transacción
+                      <GuideHint text="Esta será la moneda base del documento. Si es diferente a la del producto, se hará conversión automática." />
+                    </FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}

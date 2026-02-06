@@ -28,9 +28,10 @@ import { useAuthStore } from "@/stores/use-auth-store";
 
 import { NAV_ITEMS, type NavItem } from "@/lib/navigation";
 
+import { GlobalRateDisplay } from "./global-rate-display";
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuthStore();
-
   // RBAC Helper
   const hasAccess = (paramRoles: string[]) => {
     if (!paramRoles || paramRoles.length === 0) return true;
@@ -49,7 +50,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       items: item.items, // Optional: Level 2 filtering could be added here if needed
     }),
   );
-
   return (
     <Sidebar collapsible="icon" className="premium-glass" {...props}>
       <SidebarHeader>
@@ -59,6 +59,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain items={filteredNav} />
       </SidebarContent>
       <SidebarFooter>
+        <GlobalRateDisplay />
         <NavUser
           user={{
             name: user?.name || "Usuario",

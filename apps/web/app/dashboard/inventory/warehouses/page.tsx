@@ -23,6 +23,7 @@ import { Warehouse } from "@/modules/inventory/types";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { PageHeader } from "@/components/layout/page-header";
+import { GuideCard } from "@/components/guide/guide-card";
 
 export default function WarehousesPage() {
   const { data: warehouses, isLoading, isError } = useWarehouses();
@@ -70,6 +71,22 @@ export default function WarehousesPage() {
             <Plus className="mr-2 h-4 w-4" /> Nuevo Almacén
           </Button>
         </PageHeader>
+
+        <GuideCard title="Gestión de Almacenes" variant="info" className="mb-4">
+          <p>
+            Administre las ubicaciones físicas donde se resguarda el inventario.
+          </p>
+          <ul className="list-disc pl-4 mt-1 space-y-0.5">
+            <li>
+              <strong>Sucursal vs Almacén:</strong> Una sucursal (Sede) puede
+              tener múltiples almacenes (Ej. Principal, Dañados, Tránsito).
+            </li>
+            <li>
+              <strong>Stock:</strong> El inventario se rastrea por almacén. Para
+              mover mercancía entre ellos use "Traslados".
+            </li>
+          </ul>
+        </GuideCard>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <AnimatePresence>

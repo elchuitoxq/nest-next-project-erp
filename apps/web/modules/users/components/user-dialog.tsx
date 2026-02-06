@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { GuideCard } from "@/components/guide/guide-card";
 
 import { useRoles } from "../hooks/use-users";
 import { useBranches } from "../../branches/hooks/use-branches";
@@ -140,6 +141,20 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
               : "Ingresa los datos para crear un nuevo usuario."}
           </DialogDescription>
         </DialogHeader>
+
+        <GuideCard title="Modelo de Permisos" variant="info" className="mb-4">
+          <p>El acceso se define por dos dimensiones:</p>
+          <ul className="list-disc pl-4 space-y-1">
+            <li>
+              <strong>Roles (Qué puede hacer):</strong> Define permisos
+              funcionales (ej. Crear Facturas, Ver Reportes).
+            </li>
+            <li>
+              <strong>Sucursales (Dónde lo puede hacer):</strong> Limita la data
+              visible solo a las sedes seleccionadas.
+            </li>
+          </ul>
+        </GuideCard>
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(onSubmit)}

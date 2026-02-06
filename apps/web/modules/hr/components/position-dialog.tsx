@@ -31,6 +31,7 @@ import { useEffect } from "react";
 import { usePositionMutations, JobPosition } from "../hooks/use-positions";
 import { positionSchema, PositionFormValues } from "../schemas/hr.schema";
 import { useCurrencies } from "@/modules/settings/currencies/hooks/use-currencies";
+import { GuideHint } from "@/components/guide/guide-hint";
 
 interface PositionDialogProps {
   open: boolean;
@@ -94,9 +95,7 @@ export function PositionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {position ? "Editar Cargo" : "Nuevo Cargo"}
-          </DialogTitle>
+          <DialogTitle>{position ? "Editar Cargo" : "Nuevo Cargo"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -133,7 +132,10 @@ export function PositionDialog({
                 name="currencyId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Moneda Referencia</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      Moneda Referencia
+                      <GuideHint text="Define en qué divisa se expresa el tabulador (lo usual es USD para indexación)." />
+                    </FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
@@ -164,7 +166,10 @@ export function PositionDialog({
                 name="baseSalaryMin"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Salario Min (Ref)</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      Salario Min (Ref)
+                      <GuideHint text="Piso de la banda salarial para este cargo." />
+                    </FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>
@@ -177,7 +182,10 @@ export function PositionDialog({
                 name="baseSalaryMax"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Salario Max (Ref)</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      Salario Max (Ref)
+                      <GuideHint text="Techo de la banda salarial para este cargo." />
+                    </FormLabel>
                     <FormControl>
                       <Input type="number" {...field} />
                     </FormControl>

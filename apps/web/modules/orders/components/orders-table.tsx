@@ -48,6 +48,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { GuideCard } from "@/components/guide/guide-card";
 
 interface OrdersTableProps {
   data: Order[];
@@ -297,6 +298,21 @@ export function OrdersTable({
           </DropdownMenu>
         </div>
       </div>
+
+      <GuideCard title="Gestión de Pedidos" variant="info" className="mb-2">
+        <p>Monitoree el ciclo de vida de sus ventas:</p>
+        <ul className="list-disc pl-4 mt-1 space-y-0.5">
+          <li>
+            <strong>Borrador:</strong> Pedido en construcción, no afecta stock.
+          </li>
+          <li>
+            <strong>Confirmado:</strong> Mercancía comprometida.
+          </li>
+          <li>
+            <strong>Facturado:</strong> Procesado fiscalmente.
+          </li>
+        </ul>
+      </GuideCard>
 
       <div className="rounded-md border relative">
         <AnimatePresence>

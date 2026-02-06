@@ -27,7 +27,13 @@ Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas comp
 - **🐛 Debugging:** `.agent/skills/systematic-debugging/SKILL.md`.
 - **🧪 Testing:** `.agent/skills/test-driven-development/SKILL.md`.
 - **🌿 Git Worktrees:** `.agent/skills/using-git-worktrees/SKILL.md`.
+- **🏗️ Monorepo & Build System:** `.agent/skills/turborepo/SKILL.md` (Pipelines, Caching, Workspace Scope). **[NUEVO]**
 - **👀 Code Review:** `.agent/skills/requesting-code-review/SKILL.md` & `.agent/skills/receiving-code-review/SKILL.md`.
+
+### 🧠 Herramientas de Agente (Helpers)
+
+- **Gemini Context:** `.agent/skills/gemini/SKILL.md` (Análisis de contexto masivo).
+- **Skill Discovery:** `.agent/skills/find-skills/SKILL.md` (Encontrar nuevas capacidades).
 
 ### 🎨 Experiencia de Usuario (UI/UX)
 
@@ -36,7 +42,9 @@ Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas comp
 - **🖌️ UI System (Shadcn):** `.agent/skills/using-shadcn-ui/SKILL.md`.
 - **🧩 Componentes Estándar:**
   - `PageHeader`: Encabezado unificado para todas las páginas del dashboard (`apps/web/components/layout/page-header.tsx`). Debe usarse siempre en lugar de `div` manuales.
-- **✍️ UX Writing & Estilo:** `.agent/skills/ux-writing-and-style/SKILL.md` (Glosario, Español Neutro, Capitalización).
+- **⚡ Frontend Design:** `.agent/skills/frontend-design/SKILL.md` (Aesthetics, Typography, Motion).
+- **🚀 React Best Practices:** `.agent/skills/vercel-react-best-practices/SKILL.md` (Performance, Server Components, Bundle Size). **[NUEVO]**
+- **✍️ UX Writing & Estilo:** `.agent/skills/ux-writing-and-style/SKILL.md`.
 
 ### 💼 Reglas de Negocio (Domain Specific)
 

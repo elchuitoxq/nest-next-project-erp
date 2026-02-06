@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { GuideHint } from "@/components/guide/guide-hint";
 
 import { useBranchMutations } from "../hooks/use-branch-mutations";
 import { Branch } from "../types";
@@ -193,7 +194,10 @@ export function BranchDialog({
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel>Activo</FormLabel>
+                    <FormLabel className="flex items-center">
+                      Activo
+                      <GuideHint text="Desactivar una sede no borra su historial, pero impide crear nuevos movimientos en ella." />
+                    </FormLabel>
                     <p className="text-sm text-muted-foreground">
                       Si está desactivado, la sede no aparecerá en selección de
                       operaciones.

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { GuideToggle } from "../guide/guide-toggle";
 
 interface PageHeaderProps {
   title: string;
@@ -26,8 +27,13 @@ export function PageHeader({
           <p className="text-muted-foreground text-sm">{description}</p>
         )}
       </div>
-      {children && (
-        <div className="flex items-center space-x-2">{children}</div>
+      {children ? (
+        <div className="flex items-center space-x-2">
+          <GuideToggle />
+          {children}
+        </div>
+      ) : (
+        <GuideToggle />
       )}
     </div>
   );

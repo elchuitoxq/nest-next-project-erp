@@ -22,13 +22,12 @@ import {
   usePaymentMethods,
   useRegisterPayment,
   useAccountStatement,
-  useBankAccounts,
 } from "../hooks/use-treasury";
+import { useBankAccounts } from "../hooks/use-bank-accounts";
 import { Invoice } from "@/modules/billing/types";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-
 interface PaymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -128,7 +127,7 @@ export function PaymentDialog({
 
     // IGTF applies if the Payment Method Currency is NOT the Base Currency (Foreign)
     // Assuming `isBase` is true for VES.
-    if (methodCurrency && methodCurrency.code !== 'VES') {
+    if (methodCurrency && methodCurrency.code !== "VES") {
       // Calculate 3%
       const val = parseFloat(amount);
       if (!isNaN(val)) {

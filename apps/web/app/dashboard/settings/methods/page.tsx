@@ -35,7 +35,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { useBankAccounts } from "@/modules/treasury/hooks/use-treasury";
+import { useBankAccounts } from "@/modules/treasury/hooks/use-bank-accounts";
 import { useCurrencies } from "@/modules/settings/currencies/hooks/use-currencies";
 
 import { Input } from "@/components/ui/input";

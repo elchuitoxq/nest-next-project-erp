@@ -12,8 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, RefreshCw } from "lucide-react";
 import { useCurrencies } from "@/modules/settings/currencies/hooks/use-currencies";
+import api from "@/lib/api";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -64,6 +67,41 @@ export default function CurrenciesPage() {
               Gestiona las monedas disponibles y sus tasas de cambio.
             </p>
           </div>
+          <Button
+            onClick={async () => {
+              const promise = api.get("/cron/trigger-bcv");
+              toast.promise(promise, {
+                loading: "Sincronizando tasas con BCV...",
+                success: "Tasas actualizadas correctamente",
+                error: "Error al sincronizar tasas",
+              });
+              try {
+                const result = await promise;
+                console.log("BCV Scraper Result:", result.data);
+
+                if (result.data?.details?.rates?.length > 0) {
+                  toast.success(
+                    "Tasas actualizadas: " +
+                      result.data.details.rates.join(", "),
+                  );
+                  // Success - wait a bit then reload to show new rates
+                  setTimeout(() => window.location.reload(), 2000);
+                } else if (result.data?.details?.errors?.length > 0) {
+                  console.error("Scraper Errors:", result.data.details.errors);
+                  toast.error("Ocurrieron errores. Revisa la consola.");
+                } else {
+                  toast.warning("No se encontraron cambios ni errores.");
+                }
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+            variant="outline"
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Sincronizar BCV
+          </Button>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">

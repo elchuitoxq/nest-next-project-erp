@@ -31,6 +31,7 @@ import { PayrollGeneratorDialog } from "@/modules/hr/components/payroll/generato
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { PageHeader } from "@/components/layout/page-header";
+import { GuideCard } from "@/components/guide/guide-card";
 import { motion } from "framer-motion";
 
 export default function PayrollListPage() {
@@ -73,6 +74,26 @@ export default function PayrollListPage() {
             <Plus className="h-4 w-4" /> Procesar Nómina
           </Button>
         </PageHeader>
+
+        <GuideCard title="Gestión de Nómina" variant="info" className="mb-4">
+          <p>
+            Historial de corridas de nómina. El proceso de pago sigue 3 etapas:
+          </p>
+          <ul className="list-disc pl-4 mt-1 space-y-0.5">
+            <li>
+              <strong>Borrador:</strong> Cálculo inicial editable. No afecta
+              saldos.
+            </li>
+            <li>
+              <strong>Publicada:</strong> Montos definitivos visibles para los
+              empleados.
+            </li>
+            <li>
+              <strong>Pagada:</strong> Cierre contable y generación de egresos
+              de tesorería.
+            </li>
+          </ul>
+        </GuideCard>
 
         <Card className="premium-shadow">
           <CardHeader>

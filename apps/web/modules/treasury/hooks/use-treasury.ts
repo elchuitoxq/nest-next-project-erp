@@ -1,5 +1,5 @@
 // Re-export specific hooks if needed or standard hooks
-export * from "./use-bank-accounts"; // Exporting here for consolidation
+// Fixed barrel export
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";

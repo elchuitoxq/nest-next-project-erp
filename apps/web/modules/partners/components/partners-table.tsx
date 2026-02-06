@@ -40,6 +40,7 @@ import { Partner } from "../types";
 import { Badge } from "@/components/ui/badge";
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { GuideCard } from "@/components/guide/guide-card";
 
 interface PartnersTableProps {
   data: Partner[];
@@ -257,6 +258,19 @@ export function PartnersTable({
           </DropdownMenu>
         </div>
       </div>
+
+      <GuideCard title="Directorio de Socios" variant="info" className="mb-2">
+        <p>Gestione aquí toda su cartera de clientes y proveedores.</p>
+        <ul className="list-disc pl-4 mt-1 space-y-0.5">
+          <li>
+            <strong>Clientes:</strong> Entidades a las que factura.
+          </li>
+          <li>
+            <strong>Proveedores:</strong> Entidades que le facturan
+            (Compras/Gastos).
+          </li>
+        </ul>
+      </GuideCard>
 
       <div className="rounded-md border relative">
         <AnimatePresence>

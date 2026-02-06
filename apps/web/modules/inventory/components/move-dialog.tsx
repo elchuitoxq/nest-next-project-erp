@@ -40,6 +40,8 @@ import {
 } from "../schemas/move.schema";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { ProductCombobox } from "./product-combobox";
+import { GuideCard } from "@/components/guide/guide-card";
+import { GuideHint } from "@/components/guide/guide-hint";
 
 interface MoveDialogProps {
   open: boolean;
@@ -102,6 +104,27 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
             Entradas, Salidas, Transferencias y Ajustes de inventario.
           </DialogDescription>
         </DialogHeader>
+
+        <GuideCard
+          title="Tipos de Movimiento de Inventario"
+          variant="info"
+          className="mx-4 mt-2"
+        >
+          <ul className="list-disc pl-4 space-y-1">
+            <li>
+              <strong>Entrada (Compra):</strong> Aumenta stock y recalcula el
+              Costo Promedio Ponderado.
+            </li>
+            <li>
+              <strong>Ajuste (Entrada/Salida):</strong> Corrige diferencias de
+              stock sin afectar costos de compra (Gasto/Ingreso).
+            </li>
+            <li>
+              <strong>Transferencia:</strong> Mueve mercancía entre depósitos
+              sin impacto contable neto.
+            </li>
+          </ul>
+        </GuideCard>
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(onSubmit)}

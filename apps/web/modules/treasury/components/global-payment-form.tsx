@@ -34,6 +34,10 @@ import { useBankAccounts } from "@/modules/treasury/hooks/use-bank-accounts";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { BalancePicker } from "./balance-picker";
+import { InvoiceDetailsDialog } from "@/modules/billing/components/invoice-details-dialog";
+import { Eye } from "lucide-react";
+import { GuideCard } from "@/components/guide/guide-card";
+import { GuideHint } from "@/components/guide/guide-hint";
 
 interface Currency {
   id: string;
@@ -90,6 +94,10 @@ export function GlobalPaymentForm() {
 
   const [allocations, setAllocations] = useState<Record<string, number>>({});
 
+  // Detail Modal State
+  const [detailInvoiceId, setDetailInvoiceId] = useState<string | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
   const clientInvoices = useMemo(() => {
     if (!partnerId || !allInvoices) return [];
     return allInvoices
@@ -103,6 +111,20 @@ export function GlobalPaymentForm() {
         (a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime(),
       );
   }, [allInvoices, partnerId]);
+
+  const commonRate = useMemo(() => {
+    if (clientInvoices.length === 0) return null;
+    // Normalize to number
+    const firstRate = Number(clientInvoices[0].exchangeRate || 0);
+    if (!firstRate) return null;
+
+    const allMatch = clientInvoices.every((inv) => {
+      const r = Number(inv.exchangeRate || 0);
+      return Math.abs(r - firstRate) < 0.001;
+    });
+
+    return allMatch ? firstRate : null;
+  }, [clientInvoices]);
 
   const effectiveRate = useMemo(() => {
     const rateVal = exchangeRateInput ? Number(exchangeRateInput) : 0;
@@ -119,6 +141,7 @@ export function GlobalPaymentForm() {
   const selectedMethod = methods?.find((m) => m.id === methodId);
   const paymentCurrency = currencies?.find((c) => c.id === currencyId);
   const isBalanceMethod = selectedMethod?.code?.startsWith("BALANCE");
+  const isRetention = selectedMethod?.code?.startsWith("RET_");
   const selectedBankAccount = bankAccounts?.find((a) => a.id === bankAccountId);
 
   const totalClientDebt = useMemo(() => {
@@ -131,11 +154,14 @@ export function GlobalPaymentForm() {
 
       if (invCurrencyCode === targetCurrencyCode) return acc + pending;
 
+      // Use invoice specific rate or fallback to effective global rate (which is now just for reference)
+      const invRate = Number(inv.exchangeRate) || effectiveRate;
+
       if (invCurrencyCode === "USD" && targetCurrencyCode === "VES") {
-        return acc + pending * effectiveRate;
+        return acc + pending * invRate;
       }
       if (invCurrencyCode === "VES" && targetCurrencyCode === "USD") {
-        return acc + pending / effectiveRate;
+        return acc + pending / invRate;
       }
 
       return acc + pending;
@@ -163,12 +189,16 @@ export function GlobalPaymentForm() {
   }, [selectedMethod]);
 
   useEffect(() => {
+    if (commonRate) {
+      setExchangeRateInput(commonRate.toString());
+      return;
+    }
     if (latestRates && currencies && !exchangeRateInput) {
       const vesCurrency = currencies.find((c) => c.code === "VES");
       const rateObj = latestRates.find((r) => r.currencyId === vesCurrency?.id);
       if (rateObj) setExchangeRateInput(rateObj.rate);
     }
-  }, [latestRates, currencies]);
+  }, [latestRates, currencies, commonRate]);
 
   const totalAllocated = Object.values(allocations).reduce((a, b) => a + b, 0);
   const totalAmountNum = Number(amount) || 0;
@@ -194,10 +224,13 @@ export function GlobalPaymentForm() {
       const invCurrencyCode = inv.currency?.code || "USD";
       const payCurrencyCode = paymentCurrency?.code || "USD";
 
+      // Use invoice specific rate
+      const invRate = Number(inv.exchangeRate) || effectiveRate;
+
       if (invCurrencyCode === "USD" && payCurrencyCode === "VES") {
-        pendingInPaymentCurrency = pending * effectiveRate;
+        pendingInPaymentCurrency = pending * invRate;
       } else if (invCurrencyCode === "VES" && payCurrencyCode === "USD") {
-        pendingInPaymentCurrency = pending / effectiveRate;
+        pendingInPaymentCurrency = pending / invRate;
       }
 
       const toPay = Math.min(available, pendingInPaymentCurrency);
@@ -218,7 +251,7 @@ export function GlobalPaymentForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const requiresBankAccount = !isBalanceMethod;
+    const requiresBankAccount = !isBalanceMethod && !isRetention;
 
     if (!partnerId || !methodId || !amount) {
       toast.error("Por favor complete todos los campos obligatorios.");
@@ -274,6 +307,27 @@ export function GlobalPaymentForm() {
 
   return (
     <div className="space-y-6">
+      <GuideCard title="Protección de Tasa Cambiaria & Pagos" variant="info">
+        <p className="mb-2">
+          Para proteger la integridad financiera, el sistema{" "}
+          <strong>bloquea automáticamente la tasa de cambio</strong> cuando
+          detecta que todas las facturas seleccionadas comparten la misma tasa
+          histórica.
+        </p>
+        <ul className="list-disc pl-4 space-y-1">
+          <li>
+            <strong>Tasa FIJA:</strong> Se usa obligatoriamente la tasa de la
+            factura original. Esto evita generar diferencias en cambio
+            (pérdidas/ganancias) artificiales.
+          </li>
+          <li>
+            <strong>Tasa MÚLTIPLE:</strong> Si mezclas facturas con diferentes
+            tasas, deberás definir una tasa manual, pero esto generará ajustes
+            contables complejos.{" "}
+            <em>Se recomienda procesar por lotes de misma tasa.</em>
+          </li>
+        </ul>
+      </GuideCard>
       <form
         onSubmit={handleSubmit}
         className="grid grid-cols-1 lg:grid-cols-12 gap-6"
@@ -430,6 +484,18 @@ export function GlobalPaymentForm() {
                           </div>
                         )}
                       </div>
+                    ) : isRetention ? (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold text-muted-foreground">
+                          Detalles de Retención
+                        </Label>
+                        <div className="p-3 border border-dashed rounded-md bg-gray-50 text-xs text-center text-gray-500 flex flex-col justify-center h-[72px]">
+                          <span>
+                            No requiere cuenta bancaria. <br />
+                            Ingrese Nro. Comprobante en Referencia.
+                          </span>
+                        </div>
+                      </div>
                     ) : (
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">
@@ -483,19 +549,35 @@ export function GlobalPaymentForm() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold">
-                        Tasa de Cambio (Bs/$)
-                      </Label>
+                      <div className="flex items-center">
+                        <Label className="text-sm font-semibold">
+                          Tasa de Cambio
+                        </Label>
+                        <GuideHint text="Si aparece 'FIJA', es la tasa histórica del documento. No se puede editar para garantizar que se pague exactamente la deuda original en divisas." />
+                      </div>
                       <div className="relative">
                         <Input
                           type="number"
                           value={exchangeRateInput}
-                          onChange={(e) => setExchangeRateInput(e.target.value)}
-                          placeholder="0.00"
-                          className="pl-9 bg-white/50"
+                          readOnly
+                          className="pl-9 bg-gray-100/50 text-gray-500 cursor-not-allowed font-medium"
                         />
                         <Calculator className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                        {commonRate ? (
+                          <span className="absolute right-3 top-2.5 text-[10px] text-teal-600 font-bold bg-teal-50 px-1.5 py-0.5 rounded-full border border-teal-100">
+                            FIJA
+                          </span>
+                        ) : (
+                          <span className="absolute right-3 top-2.5 text-[10px] text-orange-600 font-bold bg-orange-50 px-1.5 py-0.5 rounded-full border border-orange-100">
+                            MÚLTIPLE
+                          </span>
+                        )}
                       </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {commonRate
+                          ? "* Tasa fijada por el documento."
+                          : "* Múltiples tasas aplicadas según factura."}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -612,6 +694,10 @@ export function GlobalPaymentForm() {
                       <List className="h-4 w-4" />
                       Distribuir Automáticamente
                     </Button>
+                    <GuideHint
+                      text="Asigna el monto disponible a las facturas más antiguas primero (FIFO) hasta agotarlo."
+                      className="mr-2"
+                    />
                     <Button
                       type="button"
                       variant="ghost"
@@ -688,13 +774,15 @@ export function GlobalPaymentForm() {
                     const invCurrencyCode = inv.currency?.code || "USD";
                     const payCurrencyCode = paymentCurrency?.code || "USD";
 
+                    const invRate = Number(inv.exchangeRate) || effectiveRate;
+
                     if (invCurrencyCode === "USD" && payCurrencyCode === "VES")
-                      pendingEquiv = pendingBase * effectiveRate;
+                      pendingEquiv = pendingBase * invRate;
                     else if (
                       invCurrencyCode === "VES" &&
                       payCurrencyCode === "USD"
                     )
-                      pendingEquiv = pendingBase / effectiveRate;
+                      pendingEquiv = pendingBase / invRate;
 
                     const isPayingThis = currentAlloc > 0;
 
@@ -714,11 +802,15 @@ export function GlobalPaymentForm() {
                           <div className="flex flex-col">
                             <span
                               className={cn(
-                                "text-xs font-black",
+                                "text-xs font-black cursor-pointer hover:underline",
                                 operationType === "SALE"
                                   ? "text-teal-600"
                                   : "text-orange-600",
                               )}
+                              onClick={() => {
+                                setDetailInvoiceId(inv.id);
+                                setIsDetailOpen(true);
+                              }}
                             >
                               {inv.code}
                             </span>
@@ -728,19 +820,36 @@ export function GlobalPaymentForm() {
                                 : "-"}
                             </span>
                           </div>
-                          <div className="text-right">
-                            <div className="text-xs font-bold text-gray-900">
-                              {formatCurrency(pendingBase, inv.currency?.code)}
-                            </div>
-                            {payCurrencyCode !== invCurrencyCode && (
-                              <div className="text-[9px] text-muted-foreground font-semibold">
-                                ~{" "}
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-gray-400 hover:text-blue-600"
+                              onClick={() => {
+                                setDetailInvoiceId(inv.id);
+                                setIsDetailOpen(true);
+                              }}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <div className="text-right">
+                              <div className="text-xs font-bold text-gray-900">
                                 {formatCurrency(
-                                  pendingEquiv,
-                                  paymentCurrency?.code,
+                                  pendingBase,
+                                  inv.currency?.code,
                                 )}
                               </div>
-                            )}
+                              {payCurrencyCode !== invCurrencyCode && (
+                                <div className="text-[9px] text-muted-foreground font-semibold">
+                                  ~{" "}
+                                  {formatCurrency(
+                                    pendingEquiv,
+                                    paymentCurrency?.code,
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -825,6 +934,11 @@ export function GlobalPaymentForm() {
           </div>
         </div>
       </form>
+      <InvoiceDetailsDialog
+        open={isDetailOpen}
+        onOpenChange={setIsDetailOpen}
+        invoice={clientInvoices.find((i) => i.id === detailInvoiceId)}
+      />
     </div>
   );
 }

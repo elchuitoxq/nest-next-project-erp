@@ -18,6 +18,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { GuideCard } from "@/components/guide/guide-card";
 
 interface OverviewChartProps {
   data?: ChartData[];
@@ -38,6 +39,23 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
+        <GuideCard
+          title="Interpretación del Flujo de Caja"
+          variant="info"
+          className="mb-4"
+        >
+          <p>Este gráfico muestra el pulso financiero real:</p>
+          <ul className="list-disc pl-4 space-y-1">
+            <li>
+              <strong>Barras Verdes (Ventas):</strong> Facturación bruta
+              procesada.
+            </li>
+            <li>
+              <strong>Barras Naranjas (Compras):</strong> Gastos operativos y de
+              inventario.
+            </li>
+          </ul>
+        </GuideCard>
         <ResponsiveContainer width="100%" height={350}>
           <BarChart data={data || []}>
             <defs>
