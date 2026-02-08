@@ -25,7 +25,10 @@ import { useBankMutations, Bank } from "../hooks/use-banks";
 
 const bankSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
-  code: z.string().length(4, "El código debe tener 4 dígitos").regex(/^\d+$/, "Solo números"),
+  code: z
+    .string()
+    .length(4, "El código debe tener 4 dígitos")
+    .regex(/^\d+$/, "Solo números"),
 });
 
 type BankFormValues = z.infer<typeof bankSchema>;
@@ -76,7 +79,7 @@ export function BankDialog({ open, onOpenChange, bank }: BankDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{bank ? "Editar Banco" : "Nuevo Banco"}</DialogTitle>
         </DialogHeader>
@@ -108,15 +111,18 @@ export function BankDialog({ open, onOpenChange, bank }: BankDialogProps) {
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto px-8"
               >
                 Cancelar
               </Button>
-              <Button type="submit">Guardar</Button>
+              <Button type="submit" className="w-full sm:w-auto px-8">
+                Guardar
+              </Button>
             </DialogFooter>
           </form>
         </Form>

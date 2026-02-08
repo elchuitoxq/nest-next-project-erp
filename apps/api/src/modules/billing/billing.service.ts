@@ -44,6 +44,31 @@ export class BillingService {
     private readonly currenciesService: CurrenciesService,
   ) {}
 
+  async findOne(id: string) {
+    const invoice = await db.query.invoices.findFirst({
+      where: eq(invoices.id, id),
+      with: {
+        partner: true,
+        branch: true,
+        currency: true,
+        items: {
+          with: {
+            product: true,
+          },
+        },
+        payments: {
+          with: {
+            method: true,
+          },
+        },
+      },
+    });
+
+    if (!invoice) throw new NotFoundException('Factura no encontrada');
+
+    return invoice;
+  }
+
   async voidInvoice(
     id: string,
     userId: string,

@@ -3,6 +3,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -37,7 +38,7 @@ export function MoveDetailsDialog({
           <DialogTitle>Detalles del Movimiento: {move.code}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
               <span className="font-semibold">Fecha:</span>{" "}
               {move.date
@@ -67,7 +68,7 @@ export function MoveDetailsDialog({
             </div>
           </div>
 
-          <div className="rounded-md border mt-4">
+          <div className="rounded-md border mt-4 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -88,7 +89,7 @@ export function MoveDetailsDialog({
                       <TableCell className="font-mono text-xs">
                         {line.product?.sku || "-"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="max-w-[200px] truncate">
                         {line.product?.name || "Producto desconocido"}
                       </TableCell>
                       <TableCell className="text-right font-medium">

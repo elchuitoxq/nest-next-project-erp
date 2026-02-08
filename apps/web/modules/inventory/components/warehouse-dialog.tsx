@@ -2,7 +2,12 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import {
+  Loader2,
+  Warehouse as WarehouseIcon,
+  MapPin,
+  Building2,
+} from "lucide-react";
 import { GuideHint } from "@/components/guide/guide-hint";
 
 import { Button } from "@/components/ui/button";
@@ -118,13 +123,16 @@ export function WarehouseDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <WarehouseIcon className="size-5" />
+            </div>
             {isEditing ? "Editar Almacén" : "Nuevo Almacén"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="ml-12">
             {isEditing
-              ? "Modifica los datos del almacén seleccionado."
-              : "Registra una nueva ubicación física para tu inventario."}
+              ? "Gestiona la ubicación y vinculación de este almacén."
+              : "Configura un nuevo espacio de almacenamiento físico."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -212,8 +220,20 @@ export function WarehouseDialog({
               )}
             />
 
-            <DialogFooter>
-              <Button type="submit" disabled={isLoading}>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto px-8"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full sm:w-auto px-8"
+              >
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isEditing ? "Actualizar" : "Guardar"}
               </Button>

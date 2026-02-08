@@ -203,7 +203,7 @@ export function CreateCreditNoteDialog({
               />
             </div>
 
-            <div className="border rounded-md">
+            <div className="border rounded-md overflow-x-auto">
               <h3 className="font-medium p-4 border-b">
                 2. Seleccionar Productos
               </h3>

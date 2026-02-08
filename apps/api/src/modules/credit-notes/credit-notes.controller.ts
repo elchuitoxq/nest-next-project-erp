@@ -1,4 +1,12 @@
-import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UseGuards,
+  Req,
+  Param,
+} from '@nestjs/common';
 import { CreditNotesService } from './credit-notes.service';
 import { JwtAuthGuard } from '../../modules/auth/jwt-auth.guard';
 
@@ -18,5 +26,10 @@ export class CreditNotesController {
   @Get()
   findAll() {
     return this.creditNotesService.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.creditNotesService.findOne(id);
   }
 }

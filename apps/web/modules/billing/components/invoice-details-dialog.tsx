@@ -38,7 +38,17 @@ import {
   useUpdateInvoice,
 } from "../hooks/use-invoices";
 import { useWarehouses } from "@/modules/inventory/hooks/use-inventory";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Loader2,
+  FileText,
+  Calendar,
+  User,
+  Globe,
+  Hash,
+  Store,
+  Monitor,
+} from "lucide-react";
 import { toast } from "sonner";
 import { CreateCreditNoteDialog } from "./create-credit-note-dialog";
 import { PDFDownloadLink } from "@react-pdf/renderer";
@@ -215,12 +225,17 @@ export function InvoiceDetailsDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-6xl overflow-y-auto">
+        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <FileText className="size-5" />
+              </div>
               Factura {invoice.code}
-              {getTypeBadge(invoice.type)}
-              {getStatusBadge(invoice.status)}
+              <div className="flex gap-2 ml-auto">
+                {getTypeBadge(invoice.type)}
+                {getStatusBadge(invoice.status)}
+              </div>
             </DialogTitle>
             <DialogDescription>Detalle de la factura.</DialogDescription>
           </DialogHeader>
@@ -246,10 +261,15 @@ export function InvoiceDetailsDialog({
             </ul>
           </GuideCard>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-4">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">Fecha</p>
-              <p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-6 px-4 bg-muted/30 rounded-xl border border-dashed mb-4">
+            <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
+              <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+                <Calendar className="size-4" />
+                <p className="text-[10px] font-bold uppercase tracking-wider">
+                  Fecha de Emisión
+                </p>
+              </div>
+              <p className="text-sm font-semibold">
                 {invoice.date
                   ? format(new Date(invoice.date), "dd 'de' MMMM, yyyy", {
                       locale: es,
@@ -257,47 +277,50 @@ export function InvoiceDetailsDialog({
                   : "-"}
               </p>
             </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">
-                Estado
-              </p>
-              <div>{getStatusBadge(invoice.status)}</div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">
-                Cliente
-              </p>
-              <p>{invoice.partner?.name || "N/A"}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">
-                Moneda
-              </p>
-              <p>{invoice.currency?.code || "N/A"}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">
-                Tasa de Cambio
-              </p>
-              <p>
-                {invoice.exchangeRate
-                  ? invoice.currency?.code === "USD"
-                    ? `1 USD = Bs ${parseFloat(invoice.exchangeRate.toString()).toFixed(2)}`
-                    : `Ref: 1 USD = Bs ${parseFloat(invoice.exchangeRate.toString()).toFixed(2)}`
-                  : "N/A"}
+
+            <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
+              <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+                <User className="size-4" />
+                <p className="text-[10px] font-bold uppercase tracking-wider">
+                  Cliente / Proveedor
+                </p>
+              </div>
+              <p
+                className="text-sm font-semibold truncate"
+                title={invoice.partner?.name || "N/A"}
+              >
+                {invoice.partner?.name || "N/A"}
               </p>
             </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">
-                Sucursal
+
+            <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
+              <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+                <Globe className="size-4" />
+                <p className="text-[10px] font-bold uppercase tracking-wider">
+                  Moneda y Tasa
+                </p>
+              </div>
+              <p className="text-sm font-semibold">
+                {invoice.currency?.code || "N/A"}
+                {invoice.exchangeRate && (
+                  <span className="text-[10px] text-muted-foreground ml-2">
+                    (Ref:{" "}
+                    {parseFloat(invoice.exchangeRate.toString()).toFixed(2)})
+                  </span>
+                )}
               </p>
-              <p>{invoice.branch?.name || "N/A"}</p>
             </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-muted-foreground">
-                Creado por
+
+            <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
+              <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+                <Store className="size-4" />
+                <p className="text-[10px] font-bold uppercase tracking-wider">
+                  Sucursal
+                </p>
+              </div>
+              <p className="text-sm font-semibold">
+                {invoice.branch?.name || "N/A"}
               </p>
-              <p>{invoice.user?.name || "Usuario del sistema"}</p>
             </div>
           </div>
 
@@ -323,33 +346,35 @@ export function InvoiceDetailsDialog({
           </div>
 
           {/* Items Table */}
-          <div className="border rounded-md">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>SKU</TableHead>
+                  <TableHead className="hidden sm:table-cell">SKU</TableHead>
                   <TableHead>Producto</TableHead>
                   <TableHead className="text-right">Cant.</TableHead>
-                  <TableHead className="text-right">Precio</TableHead>
+                  <TableHead className="text-right hidden sm:table-cell">
+                    Precio
+                  </TableHead>
                   <TableHead className="text-right">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {invoice.items?.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-mono text-xs">
+                    <TableCell className="font-mono text-xs hidden sm:table-cell">
                       {item.product?.sku || "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-xs">
                       {item.product?.name || "Producto desconocido"}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right text-xs">
                       {item.quantity}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right text-xs hidden sm:table-cell">
                       {formatCurrency(item.price, invoice.currency?.code)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right text-xs font-bold">
                       {formatCurrency(item.total, invoice.currency?.code)}
                     </TableCell>
                   </TableRow>
@@ -386,8 +411,8 @@ export function InvoiceDetailsDialog({
                 )}
                 <TableRow>
                   <TableCell
-                    colSpan={4}
-                    className="text-right font-bold text-lg"
+                    colSpan={2}
+                    className="sm:col-span-4 text-right font-bold text-lg"
                   >
                     Total
                   </TableCell>
@@ -401,9 +426,9 @@ export function InvoiceDetailsDialog({
 
           {/* Payments History */}
           {invoice.payments && invoice.payments.length > 0 && (
-            <div className="space-y-2 mt-4">
+            <div className="space-y-2 mt-4 w-full min-w-0">
               <h3 className="font-semibold text-sm">Historial de Pagos</h3>
-              <div className="border rounded-md">
+              <div className="rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -432,53 +457,14 @@ export function InvoiceDetailsDialog({
             </div>
           )}
 
-          <DialogFooter className="gap-2 mt-4">
-            {invoice.status === "DRAFT" && (
-              <div className="flex items-center gap-2">
-                <Button onClick={handlePost} disabled={isPosting}>
-                  {isPosting && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Emitir Factura
-                </Button>
-                <GuideHint text="Esta acción asignará un Número de Control Fiscal consecutivo. No se puede deshacer." />
-              </div>
-            )}
-
-            {/* Print Button */}
-            <PDFDownloadLink
-              document={<InvoicePdf invoice={invoice} />}
-              fileName={`Factura-${invoice.code}.pdf`}
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 mt-8 border-t pt-6">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="w-full sm:w-auto px-8"
             >
-              {({ loading }) => (
-                <Button variant="outline" disabled={loading}>
-                  <Printer className="mr-2 h-4 w-4" />
-                  {loading ? "Generando..." : "Imprimir"}
-                </Button>
-              )}
-            </PDFDownloadLink>
-
-            {(invoice.status === "POSTED" || invoice.status === "PAID") && (
-              <>
-                {invoice.creditNotes && invoice.creditNotes.length > 0 ? (
-                  <Button
-                    variant="outline"
-                    disabled
-                    className="text-muted-foreground"
-                  >
-                    Devuelto ({invoice.creditNotes[0].code})
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsCreditNoteDialogOpen(true)}
-                    className="border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800"
-                  >
-                    Devolución / N.C.
-                  </Button>
-                )}
-              </>
-            )}
+              Cerrar
+            </Button>
 
             {invoice.status !== "VOID" && invoice.status !== "PAID" && (
               <Button
@@ -488,19 +474,75 @@ export function InvoiceDetailsDialog({
                   setTargetWarehouseId("");
                   setIsVoidDialogOpen(true);
                 }}
+                className="w-full sm:w-auto px-8"
               >
                 Anular Factura
               </Button>
             )}
 
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cerrar
-            </Button>
+            {(invoice.status === "POSTED" || invoice.status === "PAID") && (
+              <>
+                {invoice.creditNotes && invoice.creditNotes.length > 0 ? (
+                  <Button
+                    variant="outline"
+                    disabled
+                    className="text-muted-foreground w-full sm:w-auto px-8"
+                  >
+                    Devuelto ({invoice.creditNotes[0].code})
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsCreditNoteDialogOpen(true)}
+                    className="border-orange-200 text-orange-700 hover:bg-orange-50 hover:text-orange-800 w-full sm:w-auto px-8"
+                  >
+                    Devolución / N.C.
+                  </Button>
+                )}
+              </>
+            )}
+
+            {/* Print Button */}
+            <PDFDownloadLink
+              document={<InvoicePdf invoice={invoice} />}
+              fileName={`Factura-${invoice.code}.pdf`}
+              className="w-full sm:w-auto"
+            >
+              {({ loading }) => (
+                <Button
+                  variant="outline"
+                  disabled={loading}
+                  className="w-full sm:w-auto px-8"
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  {loading ? "Generando..." : "Imprimir"}
+                </Button>
+              )}
+            </PDFDownloadLink>
+
+            {invoice.status === "DRAFT" && (
+              <div className="flex flex-col-reverse sm:flex-row items-center gap-2 w-full sm:w-auto">
+                <GuideHint text="Esta acción asignará un Número de Control Fiscal consecutivo. No se puede deshacer." />
+                <Button
+                  onClick={handlePost}
+                  disabled={isPosting}
+                  className="w-full sm:w-auto px-8"
+                >
+                  {isPosting && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Emitir Factura
+                </Button>
+              </div>
+            )}
 
             {invoice.status !== "PAID" &&
               invoice.status !== "VOID" &&
               invoice.status !== "DRAFT" && (
-                <Button onClick={() => setIsPaymentOpen(true)}>
+                <Button
+                  onClick={() => setIsPaymentOpen(true)}
+                  className="w-full sm:w-auto px-8"
+                >
                   Registrar Pago
                 </Button>
               )}

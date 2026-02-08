@@ -30,7 +30,7 @@ export function ActivityFeed({ data, isLoading }: ActivityFeedProps) {
   }
 
   return (
-    <Card className="col-span-3 premium-shadow">
+    <Card className="col-span-full lg:col-span-3 premium-shadow">
       <CardHeader>
         <CardTitle>Actividad Reciente</CardTitle>
         <CardDescription>Últimas operaciones registradas.</CardDescription>

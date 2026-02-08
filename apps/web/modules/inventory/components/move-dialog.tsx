@@ -259,19 +259,20 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
               </div>
 
               {fields.map((field, index) => {
-                // Removed invalid watch on non-existent field currencyId
                 return (
                   <div
                     key={field.id}
-                    className="grid grid-cols-12 gap-2 items-end"
+                    className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end border p-4 sm:p-0 sm:border-0 rounded-md bg-muted/20 sm:bg-transparent"
                   >
-                    <div className="col-span-6">
+                    <div className="col-span-1 sm:col-span-6">
                       <FormField
                         control={form.control}
                         name={`lines.${index}.productId`}
                         render={({ field }) => (
                           <FormItem className="flex flex-col">
-                            <FormLabel className={index !== 0 ? "sr-only" : ""}>
+                            <FormLabel
+                              className={index !== 0 ? "sm:sr-only" : ""}
+                            >
                               Producto
                             </FormLabel>
                             <ProductCombobox
@@ -286,8 +287,6 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
                               onSelectObject={(item) => {
                                 const cost = Number(item.cost || 0);
                                 form.setValue(`lines.${index}.cost`, cost);
-                                // Optional: if we want to track currency
-                                // form.setValue(`lines.${index}.currencyId`, item.currencyId);
                               }}
                             />
                             <FormMessage />
@@ -295,13 +294,15 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
                         )}
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="grid grid-cols-2 gap-2 col-span-1 sm:col-span-5">
                       <FormField
                         control={form.control}
                         name={`lines.${index}.quantity`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className={index !== 0 ? "sr-only" : ""}>
+                            <FormLabel
+                              className={index !== 0 ? "sm:sr-only" : ""}
+                            >
                               Cant.
                             </FormLabel>
                             <FormControl>
@@ -311,15 +312,15 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
                           </FormItem>
                         )}
                       />
-                    </div>
-                    <div className="col-span-3">
                       <FormField
                         control={form.control}
                         name={`lines.${index}.cost`}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className={index !== 0 ? "sr-only" : ""}>
-                              Costo Unit.
+                            <FormLabel
+                              className={index !== 0 ? "sm:sr-only" : ""}
+                            >
+                              Costo
                             </FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" {...field} />
@@ -329,14 +330,15 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
                         )}
                       />
                     </div>
-                    <div className="col-span-1">
+                    <div className="col-span-1 flex justify-end">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
+                        className="text-red-500 hover:bg-red-50"
                         onClick={() => remove(index)}
                       >
-                        <Trash className="h-4 w-4 text-red-500" />
+                        <Trash className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -344,12 +346,24 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
               })}
             </div>
 
-            <DialogFooter>
-              <Button type="submit" disabled={createMove.isPending}>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto px-8"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={createMove.isPending}
+                className="w-full sm:w-auto px-8"
+              >
                 {createMove.isPending && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Registrar
+                Registrar Movimiento
               </Button>
             </DialogFooter>
           </form>

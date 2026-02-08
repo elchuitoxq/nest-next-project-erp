@@ -190,4 +190,24 @@ export class CreditNotesService {
       orderBy: (cn, { desc }) => [desc(cn.date)],
     });
   }
+
+  async findOne(id: string) {
+    const cn = await db.query.creditNotes.findFirst({
+      where: eq(creditNotes.id, id),
+      with: {
+        partner: true,
+        branch: true,
+        invoice: true,
+        items: {
+          with: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    if (!cn) throw new BadRequestException('Nota de Crédito no encontrada');
+
+    return cn;
+  }
 }

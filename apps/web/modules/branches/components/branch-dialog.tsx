@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import { Loader2, Store, MapPin, Phone, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -98,13 +98,18 @@ export function BranchDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar Sede" : "Nueva Sede"}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <Store className="size-5" />
+            </div>
+            {isEdit ? "Editar Sede" : "Nueva Sede"}
+          </DialogTitle>
+          <DialogDescription className="ml-12">
             {isEdit
-              ? "Modifica los datos de la sede aquí."
-              : "Ingresa los datos para crear una nueva sede."}
+              ? "Modifica la información legal y de contacto de la sucursal."
+              : "Registra una nueva sede operativa para el sistema."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -207,15 +212,24 @@ export function BranchDialog({
               )}
             />
 
-            <DialogFooter>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto px-8"
+              >
+                Cancelar
+              </Button>
               <Button
                 type="submit"
                 disabled={createBranch.isPending || updateBranch.isPending}
+                className="w-full sm:w-auto px-8"
               >
                 {(createBranch.isPending || updateBranch.isPending) && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Guardar
+                {isEdit ? "Actualizar" : "Guardar"}
               </Button>
             </DialogFooter>
           </form>

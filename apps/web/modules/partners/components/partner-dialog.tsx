@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { usePartnerMutations } from "../hooks/use-partners";
 import { useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Users } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GuideCard } from "@/components/guide/guide-card";
 import { GuideHint } from "@/components/guide/guide-hint";
@@ -127,7 +128,10 @@ export function PartnerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <Users className="size-5" />
+            </div>
             {partnerToEdit ? "Editar Socio" : "Crear Nuevo Socio"}
           </DialogTitle>
         </DialogHeader>
@@ -206,8 +210,13 @@ export function PartnerDialog({
               />
             </div>
 
-            <div className="p-4 bg-muted/50 rounded-md space-y-4 border">
-              <h3 className="font-semibold text-sm">Información Fiscal</h3>
+            <div className="p-4 bg-primary/5 dark:bg-primary/10 rounded-xl space-y-4 border border-primary/10">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="size-2 rounded-full bg-primary" />
+                <h3 className="font-bold text-sm text-primary uppercase tracking-wider">
+                  Información Fiscal
+                </h3>
+              </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -293,19 +302,24 @@ export function PartnerDialog({
               )}
             />
 
-            <div className="flex justify-end space-x-2 pt-4">
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
               <Button
                 variant="outline"
                 type="button"
                 onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto px-8"
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isPending}>
+              <Button
+                type="submit"
+                disabled={isPending}
+                className="w-full sm:w-auto px-8"
+              >
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {partnerToEdit ? "Actualizar" : "Crear"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>

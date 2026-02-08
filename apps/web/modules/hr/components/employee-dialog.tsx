@@ -136,7 +136,7 @@ export function EmployeeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {employee ? "Editar Empleado" : "Nuevo Empleado"}
@@ -446,15 +446,18 @@ export function EmployeeDialog({
               )}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto px-8"
               >
                 Cancelar
               </Button>
-              <Button type="submit">Guardar Empleado</Button>
+              <Button type="submit" className="w-full sm:w-auto px-8">
+                {employee ? "Actualizar Empleado" : "Guardar Empleado"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

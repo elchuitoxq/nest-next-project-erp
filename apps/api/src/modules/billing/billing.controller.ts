@@ -30,6 +30,16 @@ export class BillingController {
     });
   }
 
+  @Get('invoices/stats')
+  getStats(@Req() req: any, @Query('type') type: string) {
+    return this.billingService.getStats(req.branchId, type || 'SALE');
+  }
+
+  @Get('invoices/:id')
+  findOne(@Param('id') id: string) {
+    return this.billingService.findOne(id);
+  }
+
   @Post('invoices/:id') // Using POST as Patch for simplicity or strict PATCH
   updateInvoice(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.billingService.updateInvoice(id, body, req.user.userId);
@@ -38,11 +48,6 @@ export class BillingController {
   @Get('invoices')
   findAll(@Req() req: any, @Query() query: FindInvoicesDto) {
     return this.billingService.findAll(req.branchId, query);
-  }
-
-  @Get('invoices/stats')
-  getStats(@Req() req: any, @Query('type') type: string) {
-    return this.billingService.getStats(req.branchId, type || 'SALE');
   }
 
   @Post('invoices/:id/post')

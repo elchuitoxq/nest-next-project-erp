@@ -45,7 +45,7 @@ export function PayrollGeneratorDialog({ open, onOpenChange }: GeneratorProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Generar Nueva Nómina</DialogTitle>
         </DialogHeader>
@@ -89,11 +89,19 @@ export function PayrollGeneratorDialog({ open, onOpenChange }: GeneratorProps) {
             </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto px-8"
+          >
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={generatePayroll.isPending}>
+          <Button
+            onClick={handleSubmit}
+            disabled={generatePayroll.isPending}
+            className="w-full sm:w-auto px-8"
+          >
             {generatePayroll.isPending ? "Generando..." : "Generar Borrador"}
           </Button>
         </DialogFooter>

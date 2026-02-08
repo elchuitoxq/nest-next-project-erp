@@ -31,7 +31,7 @@ export function OverviewChart({ data, isLoading }: OverviewChartProps) {
   }
 
   return (
-    <Card className="col-span-4 premium-shadow">
+    <Card className="col-span-full lg:col-span-4 premium-shadow">
       <CardHeader>
         <CardTitle>Flujo de Caja</CardTitle>
         <CardDescription>

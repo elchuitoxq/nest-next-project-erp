@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import {
   Table,
@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { FileDown, FileJson, FileText, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -20,67 +20,66 @@ interface RetentionsTableProps {
   type: "IVA" | "ISLR";
 }
 
+interface Retention {
+  id: string;
+  date: string;
+  reference: string;
+  amount: number;
+  partnerName: string;
+  partnerTaxId: string;
+  relatedInvoice: string;
+  metadata?: any;
+}
+
+interface ApiResponse {
+  data: Retention[];
+  meta: {
+    total: number;
+    page: number;
+    lastPage: number;
+  };
+}
+
 export function RetentionsTable({ type }: RetentionsTableProps) {
-  const [exporting, setExporting] = useState(false);
-  const { data: retentions, isLoading } = useQuery({
-    queryKey: ["retentions", type],
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const limit = 25;
+
+  const { data, isLoading } = useQuery<ApiResponse>({
+    queryKey: ["retentions", type, page, search],
     queryFn: async () => {
-      const { data } = await api.get(`/treasury/retentions?type=${type}`);
+      const { data } = await api.get<ApiResponse>(`/treasury/retentions`, {
+        params: {
+          type,
+          page,
+          limit,
+          search,
+        },
+      });
       return data;
     },
+    placeholderData: keepPreviousData,
   });
+  const retentions = data?.data || [];
+  const meta = data?.meta || { total: 0, page: 1, lastPage: 1 };
 
-  const handleDownload = async (id: string, ref: string) => {
-    // ...
-  };
-
-  const handleDownloadXml = async (id: string, ref: string) => {
-    // ...
-  };
-
-  const handleExportTxt = async () => {
-    try {
-      setExporting(true);
-      const period = format(new Date(), "yyyyMM"); // Current period as default or let user choose
-      const response = await api.get(
-        `/treasury/retentions/export/txt?period=${period}`,
-        {
-          responseType: "blob",
-        },
-      );
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `retenciones_${period}.txt`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      toast.error("Error al exportar TXT");
-    } finally {
-      setExporting(false);
-    }
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setPage(1); // Reset to first page on search
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        {type === "IVA" && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportTxt}
-            disabled={exporting || retentions?.length === 0}
-            className="gap-2"
-          >
-            {exporting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <FileText className="h-4 w-4" />
-            )}
-            Exportar TXT SENIAT (Mes Actual)
-          </Button>
-        )}
+      <div className="flex justify-between items-center">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <input
+            placeholder="Buscar por código, proveedor..."
+            value={search}
+            onChange={handleSearch}
+            className="pl-8 h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          />
+        </div>
       </div>
 
       <div className="border rounded-md relative">
@@ -104,8 +103,9 @@ export function RetentionsTable({ type }: RetentionsTableProps) {
               <TableHead>Fecha</TableHead>
               <TableHead>Comprobante</TableHead>
               <TableHead>Proveedor (Sujeto)</TableHead>
+              <TableHead>Documento Afectado</TableHead>
+              <TableHead>Tipo</TableHead>
               <TableHead className="text-right">Monto Retenido</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -150,28 +150,31 @@ export function RetentionsTable({ type }: RetentionsTableProps) {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(Number(row.amount))}
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-bold text-primary">
+                          {row.relatedInvoice || "-"}
+                        </span>
+                        {row.conceptName && (
+                          <span className="text-[10px] text-muted-foreground uppercase leading-tight">
+                            {row.conceptName}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell className="text-right space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownload(row.id, row.reference)}
-                      >
-                        <FileDown className="h-4 w-4 mr-2" /> PDF
-                      </Button>
-                      {type === "IVA" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            handleDownloadXml(row.id, row.reference)
-                          }
-                        >
-                          <FileJson className="h-4 w-4 mr-2" /> XML
-                        </Button>
+                    <TableCell>
+                      {row.invoiceType === "SALE" ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100">
+                          Venta
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100">
+                          Compra
+                        </span>
                       )}
+                    </TableCell>
+                    <TableCell className="text-right font-black font-mono-data">
+                      {formatCurrency(Number(row.amount))}
                     </TableCell>
                   </motion.tr>
                 ))
@@ -179,6 +182,32 @@ export function RetentionsTable({ type }: RetentionsTableProps) {
             </AnimatePresence>
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <div className="flex-1 text-sm text-muted-foreground">
+          Página {meta.page} de {meta.lastPage}
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((old) => Math.max(old - 1, 1))}
+            disabled={page === 1 || isLoading}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Anterior
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((old) => Math.min(old + 1, meta.lastPage))}
+            disabled={page === meta.lastPage || isLoading}
+          >
+            Siguiente
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

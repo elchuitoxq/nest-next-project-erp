@@ -6,6 +6,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Table,
@@ -15,9 +16,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { useStock } from "../hooks/use-inventory";
 import { Warehouse } from "../types";
+import { Button } from "@/components/ui/button";
 
 interface WarehouseStockDialogProps {
   warehouse?: Warehouse;
@@ -60,7 +62,7 @@ export function WarehouseStockDialog({
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -97,6 +99,15 @@ export function WarehouseStockDialog({
             </Table>
           </div>
         )}
+        <DialogFooter className="mt-6">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="w-full sm:w-auto px-8"
+          >
+            Cerrar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

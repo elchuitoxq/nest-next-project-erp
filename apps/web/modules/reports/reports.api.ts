@@ -49,4 +49,12 @@ export const fiscalReportsApi = {
     });
     return data;
   },
+  getInvoice: async (id: string) => {
+    const { data } = await api.get(`/billing/invoices/${id}`);
+    return data;
+  },
+  getCreditNote: async (id: string) => {
+    const { data } = await api.get(`/credit-notes/${id}`);
+    return data;
+  },
 };

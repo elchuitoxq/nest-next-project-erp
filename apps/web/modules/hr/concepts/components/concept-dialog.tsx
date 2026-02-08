@@ -41,18 +41,28 @@ export function ConceptDialog({ open, onOpenChange }: ConceptDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nuevo Concepto de Nómina</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label>Nombre</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Bono de Asistencia" />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              placeholder="Bono de Asistencia"
+            />
           </div>
           <div className="space-y-2">
             <Label>Código</Label>
-            <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required placeholder="BONO_ASIST" />
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              required
+              placeholder="BONO_ASIST"
+            />
           </div>
           <div className="space-y-2">
             <Label>Categoría</Label>
@@ -66,9 +76,18 @@ export function ConceptDialog({ open, onOpenChange }: ConceptDialogProps) {
               </SelectContent>
             </Select>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit">Guardar</Button>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="w-full sm:w-auto px-8"
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" className="w-full sm:w-auto px-8">
+              Guardar Concepto
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

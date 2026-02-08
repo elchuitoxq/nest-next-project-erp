@@ -190,11 +190,13 @@ export class FiscalReportsService {
         summary.total_iva_retenido.plus(retainedThisMonth);
 
       return {
+        id: doc.id,
         fecha: doc.date,
         rif: doc.partner?.taxId || 'N/A',
         nombre: doc.partner?.name || 'N/A',
         numero_control: doc.code,
-        numero_factura: doc.code,
+        numero_factura:
+          type === 'INV' ? doc.invoiceNumber || doc.code : doc.code,
         tipo_documento: type,
         isRetentionOnly,
         isCriterioCaja: isRetentionOnly,
@@ -362,7 +364,8 @@ export class FiscalReportsService {
         rif: doc.partner?.taxId || 'N/A',
         nombre: doc.partner?.name || 'N/A',
         numero_control: doc.code,
-        numero_factura: type === 'INV' ? doc.invoiceNumber : doc.code,
+        numero_factura:
+          type === 'INV' ? doc.invoiceNumber || doc.code : doc.code,
         tipo_documento: type,
         isRetentionOnly,
         isCriterioCaja: isRetentionOnly,

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, ShieldCheck, Mail, UserCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -130,15 +130,18 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <ShieldCheck className="size-5" />
+            </div>
             {isEdit ? "Editar Usuario" : "Nuevo Usuario"}
           </DialogTitle>
           <DialogDescription>
             {isEdit
-              ? "Modifica los datos del usuario aquí."
-              : "Ingresa los datos para crear un nuevo usuario."}
+              ? "Modifica los permisos y accesos del colaborador."
+              : "Configura una nueva cuenta de acceso al sistema."}
           </DialogDescription>
         </DialogHeader>
 
@@ -160,32 +163,46 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
             onSubmit={form.handleSubmit(onSubmit)}
             className="grid gap-4 py-4"
           >
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Juan Pérez" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input placeholder="juan@ejemplo.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid gap-4 p-4 bg-muted/30 rounded-xl border border-dashed mb-2">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      <UserCircle className="size-3" /> Nombre Completo
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Juan Pérez"
+                        className="bg-background"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                      <Mail className="size-3" /> Correo Electrónico
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="juan@ejemplo.com"
+                        className="bg-background"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <FormField
               control={form.control}
               name="password"
@@ -291,15 +308,24 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
               )}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto px-8"
+              >
+                Cancelar
+              </Button>
               <Button
                 type="submit"
                 disabled={createUser.isPending || updateUser.isPending}
+                className="w-full sm:w-auto px-8"
               >
                 {(createUser.isPending || updateUser.isPending) && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Guardar
+                {isEdit ? "Actualizar" : "Guardar"}
               </Button>
             </DialogFooter>
           </form>

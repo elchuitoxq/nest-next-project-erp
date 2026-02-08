@@ -27,7 +27,7 @@ import { useBankAccounts } from "../hooks/use-bank-accounts";
 import { Invoice } from "@/modules/billing/types";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Wallet, Receipt, CircleDollarSign } from "lucide-react";
 interface PaymentDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -338,32 +338,45 @@ export function PaymentDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
         {/* ... existing header ... */}
         <DialogHeader>
-          <DialogTitle>Registrar Pago - {invoice.code}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <Wallet className="size-5" />
+            </div>
+            Registrar Pago - {invoice.code}
+          </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 text-sm bg-muted p-3 rounded-md">
-            <div>
-              <span className="text-muted-foreground">Total Factura:</span>
-              <div className="font-semibold text-lg">
+          <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-primary/5 border border-primary/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
+              <Receipt className="size-12" />
+            </div>
+            <div className="space-y-1 relative">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground flex items-center gap-1">
+                <CircleDollarSign className="size-3" /> Total Factura
+              </span>
+              <div className="font-black text-xl font-mono-data">
                 {formatCurrency(
                   Number(invoice.total),
                   invoice.currency?.symbol || "$",
                 )}
               </div>
             </div>
-            <div>
-              <span className="text-muted-foreground">Saldo Pendiente:</span>
-              <div className="font-semibold text-lg text-primary">
+            <div className="space-y-1 relative">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-primary flex items-center gap-1">
+                <div className="size-1.5 rounded-full bg-primary animate-pulse" />{" "}
+                Saldo Pendiente
+              </span>
+              <div className="font-black text-xl font-mono-data text-primary">
                 {formatCurrency(remaining, invoice.currency?.symbol || "$")}
               </div>
             </div>
             {isRetention && (
-              <div className="col-span-2 mt-2 pt-2 border-t border-dashed">
-                <div className="flex justify-between text-xs text-muted-foreground">
+              <div className="col-span-2 mt-2 pt-2 border-t border-dashed border-primary/20">
+                <div className="flex justify-between text-[10px] font-medium text-muted-foreground uppercase tracking-tight">
                   <span>
                     Base Imponible: {formatCurrency(invoice.totalBase)}
                   </span>
@@ -373,14 +386,14 @@ export function PaymentDialog({
             )}
 
             {igtfAmount > 0 && (
-              <div className="col-span-2 mt-2 pt-2 border-t border-dashed bg-yellow-50 dark:bg-yellow-900/10 -mx-3 px-3 pb-2">
-                <div className="flex justify-between items-center text-yellow-800 dark:text-yellow-500 font-medium">
+              <div className="col-span-2 mt-2 pt-2 border-t border-dashed border-yellow-200/50 bg-yellow-500/5 -mx-4 px-4 pb-2">
+                <div className="flex justify-between items-center text-yellow-700 dark:text-yellow-500 font-bold text-xs uppercase tracking-wider">
                   <span>IGTF (3%):</span>
                   <span>
                     +{formatCurrency(igtfAmount, invoice.currency?.symbol)}
                   </span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-[9px] text-muted-foreground mt-1 italic">
                   Aplica por pago en Divisas ({selectedMethod?.name})
                 </p>
               </div>
@@ -479,11 +492,20 @@ export function PaymentDialog({
             </div>
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="w-full sm:w-auto px-8"
+            >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isPending}>
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="w-full sm:w-auto px-8"
+            >
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {igtfAmount > 0
                 ? `Pagar ${formatCurrency(

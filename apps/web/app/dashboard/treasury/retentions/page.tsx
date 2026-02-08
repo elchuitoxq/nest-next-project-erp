@@ -44,11 +44,11 @@ export default function RetentionsPage() {
           description="Consulta y descarga de comprobantes de retención IVA e ISLR."
         />
 
-        <div className="flex items-center gap-2 border-b border-gray-100 pb-4">
+        <div className="grid grid-cols-2 gap-2 border-b border-gray-100 pb-4 sm:flex sm:items-center sm:w-auto">
           <Button
             variant={activeTab === "IVA" ? "default" : "ghost"}
             onClick={() => setActiveTab("IVA")}
-            className={`gap-2 rounded-xl transition-all duration-300 ${activeTab === "IVA" ? "premium-shadow" : "hover:bg-gray-100"}`}
+            className={`w-full sm:w-auto gap-2 rounded-xl transition-all duration-300 ${activeTab === "IVA" ? "premium-shadow" : "hover:bg-gray-100"}`}
           >
             <List className="h-4 w-4" />
             <span className="font-bold text-xs uppercase tracking-wider">
@@ -58,7 +58,7 @@ export default function RetentionsPage() {
           <Button
             variant={activeTab === "ISLR" ? "default" : "ghost"}
             onClick={() => setActiveTab("ISLR")}
-            className={`gap-2 rounded-xl transition-all duration-300 ${activeTab === "ISLR" ? "premium-shadow" : "hover:bg-gray-100"}`}
+            className={`w-full sm:w-auto gap-2 rounded-xl transition-all duration-300 ${activeTab === "ISLR" ? "premium-shadow" : "hover:bg-gray-100"}`}
           >
             <List className="h-4 w-4" />
             <span className="font-bold text-xs uppercase tracking-wider">

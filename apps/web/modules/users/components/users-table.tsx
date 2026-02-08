@@ -37,7 +37,7 @@ export function UsersTable({ users, onEdit, isLoading }: UsersTableProps) {
   };
 
   return (
-    <div className="rounded-md border relative">
+    <div className="rounded-md border relative overflow-x-auto">
       <AnimatePresence>
         {isLoading && (
           <motion.div
@@ -56,8 +56,8 @@ export function UsersTable({ users, onEdit, isLoading }: UsersTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead>Nombre</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Roles</TableHead>
+            <TableHead className="hidden md:table-cell">Email</TableHead>
+            <TableHead className="hidden lg:table-cell">Roles</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -78,8 +78,10 @@ export function UsersTable({ users, onEdit, isLoading }: UsersTableProps) {
                 <TableCell className="font-medium py-3 px-4">
                   {user.name}
                 </TableCell>
-                <TableCell className="py-3 px-4">{user.email}</TableCell>
-                <TableCell className="py-3 px-4">
+                <TableCell className="py-3 px-4 hidden md:table-cell">
+                  {user.email}
+                </TableCell>
+                <TableCell className="py-3 px-4 hidden lg:table-cell">
                   <div className="flex flex-wrap gap-1">
                     {user.roles.map((role) => (
                       <Badge key={role} variant="secondary" className="text-xs">

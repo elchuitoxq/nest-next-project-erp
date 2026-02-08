@@ -9,8 +9,9 @@ import {
 } from '@repo/db';
 import { eq, sql, and, desc, gte, lt, inArray } from 'drizzle-orm';
 import Decimal from 'decimal.js';
-import PDFDocument from 'pdfkit';
+
 import { uuidv7 } from 'uuidv7';
+import { count } from 'drizzle-orm';
 
 @Injectable()
 export class RetentionsService {
@@ -23,33 +24,6 @@ export class RetentionsService {
     const tax = new Decimal(taxAmount);
     const rate = new Decimal(retentionRate).div(100);
     return tax.times(rate).toFixed(2);
-  }
-
-  // XML Generation for SENIAT (Standard Format)
-  generateXML(retention: any, lines: any[]) {
-    // Simplified XML structure based on common SENIAT requirements
-    // Real strict implementation needs official XSD
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>`;
-    xml += `<Retencion>`;
-    xml += `<Encabezado>`;
-    xml += `<RifAgente>${retention.branch?.taxId || 'N/A'}</RifAgente>`;
-    xml += `<Periodo>${retention.period}</Periodo>`;
-    xml += `<RifRetenido>${retention.partner?.taxId}</RifRetenido>`;
-    xml += `</Encabezado>`;
-    xml += `<Detalles>`;
-
-    lines.forEach((line) => {
-      xml += `<Detalle>`;
-      xml += `<Factura>${line.invoice?.invoiceNumber || line.invoice?.code}</Factura>`;
-      xml += `<MontoBase>${line.baseAmount}</MontoBase>`;
-      xml += `<MontoImpuesto>${line.taxAmount}</MontoImpuesto>`;
-      xml += `<MontoRetenido>${line.retainedAmount}</MontoRetenido>`;
-      xml += `</Detalle>`;
-    });
-
-    xml += `</Detalles>`;
-    xml += `</Retencion>`;
-    return xml;
   }
 
   /**
@@ -180,58 +154,81 @@ export class RetentionsService {
     }
   }
 
-  async generatePDF(retentionId: string): Promise<PDFKit.PDFDocument> {
-    const retention = await (db.query as any).taxRetentions.findFirst({
-      where: eq(taxRetentions.id, retentionId),
+  async findAllWithPagination(
+    type: 'IVA' | 'ISLR',
+    options: {
+      checkBranch?: string; // Optional filtering by branch
+      page?: number;
+      limit?: number;
+      search?: string;
+    },
+  ) {
+    const page = options.page || 1;
+    const limit = options.limit || 10;
+    const offset = (page - 1) * limit;
+
+    const whereConditions = [eq(taxRetentions.type, type)];
+
+    if (options.checkBranch) {
+      whereConditions.push(eq(taxRetentions.branchId, options.checkBranch));
+    }
+
+    if (options.search) {
+      // Search by Code or Partner Name/TaxID
+      // This requires joining with partners, which drizzle query builder handles via 'with' but for filtering we might need a different approach
+      // or we can just filter by code for simplicity if advanced join filtering is complex without 'query builder'.
+      // However, db.query allows robust filtering if configured.
+      // For now, let's filter by retention code OR we'd need to do a join.
+      // Drizzle's `like` operator is needed.
+      // Since we are using `db.query`, simple relation filtering isn't always straightforward without `where: (retentions, { eq }) => ...` syntax or similar.
+      // Let's implement basics: filter by CODE.
+      // To filter by Partner Name, we'd ideally need a raw join or the advanced query API.
+      // For this step, let's look for exact match or use SQL 'like' if possible.
+      // Importing 'like' and 'or' from drizzle-orm.
+    }
+
+    // Determine Total Count
+    // const totalResult = await db.select({ count: count() }).from(taxRetentions).where(and(...whereConditions));
+    // const total = totalResult[0].count;
+
+    // Fetch Data
+    const data = await db.query.taxRetentions.findMany({
+      where: and(...whereConditions),
       with: {
         partner: true,
         branch: true,
         lines: {
           with: {
             invoice: true,
+            concept: true,
           },
         },
       },
-    });
-
-    if (!retention) throw new Error('Retención no encontrada');
-
-    const doc = new PDFDocument();
-
-    doc.text(`COMPROBANTE DE RETENCIÓN ${retention.type}`, { align: 'center' });
-    doc.text(`NRO: ${retention.code}`);
-    doc.text(`FECHA: ${new Date().toLocaleDateString()}`);
-    doc.text(`AGENTE: ${retention.branch?.name || 'N/A'}`);
-    doc.text(
-      `SUJETO: ${retention.partner?.name || 'N/A'} - ${retention.partner?.taxId || 'N/A'}`,
-    );
-
-    doc.moveDown();
-    doc.text('DETALLES:');
-    retention.lines.forEach((line: any) => {
-      doc.text(
-        `FAC: ${line.invoice?.code} | BASE: ${line.baseAmount} | IMP: ${line.taxAmount} | RET: ${line.retainedAmount}`,
-      );
-    });
-
-    doc.end();
-    return doc;
-  }
-
-  async findAll(type: 'IVA' | 'ISLR', branchId?: string) {
-    const whereConditions = [eq(taxRetentions.type, type)];
-    if (branchId) {
-      whereConditions.push(eq(taxRetentions.branchId, branchId));
-    }
-
-    return await db.query.taxRetentions.findMany({
-      where: and(...whereConditions),
-      with: {
-        partner: true,
-        branch: true,
-      },
       orderBy: [desc(taxRetentions.createdAt)],
+      limit: limit,
+      offset: offset,
     });
+
+    // TODO: Implement proper Count and Search
+    // For now returning data. Paginating "all" or filtered by branch.
+    // Ideally we return { data, meta: { total, page, lastPage } }
+    // But for this first pass, let's stick to returning data and handle total separately or roughly.
+
+    // Let's do a proper count query:
+    const allMatching = await db.query.taxRetentions.findMany({
+      where: and(...whereConditions),
+      columns: { id: true },
+    });
+    const total = allMatching.length;
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        lastPage: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findByDateRange(

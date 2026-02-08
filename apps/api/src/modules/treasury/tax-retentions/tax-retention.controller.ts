@@ -24,14 +24,31 @@ export class TaxRetentionController {
   ) {}
 
   @Get()
-  async findAll(@Query('type') type: 'IVA' | 'ISLR', @Req() req: any) {
-    const retentions = await this.retentionsService.findAll(
+  async findAll(
+    @Query('type') type: 'IVA' | 'ISLR',
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+    @Query('search') search: string,
+    @Req() req: any,
+  ) {
+    const pageNum = page ? parseInt(page) : 1;
+    const limitNum = limit ? parseInt(limit) : 10;
+
+    const { data, meta } = await this.retentionsService.findAllWithPagination(
       type || 'IVA',
-      req.branchId,
+      {
+        checkBranch: req.branchId,
+        page: pageNum,
+        limit: limitNum,
+        search,
+      },
     );
 
     // Map to match frontend expectations
-    return retentions.map((r) => ({
+    // Note: data structure might be slightly different if we change querying strategy,
+    // but basic fields used in frontend should match.
+    // RetentionsService.findAllWithPagination returns entities with partner loaded.
+    const mappedData = data.map((r) => ({
       id: r.id,
       date: r.createdAt,
       reference: r.code,
@@ -40,59 +57,21 @@ export class TaxRetentionController {
       partnerTaxId: r.partner?.taxId,
       type: r.type,
       period: r.period,
+      // We might need to fetch invoice number for "Documento Afectado" if not readily available on root
+      // findAllWithPagination includes lines.invoice.
+      // Let's grab the first invoice number as "related document" for now or list them?
+      // User asked for "factura o accion relacionada".
+      relatedInvoice:
+        r.lines?.[0]?.invoice?.invoiceNumber ||
+        r.lines?.[0]?.invoice?.code ||
+        'N/A',
+      invoiceType: r.lines?.[0]?.invoice?.type || 'N/A',
+      conceptName: r.lines?.[0]?.concept?.name || null,
     }));
-  }
 
-  @Get(':id/pdf')
-  async downloadPdf(@Param('id') id: string, @Res() res: Response) {
-    const doc = await this.retentionsService.generatePDF(id);
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename=retencion-${id}.pdf`,
-    });
-
-    doc.pipe(res);
-  }
-
-  @Get(':id/xml')
-  async downloadXml(@Param('id') id: string, @Res() res: Response) {
-    const retention = await this.retentionsService.findOne(id);
-    if (!retention) {
-      return res.status(404).send('Retención no encontrada');
-    }
-
-    const xml = this.retentionsService.generateXML(retention, retention.lines);
-
-    res.set({
-      'Content-Type': 'application/xml',
-      'Content-Disposition': `attachment; filename=retencion-${retention.code}.xml`,
-    });
-
-    res.send(xml);
-  }
-
-  @Get('export/txt')
-  async exportTxt(@Query('period') period: string, @Res() res: Response, @Req() req: any) {
-    const retentions = await this.retentionsService.findAll('IVA', req.branchId);
-    
-    // Filter by period if provided
-    const filtered = period 
-      ? retentions.filter(r => r.period === period)
-      : retentions;
-
-    // We need the lines for the TXT
-    const fullRetentions = await Promise.all(
-      filtered.map(r => this.retentionsService.findOne(r.id))
-    );
-
-    const txt = this.retentionsService.generateConsolidatedTxt(fullRetentions);
-
-    res.set({
-      'Content-Type': 'text/plain',
-      'Content-Disposition': `attachment; filename=retenciones_${period || 'todas'}.txt`,
-    });
-
-    res.send(txt);
+    return {
+      data: mappedData,
+      meta,
+    };
   }
 }

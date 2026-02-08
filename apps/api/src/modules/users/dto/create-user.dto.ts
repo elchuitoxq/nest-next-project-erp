@@ -23,12 +23,12 @@ export class CreateUserDto {
   name: string;
 
   @IsArray({ message: 'Roles debe ser un arreglo' })
-  @IsUUID(4, { each: true, message: 'ID de rol inválido' })
+  @IsUUID('all', { each: true, message: 'ID de rol inválido' })
   @IsNotEmpty({ message: 'Debe asignar al menos un rol' })
   roleIds: string[];
 
   @IsArray({ message: 'Sucursales debe ser un arreglo' })
-  @IsUUID(4, { each: true, message: 'ID de sucursal inválido' })
+  @IsUUID('all', { each: true, message: 'ID de sucursal inválido' })
   @IsNotEmpty({ message: 'Debe asignar al menos una sucursal' })
   branchIds: string[];
 }

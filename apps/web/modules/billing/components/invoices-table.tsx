@@ -38,7 +38,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Invoice } from "../types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -122,6 +122,7 @@ export function InvoicesTable({
       {
         accessorKey: "type",
         header: "Tipo",
+        meta: { className: "hidden lg:table-cell" },
         cell: ({ row }) => {
           const type = row.original.type;
           return type === "SALE" ? (
@@ -134,9 +135,10 @@ export function InvoicesTable({
       {
         accessorKey: "date",
         header: "Fecha",
+        meta: { className: "hidden sm:table-cell" },
         cell: ({ row }) =>
           row.original.date
-            ? format(new Date(row.original.date), "dd/MM/yyyy", { locale: es })
+            ? format(new Date(row.original.date), "dd/MM/yy", { locale: es })
             : "-",
       },
       {
@@ -250,17 +252,17 @@ export function InvoicesTable({
   return (
     <div className="space-y-4">
       {/* Filters Toolbar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div className="relative flex-1 w-full sm:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar... (ej: A-001, Cliente X)"
-            className="pl-8"
+            className="pl-8 w-full"
             value={internalSearch}
             onChange={(e) => setInternalSearch(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar">
           {/* Type Filter */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -370,7 +372,14 @@ export function InvoicesTable({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="h-10">
+                  <TableHead
+                    key={header.id}
+                    className={cn(
+                      "h-10",
+                      (header.column.columnDef.meta as { className?: string })
+                        ?.className,
+                    )}
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -400,7 +409,14 @@ export function InvoicesTable({
                     onClick={() => onViewDetails(row.original)}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="py-3 px-4">
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          "py-3 px-4",
+                          (cell.column.columnDef.meta as { className?: string })
+                            ?.className,
+                        )}
+                      >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),
@@ -410,7 +426,12 @@ export function InvoicesTable({
                   </motion.tr>
                 ))
               ) : (
-                <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <motion.tr
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
                   <TableCell
                     colSpan={columns.length}
                     className="h-24 text-center"

@@ -93,7 +93,7 @@ export function PositionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{position ? "Editar Cargo" : "Nuevo Cargo"}</DialogTitle>
         </DialogHeader>
@@ -195,15 +195,18 @@ export function PositionDialog({
               />
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto px-8"
               >
                 Cancelar
               </Button>
-              <Button type="submit">Guardar</Button>
+              <Button type="submit" className="w-full sm:w-auto px-8">
+                {position ? "Actualizar Cargo" : "Guardar Cargo"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

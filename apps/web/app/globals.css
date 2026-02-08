@@ -134,7 +134,7 @@
   .premium-glass {
     @apply bg-background/80 backdrop-blur-xl border-sidebar-border;
   }
-  
+
   .premium-shadow {
     box-shadow: 0 0 20px 0 oklch(0 0 0 / 5%);
   }
@@ -145,5 +145,27 @@
 
   .glow-primary {
     @apply shadow-[0_0_15px_-3px_rgba(var(--sidebar-ring),0.3)];
+  }
+
+  /* Mobile Optimization Utilities */
+  .mobile-scroll-touch {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent auto-zoom on iOS for inputs smaller than 16px */
+  @media screen and (max-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

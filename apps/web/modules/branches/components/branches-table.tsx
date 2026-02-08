@@ -41,7 +41,7 @@ export function BranchesTable({
   };
 
   return (
-    <div className="rounded-md border relative">
+    <div className="rounded-md border relative overflow-x-auto">
       <AnimatePresence>
         {isLoading && (
           <motion.div
@@ -60,7 +60,7 @@ export function BranchesTable({
         <TableHeader>
           <TableRow>
             <TableHead>Nombre</TableHead>
-            <TableHead>Dirección</TableHead>
+            <TableHead className="hidden md:table-cell">Dirección</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
@@ -82,7 +82,7 @@ export function BranchesTable({
                 <TableCell className="font-medium py-3 px-4">
                   {branch.name}
                 </TableCell>
-                <TableCell className="py-3 px-4">
+                <TableCell className="py-3 px-4 hidden md:table-cell">
                   {branch.address || "-"}
                 </TableCell>
                 <TableCell className="py-3 px-4">

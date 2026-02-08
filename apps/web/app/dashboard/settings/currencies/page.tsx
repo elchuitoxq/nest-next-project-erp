@@ -4,6 +4,7 @@ import { ExchangeRateWidget } from "@/modules/treasury/components/exchange-rate-
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
+import { PageHeader } from "@/components/layout/page-header";
 import {
   Table,
   TableBody,
@@ -53,56 +54,57 @@ export default function CurrenciesPage() {
           <DynamicBreadcrumb />
         </div>
       </header>
+
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="flex items-center justify-between py-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Monedas y Tasas
-            </h1>
-            <p className="text-muted-foreground">
-              Gestiona las monedas disponibles y sus tasas de cambio.
-            </p>
-          </div>
-          <Button
-            onClick={async () => {
-              const promise = api.get("/cron/trigger-bcv");
-              toast.promise(promise, {
-                loading: "Sincronizando tasas con BCV...",
-                success: "Tasas actualizadas correctamente",
-                error: "Error al sincronizar tasas",
-              });
-              try {
-                const result = await promise;
-                console.log("BCV Scraper Result:", result.data);
+        <PageHeader
+          title="Monedas y Tasas"
+          description="Gestiona las monedas disponibles y sus tasas de cambio."
+        >
+          <div className="w-full sm:w-auto">
+            <Button
+              onClick={async () => {
+                const promise = api.get("/cron/trigger-bcv");
+                toast.promise(promise, {
+                  loading: "Sincronizando tasas con BCV...",
+                  success: "Tasas actualizadas correctamente",
+                  error: "Error al sincronizar tasas",
+                });
+                try {
+                  const result = await promise;
+                  console.log("BCV Scraper Result:", result.data);
 
-                if (result.data?.details?.rates?.length > 0) {
-                  toast.success(
-                    "Tasas actualizadas: " +
-                      result.data.details.rates.join(", "),
-                  );
-                  // Success - wait a bit then reload to show new rates
-                  setTimeout(() => window.location.reload(), 2000);
-                } else if (result.data?.details?.errors?.length > 0) {
-                  console.error("Scraper Errors:", result.data.details.errors);
-                  toast.error("Ocurrieron errores. Revisa la consola.");
-                } else {
-                  toast.warning("No se encontraron cambios ni errores.");
+                  if (result.data?.details?.rates?.length > 0) {
+                    toast.success(
+                      "Tasas actualizadas: " +
+                        result.data.details.rates.join(", "),
+                    );
+                    // Success - wait a bit then reload to show new rates
+                    setTimeout(() => window.location.reload(), 2000);
+                  } else if (result.data?.details?.errors?.length > 0) {
+                    console.error(
+                      "Scraper Errors:",
+                      result.data.details.errors,
+                    );
+                    toast.error("Ocurrieron errores. Revisa la consola.");
+                  } else {
+                    toast.warning("No se encontraron cambios ni errores.");
+                  }
+                } catch (e) {
+                  console.error(e);
                 }
-              } catch (e) {
-                console.error(e);
-              }
-            }}
-            variant="outline"
-            className="gap-2"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Sincronizar BCV
-          </Button>
-        </div>
+              }}
+              variant="outline"
+              className="gap-2 w-full sm:w-auto"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Sincronizar BCV
+            </Button>
+          </div>
+        </PageHeader>
 
         <div className="grid gap-6 md:grid-cols-3">
           {/* Main Currencies List */}
@@ -127,7 +129,7 @@ export default function CurrenciesPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border relative">
+                <div className="rounded-md border relative overflow-x-auto">
                   <AnimatePresence>
                     {isLoading && (
                       <motion.div
@@ -147,8 +149,12 @@ export default function CurrenciesPage() {
                       <TableRow>
                         <TableHead className="px-4">Código</TableHead>
                         <TableHead className="px-4">Nombre</TableHead>
-                        <TableHead className="px-4">Símbolo</TableHead>
-                        <TableHead className="px-4">Tipo</TableHead>
+                        <TableHead className="px-4 hidden md:table-cell">
+                          Símbolo
+                        </TableHead>
+                        <TableHead className="px-4 hidden md:table-cell">
+                          Tipo
+                        </TableHead>
                         <TableHead className="text-right px-4">
                           Tasa Actual
                         </TableHead>
@@ -175,12 +181,12 @@ export default function CurrenciesPage() {
                               <TableCell className="font-bold text-sm py-3 px-4">
                                 {currency.name}
                               </TableCell>
-                              <TableCell className="py-3 px-4">
+                              <TableCell className="py-3 px-4 hidden md:table-cell">
                                 <span className="font-mono-data bg-muted px-2 py-1 rounded text-xs font-bold">
                                   {currency.symbol}
                                 </span>
                               </TableCell>
-                              <TableCell className="py-3 px-4">
+                              <TableCell className="py-3 px-4 hidden md:table-cell">
                                 {currency.isBase ? (
                                   <Badge
                                     variant="outline"

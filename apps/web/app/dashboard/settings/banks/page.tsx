@@ -1,6 +1,7 @@
 "use client";
 
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { PageHeader } from "@/components/layout/page-header";
 import { Separator } from "@/components/ui/separator";
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 import {
@@ -55,26 +56,24 @@ export default function BanksPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-1 flex-col gap-4 p-4 pt-0"
       >
-        <div className="flex items-center justify-between py-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Maestro de Bancos
-            </h1>
-            <p className="text-muted-foreground">
-              Gestión de entidades bancarias y códigos SUDEBAN.
-            </p>
-          </div>
-          <Button className="gap-2 premium-shadow" onClick={handleNew}>
+        <PageHeader
+          title="Maestro de Bancos"
+          description="Gestión de entidades bancarias y códigos SUDEBAN."
+        >
+          <Button
+            className="gap-2 premium-shadow w-full sm:w-auto"
+            onClick={handleNew}
+          >
             <Plus className="h-4 w-4" /> Nuevo Banco
           </Button>
-        </div>
+        </PageHeader>
 
         <Card className="border premium-shadow">
           <CardHeader>
             <CardTitle>Listado de Bancos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border relative">
+            <div className="rounded-md border relative overflow-x-auto">
               <AnimatePresence>
                 {isLoading && (
                   <motion.div
@@ -92,10 +91,16 @@ export default function BanksPage() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="px-4">Código</TableHead>
+                    <TableHead className="px-4 hidden md:table-cell w-[100px]">
+                      Código
+                    </TableHead>
                     <TableHead className="px-4">Nombre</TableHead>
-                    <TableHead className="text-center px-4">Activo</TableHead>
-                    <TableHead className="text-right px-4">Acciones</TableHead>
+                    <TableHead className="text-center px-4 w-[100px]">
+                      Activo
+                    </TableHead>
+                    <TableHead className="text-right px-4 w-[100px]">
+                      Acciones
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -110,7 +115,7 @@ export default function BanksPage() {
                           exit={{ opacity: 0, transition: { duration: 0.2 } }}
                           className="border-b last:border-0 hover:bg-muted/50 transition-colors group"
                         >
-                          <TableCell className="font-mono-data py-3 px-4 text-xs font-bold text-primary">
+                          <TableCell className="font-mono-data py-3 px-4 text-xs font-bold text-primary hidden md:table-cell">
                             {bank.code}
                           </TableCell>
                           <TableCell className="font-bold py-3 px-4 text-sm">

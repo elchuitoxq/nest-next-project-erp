@@ -59,7 +59,7 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Registrar Novedad</DialogTitle>
         </DialogHeader>
@@ -121,15 +121,18 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              className="w-full sm:w-auto px-8"
             >
               Cancelar
             </Button>
-            <Button type="submit">Guardar</Button>
+            <Button type="submit" className="w-full sm:w-auto px-8">
+              Guardar Novedad
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

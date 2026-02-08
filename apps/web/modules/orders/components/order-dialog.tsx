@@ -8,6 +8,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -544,12 +545,12 @@ export function OrderDialog({
               </AnimatePresence>
             </div>
 
-            <div className="flex justify-end items-center gap-6 pt-4 border-t">
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end items-center gap-4 pt-4 border-t mt-6">
               <motion.div
                 key={calculateTotal()}
                 initial={{ scale: 0.95, opacity: 0.5 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="text-2xl font-bold font-mono-data text-primary"
+                className="text-2xl font-bold font-mono-data text-primary w-full sm:w-auto text-center sm:text-right"
               >
                 <span className="text-sm font-medium text-muted-foreground mr-2">
                   Total Estimado:
@@ -565,22 +566,27 @@ export function OrderDialog({
                   );
                 })()}
               </motion.div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   type="button"
                   onClick={() => onOpenChange(false)}
+                  className="flex-1 sm:flex-none px-8"
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={createOrder.isPending}>
+                <Button
+                  type="submit"
+                  disabled={createOrder.isPending}
+                  className="flex-1 sm:flex-none px-8"
+                >
                   {createOrder.isPending && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
                   {isPurchase ? "Registrar Orden" : "Solicitar Pedido"}
                 </Button>
               </div>
-            </div>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>
