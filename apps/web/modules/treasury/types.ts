@@ -19,6 +19,7 @@ export interface Payment {
   date: string;
   user?: { id: string; name: string };
   bankAccount?: { id: string; name: string };
+  allocations?: { invoiceId: string; invoiceCode: string; amount: string }[];
 }
 
 export interface CreatePaymentDto {

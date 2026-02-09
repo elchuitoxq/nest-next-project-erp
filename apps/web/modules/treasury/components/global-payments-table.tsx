@@ -43,6 +43,8 @@ interface ExtendedPaymentMethod extends PaymentMethod {
   currency?: Currency;
 }
 
+import { PaymentDetailsDialog } from "./payment-details-dialog";
+
 export function GlobalPaymentsTable() {
   const { data: payments, isLoading: isLoadingPayments } = usePayments();
   // Fetch a reasonable limit of partners for mapping
@@ -54,6 +56,7 @@ export function GlobalPaymentsTable() {
   const { data: methods, isLoading: isLoadingMethods } = usePaymentMethods();
   const [searchTerm, setSearchTerm] = useState("");
   const [methodFilter, setMethodFilter] = useState("ALL");
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   // Fetch currencies
   const { data: currencies, isLoading: isLoadingCurrencies } = useQuery({
@@ -112,6 +115,12 @@ export function GlobalPaymentsTable() {
 
   return (
     <div className="space-y-4">
+      <PaymentDetailsDialog
+        payment={selectedPayment}
+        open={!!selectedPayment}
+        onOpenChange={(open) => !open && setSelectedPayment(null)}
+      />
+
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
         <div className="relative w-full sm:w-72">
@@ -176,6 +185,7 @@ export function GlobalPaymentsTable() {
               <TableHead>Cliente</TableHead>
               <TableHead>Método</TableHead>
               <TableHead>Banco / Caja</TableHead>
+              <TableHead>Facturas</TableHead>
               <TableHead>Responsable</TableHead>
               <TableHead className="text-right">Monto</TableHead>
             </TableRow>
@@ -185,7 +195,7 @@ export function GlobalPaymentsTable() {
               {sortedPayments.length === 0 && !isLoading ? (
                 <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                   <TableCell
-                    colSpan={7}
+                    colSpan={8}
                     className="text-center py-8 text-muted-foreground"
                   >
                     {payments?.length === 0
@@ -228,7 +238,8 @@ export function GlobalPaymentsTable() {
                         transition: { delay: index * 0.05 },
                       }}
                       exit={{ opacity: 0, transition: { duration: 0.2 } }}
-                      className="border-b transition-colors hover:bg-muted/50"
+                      className="border-b transition-colors hover:bg-muted/50 cursor-pointer"
+                      onClick={() => setSelectedPayment(payment)}
                     >
                       <TableCell>
                         {new Date(payment.date).toLocaleDateString()}
@@ -248,6 +259,25 @@ export function GlobalPaymentsTable() {
                         </div>
                       </TableCell>
                       <TableCell>{payment.bankAccount?.name || "-"}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          {payment.allocations &&
+                          payment.allocations.length > 0 ? (
+                            payment.allocations.map((alloc: any, i: number) => (
+                              <span
+                                key={i}
+                                className="text-xs font-mono bg-muted/50 px-1.5 py-0.5 rounded w-fit"
+                              >
+                                {alloc.invoiceCode}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              -
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>{payment.user?.name || "Sistema"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex flex-col items-end">

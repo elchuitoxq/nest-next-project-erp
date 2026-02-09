@@ -632,8 +632,14 @@ export class TreasuryService {
         payment: payments,
         user: users,
         bankAccount: bankAccounts,
-        partner: partners, // Include partner info for description
-        method: paymentMethods, // Include method name
+        partner: partners,
+        method: paymentMethods,
+        // Helper to aggregate allocations (Postgres)
+        // We will fetch allocations separately or use a leftJoin with aggregation?
+        // Drizzle doesn't support easy nested relations in .select() without query builder mode.
+        // Let's use query builder mode or map results.
+        // Actually, since we are using .select(), we get a flat list.
+        // Let's use db.query which is easier for nested relations if performance allows.
       })
       .from(payments)
       .leftJoin(users, eq(payments.userId, users.id))
@@ -641,18 +647,74 @@ export class TreasuryService {
       .leftJoin(partners, eq(payments.partnerId, partners.id))
       .leftJoin(paymentMethods, eq(payments.methodId, paymentMethods.id))
       .where(whereClause)
-      .orderBy(desc(payments.date)); // Newest first
+      .orderBy(desc(payments.date));
 
-    // Map to expected structure
-    return rows.map(({ payment, user, bankAccount, partner, method }) => ({
-      ...payment,
-      user: user ? { id: user.id, name: user.name } : null,
-      bankAccount: bankAccount
-        ? { id: bankAccount.id, name: bankAccount.name }
-        : null,
-      partnerName: partner?.name || 'N/A', // Add Partner Name
-      methodName: method?.name || 'N/A', // Add Method Name
-    }));
+    // To avoid N+1, let's fetch all allocations for these payments
+    const paymentIds = rows.map((r) => r.payment.id);
+    let allocationsMap = new Map<string, any[]>();
+
+    if (paymentIds.length > 0) {
+      const allocs = await db.query.paymentAllocations.findMany({
+        where: sql`${paymentAllocations.paymentId} IN ${paymentIds}`,
+        with: {
+          invoice: true,
+        },
+      });
+
+      for (const a of allocs) {
+        if (!allocationsMap.has(a.paymentId)) {
+          allocationsMap.set(a.paymentId, []);
+        }
+        allocationsMap.get(a.paymentId)?.push({
+          invoiceId: a.invoiceId,
+          invoiceCode: a.invoice.code,
+          amount: a.amount,
+        });
+      }
+    }
+
+    // Also handle legacy single invoiceId
+    // If payment has invoiceId but NO allocations, we can treat it as one allocation.
+    // Fetch legacy invoices
+    const legacyInvoiceIds = rows
+      .filter((r) => r.payment.invoiceId && !allocationsMap.has(r.payment.id))
+      .map((r) => r.payment.invoiceId as string);
+
+    let legacyInvoicesMap = new Map<string, string>();
+    if (legacyInvoiceIds.length > 0) {
+      const legacyInvs = await db.query.invoices.findMany({
+        where: sql`${invoices.id} IN ${legacyInvoiceIds}`,
+        columns: { id: true, code: true },
+      });
+      legacyInvs.forEach((inv) => legacyInvoicesMap.set(inv.id, inv.code));
+    }
+
+    return rows.map(({ payment, user, bankAccount, partner, method }) => {
+      let finalAllocations = allocationsMap.get(payment.id) || [];
+
+      // Backwards compatibility for legacy single-invoice payments without allocations
+      if (finalAllocations.length === 0 && payment.invoiceId) {
+        const code = legacyInvoicesMap.get(payment.invoiceId);
+        if (code) {
+          finalAllocations.push({
+            invoiceId: payment.invoiceId,
+            invoiceCode: code,
+            amount: payment.amount,
+          });
+        }
+      }
+
+      return {
+        ...payment,
+        user: user ? { id: user.id, name: user.name } : null,
+        bankAccount: bankAccount
+          ? { id: bankAccount.id, name: bankAccount.name }
+          : null,
+        partnerName: partner?.name || 'N/A',
+        methodName: method?.name || 'N/A',
+        allocations: finalAllocations,
+      };
+    });
   }
 
   async getAccountStatement(partnerId: string, branchId?: string) {
@@ -673,10 +735,15 @@ export class TreasuryService {
             eq(payments.partnerId, partnerId),
             branchId ? eq(payments.branchId, branchId) : undefined,
           ),
-          // with: {
-          //   method: true,
-          //   currency: true,
-          // },
+          with: {
+            allocations: {
+              with: {
+                invoice: true,
+              },
+            },
+            invoice: true, // Legacy link
+            bankAccount: true,
+          },
         }),
         db.query.creditNotes.findMany({
           where: and(
@@ -721,12 +788,34 @@ export class TreasuryService {
       const isBalancePayment = method?.code?.startsWith('BALANCE');
       const creditAmount = isBalancePayment ? 0 : Number(pay.amount);
 
+      // Build description with invoice details
+      const invoiceCodes = new Set<string>();
+      if (pay.allocations && pay.allocations.length > 0) {
+        pay.allocations.forEach((a: any) => {
+          if (a.invoice && a.invoice.code) {
+            invoiceCodes.add(a.invoice.code);
+          }
+        });
+      }
+
+      // Legacy or direct link fallback if no allocations found (or mixed)
+      if (pay.invoice && pay.invoice.code && invoiceCodes.size === 0) {
+        invoiceCodes.add(pay.invoice.code);
+      }
+
+      const invoiceDetail =
+        invoiceCodes.size > 0
+          ? ` (Facturas: ${Array.from(invoiceCodes).join(', ')})`
+          : '';
+
+      const bankInfo = pay.bankAccount ? ` - ${pay.bankAccount.name}` : '';
+
       transactions.push({
         id: pay.id,
         date: pay.date ? new Date(pay.date) : new Date(),
         type: 'PAYMENT',
         reference: pay.reference || '-',
-        description: `Pago ${method ? method.name : ''} ${isBalancePayment ? `(Cruce) - Monto: ${Number(pay.amount).toFixed(2)}` : ''}`,
+        description: `Pago ${method ? method.name : ''}${bankInfo}${isBalancePayment ? ` (Cruce) - Monto: ${Number(pay.amount).toFixed(2)}` : ''}${invoiceDetail}`,
         debit: 0,
         credit: creditAmount,
         currency: currency ? currency.code : 'VES',

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { fiscalReportsApi } from "../reports.api";
 import { format } from "date-fns";
+import { useGuideStore } from "@/stores/use-guide-store";
 
 import {
   Card,
@@ -36,8 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+
 import {
   Tooltip,
   TooltipContent,
@@ -48,6 +48,8 @@ import { Info, HelpCircle, FileText, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { DocumentDetailModal } from "./document-detail-modal";
 
+import { FiscalGuide } from "./fiscal-guide";
+
 export function ReportsView() {
   const [type, setType] = useState<"ventas" | "compras" | "liquidacion">(
     "ventas",
@@ -55,6 +57,8 @@ export function ReportsView() {
   const [month, setMonth] = useState(new Date().getMonth() + 1 + "");
   const [year, setYear] = useState(new Date().getFullYear() + "");
   const [fortnight, setFortnight] = useState<string>("full"); // "full", "first", "second"
+
+  const { isHelpMode, toggleHelpMode } = useGuideStore();
 
   const [selectedDocument, setSelectedDocument] = useState<{
     id: string;
@@ -276,6 +280,10 @@ export function ReportsView() {
           </div>
         </PageHeader>
 
+        <AnimatePresence>
+          {isHelpMode && <FiscalGuide onClose={toggleHelpMode} />}
+        </AnimatePresence>
+
         {!isLoading && data && type !== "liquidacion" && (
           <Card className="mb-4 border-green-100 bg-green-50/30 dark:bg-green-950/10">
             <CardContent className="py-3 flex items-start gap-3">
@@ -328,7 +336,7 @@ export function ReportsView() {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
-            <div className="flex flex-col md:flex-row md:items-end gap-6">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
               <Tabs
                 value={type}
                 onValueChange={(v: any) => setType(v)}
@@ -341,10 +349,10 @@ export function ReportsView() {
                 </TabsList>
               </Tabs>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto md:ml-auto">
-                <div className="space-y-1">
+              <div className="flex flex-wrap gap-3 w-full md:w-auto">
+                <div className="space-y-1 min-w-[130px] flex-1">
                   <Select value={month} onValueChange={setMonth}>
-                    <SelectTrigger className="w-full md:w-[130px]">
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Mes" />
                     </SelectTrigger>
                     <SelectContent>
@@ -359,9 +367,9 @@ export function ReportsView() {
                   </Select>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-[100px] flex-1">
                   <Select value={year} onValueChange={setYear}>
-                    <SelectTrigger className="w-full md:w-[90px]">
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Año" />
                     </SelectTrigger>
                     <SelectContent>
@@ -372,13 +380,13 @@ export function ReportsView() {
                   </Select>
                 </div>
 
-                <div className="col-span-2 sm:col-span-1 space-y-1">
+                <div className="space-y-1 min-w-[180px] flex-1 sm:flex-none">
                   <Select
                     value={fortnight}
                     onValueChange={setFortnight}
                     disabled={type === "liquidacion"}
                   >
-                    <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Periodo" />
                     </SelectTrigger>
                     <SelectContent>

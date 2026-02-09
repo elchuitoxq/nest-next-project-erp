@@ -262,10 +262,16 @@ export function DocumentDetailModal({
                                   {Number(item.quantity).toFixed(2)}
                                 </TableCell>
                                 <TableCell className="text-right text-xs py-3 font-mono">
-                                  {formatCurrency(item.price)}
+                                  {formatCurrency(
+                                    item.price,
+                                    document.currency?.code,
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-right text-xs py-3 font-bold font-mono-data">
-                                  {formatCurrency(item.total)}
+                                  {formatCurrency(
+                                    item.total,
+                                    document.currency?.code,
+                                  )}
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -342,8 +348,10 @@ export function DocumentDetailModal({
                                     {payment.reference || "-"}
                                   </TableCell>
                                   <TableCell className="text-right text-xs py-3 font-black text-green-600 dark:text-green-400 font-mono-data">
-                                    {formatCurrency(payment.amount)}{" "}
-                                    {document.currency?.symbol}
+                                    {formatCurrency(
+                                      payment.amount,
+                                      document.currency?.code,
+                                    )}
                                   </TableCell>
                                 </TableRow>
                               ))}
@@ -363,20 +371,29 @@ export function DocumentDetailModal({
                   <div className="flex justify-between items-center text-xs uppercase font-bold tracking-widest text-muted-foreground pb-2 border-b border-muted/30">
                     <span>Base Imponible</span>
                     <span className="font-mono-data text-foreground text-sm">
-                      {formatCurrency(document.totalBase)}
+                      {formatCurrency(
+                        document.totalBase,
+                        document.currency?.code,
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-xs uppercase font-bold tracking-widest text-muted-foreground pb-2 border-b border-muted/30">
                     <span>Impuesto (IVA)</span>
                     <span className="font-mono-data text-foreground text-sm">
-                      {formatCurrency(document.totalTax)}
+                      {formatCurrency(
+                        document.totalTax,
+                        document.currency?.code,
+                      )}
                     </span>
                   </div>
                   {Number(document.totalIgtf) > 0 && (
                     <div className="flex justify-between items-center text-xs uppercase font-bold tracking-widest text-blue-600 pb-2 border-b border-blue-100">
                       <span>IGTF (3%)</span>
                       <span className="font-mono-data text-sm">
-                        {formatCurrency(document.totalIgtf)}
+                        {formatCurrency(
+                          document.totalIgtf,
+                          document.currency?.code,
+                        )}
                       </span>
                     </div>
                   )}
@@ -398,10 +415,7 @@ export function DocumentDetailModal({
                           : "text-primary",
                       )}
                     >
-                      {formatCurrency(
-                        document.total,
-                        document.currency?.symbol || "Bs",
-                      )}
+                      {formatCurrency(document.total, document.currency?.code)}
                     </span>
                   </div>
                 </div>
