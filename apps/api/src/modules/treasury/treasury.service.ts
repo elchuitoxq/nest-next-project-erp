@@ -268,7 +268,7 @@ export class TreasuryService {
           currencyId: data.currencyId,
           branchId: data.branchId, // Save branchId
           amount: amount.toFixed(2),
-          type: paymentType as 'INCOME' | 'EXPENSE',
+          type: paymentType,
           exchangeRate,
           bankAccountId: finalBankAccountId || null,
           reference: data.reference,
@@ -346,7 +346,7 @@ export class TreasuryService {
               partnerId: data.partnerId,
               branchId: data.branchId || invoice.branchId,
               userId: data.userId || 'SYSTEM',
-              type: type as 'IVA' | 'ISLR',
+              type: type,
               period: new Date().toISOString().slice(0, 7).replace('-', ''),
               items: [
                 {
@@ -1040,14 +1040,12 @@ export class TreasuryService {
         .lineTo(550, startY + 15)
         .stroke();
 
-      const invCode =
-        invoice?.code || (payment.metadata as any)?.invoiceCode || 'N/A';
+      const invCode = invoice?.code || payment.metadata?.invoiceCode || 'N/A';
       const invDate = invoice?.date
         ? new Date(invoice.date).toLocaleDateString()
-        : (payment.metadata as any)?.voucherDate || '-';
+        : payment.metadata?.voucherDate || '-';
       // Base: From invoice or metadata. Ideally metadata.taxBase
-      const base =
-        (payment.metadata as any)?.taxBase || invoice?.totalBase || '0.00';
+      const base = payment.metadata?.taxBase || invoice?.totalBase || '0.00';
       const retained = payment.amount;
 
       doc.text(invCode, 50, startY + 25);

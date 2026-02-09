@@ -51,4 +51,3 @@ export class BankAccountsController {
     return this.service.toggleActive(id, req.branchId);
   }
 }
-

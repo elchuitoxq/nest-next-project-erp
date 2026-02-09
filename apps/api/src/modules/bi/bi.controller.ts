@@ -22,11 +22,7 @@ export class BiController {
   @Get('kpis')
   @UsePipes(new ValidationPipe({ transform: true }))
   getKpis(@Request() req: any, @Query() query: GetBiStatsDto) {
-    return this.biService.getKpis(
-      req.branchId,
-      query.startDate,
-      query.endDate,
-    );
+    return this.biService.getKpis(req.branchId, query.startDate, query.endDate);
   }
 
   @Get('chart')

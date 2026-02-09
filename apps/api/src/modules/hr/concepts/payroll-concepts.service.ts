@@ -11,12 +11,22 @@ export class PayrollConceptsService {
     });
   }
 
-  async create(data: { name: string; code: string; category: string; branchId: string }) {
-    const [concept] = await db.insert(payrollConceptTypes).values(data).returning();
+  async create(data: {
+    name: string;
+    code: string;
+    category: string;
+    branchId: string;
+  }) {
+    const [concept] = await db
+      .insert(payrollConceptTypes)
+      .values(data)
+      .returning();
     return concept;
   }
 
   async delete(id: string) {
-    return await db.delete(payrollConceptTypes).where(eq(payrollConceptTypes.id, id));
+    return await db
+      .delete(payrollConceptTypes)
+      .where(eq(payrollConceptTypes.id, id));
   }
 }

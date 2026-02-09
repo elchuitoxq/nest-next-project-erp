@@ -27,7 +27,10 @@ export class BanksController {
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() data: { name?: string; code?: string }) {
+  update(
+    @Param('id') id: string,
+    @Body() data: { name?: string; code?: string },
+  ) {
     return this.banksService.update(id, data);
   }
 

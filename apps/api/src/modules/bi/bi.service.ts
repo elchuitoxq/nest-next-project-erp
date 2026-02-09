@@ -11,7 +11,18 @@ import {
   inventoryMoves,
   currencies,
 } from '@repo/db';
-import { eq, sql, sum, count, and, gte, ne, inArray, lte, desc } from 'drizzle-orm';
+import {
+  eq,
+  sql,
+  sum,
+  count,
+  and,
+  gte,
+  ne,
+  inArray,
+  lte,
+  desc,
+} from 'drizzle-orm';
 import { CurrenciesService } from '../settings/currencies/currencies.service';
 
 @Injectable()
@@ -91,7 +102,7 @@ export class BiService {
     const productsResult = await db
       .select({ value: count(products.id) })
       .from(products);
-    
+
     // 6. Pending Orders
     const pendingOrdersResult = await db
       .select({ value: count(orders.id) })
@@ -113,7 +124,11 @@ export class BiService {
     };
   }
 
-  async getFinancialChart(branchId?: string, startDate?: string, endDate?: string) {
+  async getFinancialChart(
+    branchId?: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
     const { start, end } = this.getDateRange(startDate, endDate);
 
     // Get Daily Income (Sales)
@@ -158,7 +173,7 @@ export class BiService {
 
     // Merge Data
     const map = new Map<string, { income: number; expense: number }>();
-    
+
     // Initialize dates
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       map.set(d.toISOString().slice(0, 10), { income: 0, expense: 0 });
@@ -187,7 +202,7 @@ export class BiService {
 
   async getRecentActivity(branchId?: string, limit = 10) {
     // Combine Invoices, Payments, Inventory Moves
-    
+
     // 1. Invoices (Sales/Purchases)
     const recentInvoices = await db
       .select({
@@ -203,9 +218,9 @@ export class BiService {
       .innerJoin(currencies, eq(invoices.currencyId, currencies.id))
       .where(
         and(
-            branchId ? eq(invoices.branchId, branchId) : undefined,
-            ne(invoices.status, 'DRAFT')
-        )
+          branchId ? eq(invoices.branchId, branchId) : undefined,
+          ne(invoices.status, 'DRAFT'),
+        ),
       )
       .orderBy(desc(invoices.date))
       .limit(limit);
@@ -239,23 +254,28 @@ export class BiService {
       })
       .from(inventoryMoves)
       .where(
-         and(
-            branchId ? eq(inventoryMoves.fromWarehouseId, sql`(SELECT id FROM warehouses WHERE branch_id = ${branchId} LIMIT 1)`) : undefined,
-            // Simple approach for now
-         )
+        and(
+          branchId
+            ? eq(
+                inventoryMoves.fromWarehouseId,
+                sql`(SELECT id FROM warehouses WHERE branch_id = ${branchId} LIMIT 1)`,
+              )
+            : undefined,
+          // Simple approach for now
+        ),
       )
       .orderBy(desc(inventoryMoves.date))
       .limit(limit);
-    
+
     // Combine and Sort
     const combined = [
-        ...recentInvoices.map(i => ({...i, entity: 'INVOICE'})),
-        ...recentPayments.map(p => ({...p, entity: 'PAYMENT'})),
-        ...recentMoves.map(m => ({...m, entity: 'INVENTORY'}))
+      ...recentInvoices.map((i) => ({ ...i, entity: 'INVOICE' })),
+      ...recentPayments.map((p) => ({ ...p, entity: 'PAYMENT' })),
+      ...recentMoves.map((m) => ({ ...m, entity: 'INVENTORY' })),
     ];
 
     return combined
-        .sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime())
-        .slice(0, limit);
+      .sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime())
+      .slice(0, limit);
   }
 }

@@ -193,7 +193,7 @@ export class OrdersService {
         for (const item of data.items) {
           const stockItem = await db.query.stock.findFirst({
             where: and(
-              eq(stock.warehouseId, data.warehouseId!),
+              eq(stock.warehouseId, data.warehouseId),
               eq(stock.productId, item.productId),
             ),
           });

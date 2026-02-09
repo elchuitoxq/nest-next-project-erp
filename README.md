@@ -62,6 +62,7 @@ npm install
    DATABASE_URL="postgres://elchuitoxq:elchuitoxq@localhost:5432/erp_project_db"
    PORT=4000
    JWT_SECRET="alguna-clave-secreta-segura"
+   NEXT_PUBLIC_API_URL="http://localhost:4000"
    ```
 
    > **Nota:** Este archivo es compartido por el Backend, Scripts de Base de Datos y Herramientas de Desarrollo. No es necesario crear archivos `.env` individuales en cada paquete.

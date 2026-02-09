@@ -11,4 +11,3 @@ import { AccountingModule } from '../accounting/accounting.module';
   exports: [FiscalReportsService],
 })
 export class FiscalReportsModule {}
-

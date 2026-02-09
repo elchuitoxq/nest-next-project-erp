@@ -93,11 +93,11 @@ export function InvoiceDetailsDialog({
       case "DRAFT":
         return <Badge variant="secondary">Borrador</Badge>;
       case "POSTED":
-        return <Badge className="bg-blue-600">Publicado</Badge>;
+        return <Badge variant="info">Publicado</Badge>;
       case "PARTIALLY_PAID":
-        return <Badge className="bg-yellow-600">Abonado</Badge>;
+        return <Badge variant="warning">Abonado</Badge>;
       case "PAID":
-        return <Badge className="bg-green-600">Pagado</Badge>;
+        return <Badge variant="success">Pagado</Badge>;
       case "VOID":
         return <Badge variant="destructive">Anulado</Badge>;
       default:
@@ -108,11 +108,9 @@ export function InvoiceDetailsDialog({
   const getTypeBadge = (type: string) => {
     switch (type) {
       case "SALE":
-        return <Badge className="bg-teal-600 hover:bg-teal-700">Venta</Badge>;
+        return <Badge variant="teal">Venta</Badge>;
       case "PURCHASE":
-        return (
-          <Badge className="bg-orange-600 hover:bg-orange-700">Compra</Badge>
-        );
+        return <Badge variant="orange">Compra</Badge>;
       default:
         return <Badge variant="outline">{type}</Badge>;
     }

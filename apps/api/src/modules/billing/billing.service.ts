@@ -498,7 +498,7 @@ export class BillingService {
     const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(invoices)
-      .where(whereClause!);
+      .where(whereClause);
 
     const total = Number(countResult?.count || 0);
 

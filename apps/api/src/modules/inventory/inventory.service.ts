@@ -250,14 +250,17 @@ export class InventoryService {
     }
 
     if (search) {
-      const searchTerms = search.split(',').map(s => s.trim()).filter(Boolean);
+      const searchTerms = search
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       const termConditions = [];
 
       for (const term of searchTerms) {
         termConditions.push(ilike(inventoryMoves.code, `%${term}%`));
         termConditions.push(ilike(inventoryMoves.note, `%${term}%`));
       }
-      
+
       if (termConditions.length > 0) {
         conditions.push(or(...termConditions)!);
       }
@@ -270,7 +273,7 @@ export class InventoryService {
       .select({ count: sql<number>`count(*)` })
       .from(inventoryMoves)
       .where(whereClause);
-    
+
     const total = Number(countResult?.count || 0);
 
     // 2. Get Paginated Data

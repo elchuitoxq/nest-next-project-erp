@@ -63,11 +63,11 @@ export class FiscalReportsService {
     const igtf = new Decimal(sales.summary.total_igtf);
 
     // Calculation: (Debit - Credit) - RetentionsHeldByClients
-    let cuotaIVA = debitos.minus(creditos).minus(retencionesSoportadas);
+    const cuotaIVA = debitos.minus(creditos).minus(retencionesSoportadas);
 
     // Logic: If Credit > Debit, result is negative (Excedent), Payable is 0
-    let aPagarIVA = cuotaIVA.isPos() ? cuotaIVA : new Decimal(0);
-    let excedente = cuotaIVA.isNeg() ? cuotaIVA.abs() : new Decimal(0);
+    const aPagarIVA = cuotaIVA.isPos() ? cuotaIVA : new Decimal(0);
+    const excedente = cuotaIVA.isNeg() ? cuotaIVA.abs() : new Decimal(0);
 
     return {
       debitos_fiscales: debitos.toNumber(),

@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Param, Patch, UseGuards, Req, UseInterceptors } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  UseGuards,
+  Req,
+  UseInterceptors,
+} from '@nestjs/common';
 import { PayrollService } from '../services/payroll.service';
 import { JwtAuthGuard } from '../../../modules/auth/jwt-auth.guard';
 import { BranchInterceptor } from '../../../common/interceptors/branch.interceptor';
@@ -22,8 +32,8 @@ export class PayrollController {
   @Post('generate')
   generate(@Body() body: any, @Req() req: any) {
     return this.payrollService.generate({
-        ...body,
-        branchId: req.branchId
+      ...body,
+      branchId: req.branchId,
     });
   }
 

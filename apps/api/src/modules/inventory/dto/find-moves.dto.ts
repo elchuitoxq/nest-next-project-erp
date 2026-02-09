@@ -21,7 +21,10 @@ export class FindMovesDto {
   @IsOptional()
   @Transform(({ value }) => {
     if (typeof value === 'string') {
-      return value.split(',').map((v) => v.trim()).filter(Boolean);
+      return value
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean);
     }
     return value;
   })

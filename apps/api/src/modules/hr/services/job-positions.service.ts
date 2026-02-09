@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { db, jobPositions } from '@repo/db';
 import { eq, desc } from 'drizzle-orm';
-import { CreateJobPositionDto, UpdateJobPositionDto } from '../dto/job-position.dto';
+import {
+  CreateJobPositionDto,
+  UpdateJobPositionDto,
+} from '../dto/job-position.dto';
 
 @Injectable()
 export class JobPositionsService {
@@ -9,33 +12,37 @@ export class JobPositionsService {
     return await db.query.jobPositions.findMany({
       orderBy: desc(jobPositions.createdAt),
       with: {
-        currency: true
-      }
+        currency: true,
+      },
     });
   }
 
   async findOne(id: string) {
     const position = await db.query.jobPositions.findFirst({
       where: eq(jobPositions.id, id),
-      with: { currency: true }
+      with: { currency: true },
     });
     if (!position) throw new NotFoundException('Cargo no encontrado');
     return position;
   }
 
   async create(data: CreateJobPositionDto) {
-    const [position] = await db.insert(jobPositions).values({
-      name: data.name,
-      description: data.description,
-      currencyId: data.currencyId,
-      baseSalaryMin: data.baseSalaryMin?.toString(),
-      baseSalaryMax: data.baseSalaryMax?.toString(),
-    }).returning();
+    const [position] = await db
+      .insert(jobPositions)
+      .values({
+        name: data.name,
+        description: data.description,
+        currencyId: data.currencyId,
+        baseSalaryMin: data.baseSalaryMin?.toString(),
+        baseSalaryMax: data.baseSalaryMax?.toString(),
+      })
+      .returning();
     return position;
   }
 
   async update(id: string, data: UpdateJobPositionDto) {
-    const [updated] = await db.update(jobPositions)
+    const [updated] = await db
+      .update(jobPositions)
       .set({
         name: data.name,
         description: data.description,
@@ -45,7 +52,7 @@ export class JobPositionsService {
       })
       .where(eq(jobPositions.id, id))
       .returning();
-    
+
     if (!updated) throw new NotFoundException('Cargo no encontrado');
     return updated;
   }

@@ -28,24 +28,15 @@ The core business engine of the ERP, built with [NestJS](https://nestjs.com/). I
 npm install
 ```
 
-### Configuration (.env)
+### Configuration
 
-Create a `.env` file in `apps/api/` with the following variables:
+The API uses the global `.env` file located in the project root. Ensure it contains:
 
-```env
-DATABASE_URL="postgres://elchuitoxq:elchuitoxq@localhost:5432/erp_project_db"
-PORT=4000
-JWT_SECRET="alguna-clave-secreta-segura"
-```
-
-> **Note:** The `DATABASE_URL` matches the default local configuration in `packages/db`.
+- `DATABASE_URL`
+- `PORT`
+- `JWT_SECRET`
 
 ### Running the API
-
-```bash
-# Watch mode (automatically starts on port 4000)
-npm run start:dev
-```
 
 ### Testing
 

@@ -86,7 +86,7 @@ export function BranchesTable({
                   {branch.address || "-"}
                 </TableCell>
                 <TableCell className="py-3 px-4">
-                  <Badge variant={branch.isActive ? "default" : "secondary"}>
+                  <Badge variant={branch.isActive ? "success" : "secondary"}>
                     {branch.isActive ? "Activo" : "Inactivo"}
                   </Badge>
                 </TableCell>

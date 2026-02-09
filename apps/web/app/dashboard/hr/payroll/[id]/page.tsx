@@ -232,7 +232,7 @@ export default function PayrollDetailPage() {
                       {item.employee.paymentMethod === "CASH" ? (
                         <Badge variant="secondary">Efectivo</Badge>
                       ) : (
-                        <Badge variant="outline">Transferencia</Badge>
+                        <Badge variant="info">Transferencia</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">

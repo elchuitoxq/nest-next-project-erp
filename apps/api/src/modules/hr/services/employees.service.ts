@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { db, employees, jobPositions } from '@repo/db';
 import { eq, desc } from 'drizzle-orm';
 import { CreateEmployeeDto, UpdateEmployeeDto } from '../dto/employee.dto';
@@ -12,8 +16,8 @@ export class EmployeesService {
       with: {
         position: true,
         salaryCurrency: true,
-        bank: true
-      }
+        bank: true,
+      },
     });
   }
 
@@ -23,8 +27,8 @@ export class EmployeesService {
       with: {
         position: true,
         salaryCurrency: true,
-        bank: true
-      }
+        bank: true,
+      },
     });
     if (!employee) throw new NotFoundException('Empleado no encontrado');
     return employee;
@@ -33,33 +37,37 @@ export class EmployeesService {
   async create(data: CreateEmployeeDto) {
     // Validate Position
     const position = await db.query.jobPositions.findFirst({
-        where: eq(jobPositions.id, data.positionId)
+      where: eq(jobPositions.id, data.positionId),
     });
     if (!position) throw new BadRequestException('Cargo inválido');
 
     // Create
-    const [employee] = await db.insert(employees).values({
-      firstName: data.firstName,
-      lastName: data.lastName,
-      identityCard: data.identityCard,
-      email: data.email,
-      phone: data.phone,
-      positionId: data.positionId,
-      salaryCurrencyId: data.salaryCurrencyId,
-      baseSalary: data.baseSalary.toString(),
-      payFrequency: data.payFrequency,
-      paymentMethod: data.paymentMethod,
-      bankId: data.bankId,
-      accountNumber: data.accountNumber,
-      accountType: data.accountType,
-      status: 'ACTIVE'
-    }).returning();
+    const [employee] = await db
+      .insert(employees)
+      .values({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        identityCard: data.identityCard,
+        email: data.email,
+        phone: data.phone,
+        positionId: data.positionId,
+        salaryCurrencyId: data.salaryCurrencyId,
+        baseSalary: data.baseSalary.toString(),
+        payFrequency: data.payFrequency,
+        paymentMethod: data.paymentMethod,
+        bankId: data.bankId,
+        accountNumber: data.accountNumber,
+        accountType: data.accountType,
+        status: 'ACTIVE',
+      })
+      .returning();
 
     return employee;
   }
 
   async update(id: string, data: UpdateEmployeeDto) {
-    const [updated] = await db.update(employees)
+    const [updated] = await db
+      .update(employees)
       .set({
         firstName: data.firstName,
         lastName: data.lastName,
@@ -77,7 +85,7 @@ export class EmployeesService {
       })
       .where(eq(employees.id, id))
       .returning();
-    
+
     if (!updated) throw new NotFoundException('Empleado no encontrado');
     return updated;
   }

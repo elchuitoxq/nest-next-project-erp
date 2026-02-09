@@ -126,9 +126,9 @@ export function InvoicesTable({
         cell: ({ row }) => {
           const type = row.original.type;
           return type === "SALE" ? (
-            <Badge className="bg-teal-600 hover:bg-teal-700">Venta</Badge>
+            <Badge variant="teal">Venta</Badge>
           ) : (
-            <Badge className="bg-orange-600 hover:bg-orange-700">Compra</Badge>
+            <Badge variant="orange">Compra</Badge>
           );
         },
       },
@@ -151,36 +151,40 @@ export function InvoicesTable({
         header: "Estado",
         cell: ({ row }) => {
           const status = row.original.status;
-          let variant: "default" | "secondary" | "destructive" | "outline" =
-            "default";
-          let className = "";
+          // Map status to new semantic variants
+          let variant:
+            | "default"
+            | "secondary"
+            | "destructive"
+            | "outline"
+            | "success"
+            | "warning"
+            | "info" = "default";
 
           switch (status) {
             case "DRAFT":
               variant = "secondary";
               break;
             case "POSTED":
-              className = "bg-blue-600";
+              variant = "info";
               break;
             case "PARTIALLY_PAID":
-              className = "bg-yellow-600";
+              variant = "warning";
               break;
             case "PAID":
-              className = "bg-green-600";
+              variant = "success";
               break;
             case "VOID":
               variant = "destructive";
               break;
+            default:
+              variant = "outline";
           }
 
           const label =
             ALL_STATUSES.find((s) => s.id === status)?.label || status;
 
-          return (
-            <Badge variant={variant} className={className}>
-              {label}
-            </Badge>
-          );
+          return <Badge variant={variant}>{label}</Badge>;
         },
       },
       {

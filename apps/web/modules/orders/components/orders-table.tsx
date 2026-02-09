@@ -176,21 +176,13 @@ export function OrdersTable({
             case "PENDING":
               return <Badge variant="secondary">Pendiente</Badge>;
             case "CONFIRMED":
-              return (
-                <Badge className="bg-blue-600 hover:bg-blue-700">
-                  Confirmado
-                </Badge>
-              );
+              return <Badge variant="info">Confirmado</Badge>;
             case "COMPLETED":
-              return (
-                <Badge className="bg-green-600 hover:bg-green-700">
-                  Completado
-                </Badge>
-              );
+              return <Badge variant="success">Completado</Badge>;
             case "CANCELLED":
               return <Badge variant="destructive">Cancelado</Badge>;
             default:
-              return <Badge>{status}</Badge>;
+              return <Badge variant="outline">{status}</Badge>;
           }
         },
       },

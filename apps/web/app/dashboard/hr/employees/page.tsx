@@ -171,15 +171,14 @@ export default function EmployeesPage() {
                           </TableCell>
                           <TableCell className="py-3 px-4">
                             <Badge
-                              className={cn(
-                                "text-[10px] uppercase font-bold",
+                              variant={
                                 emp.status === "ACTIVE"
-                                  ? "bg-green-500/10 text-green-600 border-green-200"
-                                  : "bg-gray-500/10 text-gray-500 border-gray-200",
-                              )}
-                              variant="outline"
+                                  ? "success"
+                                  : "secondary"
+                              }
+                              className="text-[10px] uppercase font-bold"
                             >
-                              {emp.status}
+                              {emp.status === "ACTIVE" ? "Activo" : "Inactivo"}
                             </Badge>
                           </TableCell>
                         </motion.tr>

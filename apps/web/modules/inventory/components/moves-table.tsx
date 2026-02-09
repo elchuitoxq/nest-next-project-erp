@@ -100,7 +100,7 @@ export function MovesTable({
   const getTypeBadge = (type: string) => {
     switch (type) {
       case "IN":
-        return <Badge className="bg-green-600">ENTRADA</Badge>;
+        return <Badge variant="success">ENTRADA</Badge>;
       case "OUT":
         return <Badge variant="destructive">SALIDA</Badge>;
       case "TRANSFER":

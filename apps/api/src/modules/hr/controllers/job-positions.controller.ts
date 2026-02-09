@@ -1,6 +1,18 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { JobPositionsService } from '../services/job-positions.service';
-import { CreateJobPositionDto, UpdateJobPositionDto } from '../dto/job-position.dto';
+import {
+  CreateJobPositionDto,
+  UpdateJobPositionDto,
+} from '../dto/job-position.dto';
 import { JwtAuthGuard } from '../../../modules/auth/jwt-auth.guard';
 
 @Controller('hr/positions')

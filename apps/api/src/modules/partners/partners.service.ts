@@ -13,7 +13,10 @@ export class PartnersService {
 
     if (search) {
       // Split search terms
-      const searchTerms = search.split(',').map(s => s.trim()).filter(Boolean);
+      const searchTerms = search
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       const termConditions = [];
 
       for (const term of searchTerms) {
@@ -21,7 +24,7 @@ export class PartnersService {
         termConditions.push(ilike(partners.taxId, `%${term}%`));
         termConditions.push(ilike(partners.email, `%${term}%`));
       }
-      
+
       if (termConditions.length > 0) {
         conditions.push(or(...termConditions)!);
       }
@@ -31,23 +34,25 @@ export class PartnersService {
       // Logic: If I ask for 'CUSTOMER', I want CUSTOMER or BOTH.
       // If I ask for 'SUPPLIER', I want SUPPLIER or BOTH.
       // If I ask for multiple types, handle accordingly.
-      
+
       const typeConditions = [];
       if (Array.isArray(type)) {
         if (type.includes('CUSTOMER')) {
-           typeConditions.push(eq(partners.type, 'CUSTOMER'));
+          typeConditions.push(eq(partners.type, 'CUSTOMER'));
         }
         if (type.includes('SUPPLIER')) {
-           typeConditions.push(eq(partners.type, 'SUPPLIER'));
+          typeConditions.push(eq(partners.type, 'SUPPLIER'));
         }
-        // Always include BOTH if we are filtering by type at all? 
+        // Always include BOTH if we are filtering by type at all?
         // Usually yes, a partner that is BOTH is also a CUSTOMER and a SUPPLIER.
         typeConditions.push(eq(partners.type, 'BOTH'));
-        
+
         conditions.push(or(...typeConditions)!);
       } else {
-         // Single value legacy support or if array check failed
-         conditions.push(or(eq(partners.type, type), eq(partners.type, 'BOTH'))!);
+        // Single value legacy support or if array check failed
+        conditions.push(
+          or(eq(partners.type, type), eq(partners.type, 'BOTH'))!,
+        );
       }
     }
 
@@ -58,7 +63,7 @@ export class PartnersService {
       .select({ count: sql<number>`count(*)` })
       .from(partners)
       .where(whereClause);
-    
+
     const total = Number(countResult?.count || 0);
 
     // 2. Get Paginated Data

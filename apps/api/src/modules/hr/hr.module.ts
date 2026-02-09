@@ -15,19 +15,19 @@ import { PayrollIncidentsService } from './incidents/payroll-incidents.service';
 @Module({
   imports: [CurrenciesModule, TreasuryModule],
   controllers: [
-    JobPositionsController, 
-    EmployeesController, 
+    JobPositionsController,
+    EmployeesController,
     PayrollController,
     PayrollConceptsController,
-    PayrollIncidentsController
+    PayrollIncidentsController,
   ],
   providers: [
-    JobPositionsService, 
-    EmployeesService, 
+    JobPositionsService,
+    EmployeesService,
     PayrollService,
     PayrollConceptsService,
-    PayrollIncidentsService
+    PayrollIncidentsService,
   ],
-  exports: [EmployeesService]
+  exports: [EmployeesService],
 })
 export class HrModule {}

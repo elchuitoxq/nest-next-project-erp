@@ -44,9 +44,9 @@ export default function PayrollListPage() {
       case "DRAFT":
         return <Badge variant="secondary">Borrador</Badge>;
       case "PUBLISHED":
-        return <Badge className="bg-blue-600">Publicada</Badge>;
+        return <Badge variant="info">Publicada</Badge>;
       case "PAID":
-        return <Badge className="bg-green-600">Pagada</Badge>;
+        return <Badge variant="success">Pagada</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }

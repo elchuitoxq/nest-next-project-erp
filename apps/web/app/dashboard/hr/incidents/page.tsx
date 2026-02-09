@@ -145,13 +145,12 @@ export default function PayrollIncidentsPage() {
                           <TableCell className="py-3 px-4">
                             <div className="flex items-center gap-2">
                               <Badge
-                                className={cn(
-                                  "h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]",
+                                variant={
                                   inc.concept?.category === "INCOME"
-                                    ? "bg-blue-500/10 text-blue-600 border-blue-200"
-                                    : "bg-red-500/10 text-red-600 border-red-200",
-                                )}
-                                variant="outline"
+                                    ? "info"
+                                    : "destructive"
+                                }
+                                className="h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px]"
                               >
                                 {inc.concept?.category === "INCOME" ? "+" : "-"}
                               </Badge>
@@ -173,8 +172,8 @@ export default function PayrollIncidentsPage() {
                               </Badge>
                             ) : (
                               <Badge
-                                variant="outline"
-                                className="text-[10px] uppercase font-bold text-green-600 border-green-200 bg-green-50/50"
+                                variant="success"
+                                className="text-[10px] uppercase font-bold"
                               >
                                 Procesado
                               </Badge>

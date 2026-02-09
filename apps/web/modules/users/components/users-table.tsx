@@ -84,7 +84,7 @@ export function UsersTable({ users, onEdit, isLoading }: UsersTableProps) {
                 <TableCell className="py-3 px-4 hidden lg:table-cell">
                   <div className="flex flex-wrap gap-1">
                     {user.roles.map((role) => (
-                      <Badge key={role} variant="secondary" className="text-xs">
+                      <Badge key={role} variant="outline" className="text-xs">
                         {role}
                       </Badge>
                     ))}
