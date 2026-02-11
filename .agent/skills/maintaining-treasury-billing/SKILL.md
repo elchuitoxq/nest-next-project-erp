@@ -1,4 +1,5 @@
 ---
+name: maintaining-treasury-billing
 description: Use when modifying Billing, Invoices, Orders, or Payments logic to ensure financial integrity and system stability.
 ---
 
@@ -66,6 +67,15 @@ const payload = {
   - **Rate Inheritance**: If paying a specific Invoice, the payment MUST use the `invoice.exchangeRate` to avoid accounting gaps (diferencial cambiario).
   - **Manual Rate**: Only use manual/daily rate for unlinked payments (Advances).
 
+## 6. Updates & Invalidation
+
+- When creating/voiding/posting invoices, ensure you invalidate **BOTH** `['invoices']` (Sales) and `['purchases']` (Purchases) query keys if the action shares logic.
+
+## 7. Common Pitfalls
+
+- **TypeScript Errors**: If adding relations (like `user` or `exchangeRate`) to `findAll`, remember to update the Frontend `Invoice` interface type definition to match.
+- **Duplicated Imports**: `drizzle-orm` schema imports can get large. Watch out for duplicated identifiers like `paymentMethods`.
+
 ## 8. Sequential Code Generation Logic
 
 To avoid unique constraint collisions (especially when mixing `DRAFT`, `VOID`, and `POSTED` statuses), follow this pattern:
@@ -118,16 +128,7 @@ const where = and(
 - **Redux/Query Keys**: Invalidate `['payment-methods']` and `['bank-accounts']` when modifying these settings.
 - **Components**: `BalancePicker` (generic component in `@/modules/treasury/components`) should be used whenever a "Cruce de Saldo" is available. Use `currencies: true` in the query to display correct symbols (USD/VES).
 
-## 6. Updates & Invalidation
-
-- When creating/voiding/posting invoices, ensure you invalidate **BOTH** `['invoices']` (Sales) and `['purchases']` (Purchases) query keys if the action shares logic.
-
-## 6. Common Pitfalls
-
-- **TypeScript Errors**: If adding relations (like `user` or `exchangeRate`) to `findAll`, remember to update the Frontend `Invoice` interface type definition to match.
-- **Duplicated Imports**: `drizzle-orm` schema imports can get large. Watch out for duplicated identifiers like `paymentMethods`.
-
-## 7. Frontend Structure & Routing
+## 12. Frontend Structure & Routing
 
 - **Configuration vs Operation**:
   - **Treasury Config**: Bank Accounts (`/dashboard/treasury/accounts`) and Payment Methods (`/dashboard/treasury/methods`) are now at the root of the Treasury module.

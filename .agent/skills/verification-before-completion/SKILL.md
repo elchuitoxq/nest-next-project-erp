@@ -113,13 +113,13 @@ Skip any step = lying, not verifying
 
 ## Why This Matters
 
-From 24 failure memories:
+Common consequences of skipping verification:
 
-- your human partner said "I don't believe you" - trust broken
-- Undefined functions shipped - would crash
-- Missing requirements shipped - incomplete features
+- User loses trust in AI agent's claims
+- Undefined functions shipped — would crash in production
+- Missing requirements shipped — incomplete features
 - Time wasted on false completion → redirect → rework
-- Violates: "Honesty is a core value. If you lie, you'll be replaced."
+- Honesty is a core value — unverified claims are dishonest
 
 ## When To Apply
 

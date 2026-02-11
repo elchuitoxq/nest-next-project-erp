@@ -13,7 +13,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
-**Context:** This should be run in a dedicated worktree (created by brainstorming skill).
+**Context:** This should ideally be run in a dedicated worktree (created via the brainstorming skill).
 
 **Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md`
 
@@ -34,7 +34,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For agents:** REQUIRED: Use the executing-plans skill to implement this plan task-by-task.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -66,7 +66,6 @@ it("should perform specific behavior", () => {
   expect(result).toBe(expected);
 });
 ```
-````
 
 **Step 2: Run test to verify it fails**
 
@@ -92,15 +91,15 @@ Expected: PASS
 git add apps/api/src/modules/example/
 git commit -m "feat(api): add specific behavior to example service"
 ```
-
-```
+````
 
 ## Remember
+
 - Exact file paths always
 - Complete code in plan (not "add validation")
 - Exact commands with expected output
-- Reference relevant skills with @ syntax
-- Strict Zod/DTO + Spanish errors (implementing-strict-features)
+- Reference relevant skills by name
+- Strict Zod/DTO + Spanish errors (implementing-strict-features skill)
 - DRY, YAGNI, TDD, frequent commits
 
 ## Execution Handoff
@@ -109,18 +108,19 @@ After saving the plan, offer execution choice:
 
 **"Plan complete and saved to `docs/plans/<filename>.md`. Two execution options:**
 
-**1. Subagent-Driven (this session)** - I dispatch fresh subagent per task, review between tasks, fast iteration
+**1. Same Session** - I execute tasks one by one with review between tasks, fast iteration
 
-**2. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints
+**2. Parallel Session** - Open new session, batch execution with checkpoints
 
 **Which approach?"**
 
-**If Subagent-Driven chosen:**
-- **REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development
+**If Same Session chosen:**
+
+- **REQUIRED:** Read and follow the subagent-driven-development skill
 - Stay in this session
-- Fresh subagent per task + code review
+- Fresh context per task + code review
 
 **If Parallel Session chosen:**
-- Guide them to open new session in worktree
-- **REQUIRED SUB-SKILL:** New session uses superpowers:executing-plans
-```
+
+- Guide the user to open new session in worktree
+- **REQUIRED:** New session uses the executing-plans skill

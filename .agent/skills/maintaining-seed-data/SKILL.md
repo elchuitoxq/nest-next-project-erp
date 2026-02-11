@@ -1,4 +1,5 @@
 ---
+name: maintaining-seed-data
 description: Guide for maintaining the robust test data seeding script (seed-test.ts).
 ---
 

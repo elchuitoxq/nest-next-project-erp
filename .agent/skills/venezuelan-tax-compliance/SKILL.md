@@ -1,4 +1,5 @@
 ---
+name: venezuelan-tax-compliance
 description: Comprehensive guide for Venezuelan ERP compliance (SENIAT 2025-2026), including IGTF, ISLR, IVA Retentions, and Digital Billing.
 ---
 

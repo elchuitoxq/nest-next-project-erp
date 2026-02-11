@@ -40,6 +40,7 @@ Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas comp
 > Voz, tono y componentes visuales.
 
 - **🖌️ UI System (Shadcn):** `.agent/skills/using-shadcn-ui/SKILL.md`.
+- **🎯 UI/UX Pro Max:** `.agents/skills/ui-ux-pro-max/SKILL.md` (Design Intelligence: 50+ estilos, paletas, tipografía, accesibilidad, checklists). **[NUEVO]**
 - **🧩 Componentes Estándar:**
   - `PageHeader`: Encabezado unificado para todas las páginas del dashboard (`apps/web/components/layout/page-header.tsx`). Debe usarse siempre en lugar de `div` manuales.
 - **⚡ Frontend Design:** `.agent/skills/frontend-design/SKILL.md` (Aesthetics, Typography, Motion).
@@ -167,10 +168,6 @@ El sistema maneja una **Tesorería Multimoneda Real** con soporte para **Anticip
   - Motor de cálculo quincenal/semanal.
   - Flujo de estados: Borrador -> Publicada -> Pagada.
   - Filtros de visualización (Por Banco vs Efectivo).
-- **Gestión de Novedades (Incidencias):**
-  - **Conceptos:** Definición maestra de tipos de movimiento (Ingreso/Egreso). Tabla `payroll_concept_types`.
-  - **Incidencias:** Registro diario de eventos (Faltas, Bonos, Horas Extra). Tabla `payroll_incidents`.
-  - **Flujo:** Las incidencias se registran como `PENDING`. Al generar la nómina (`DRAFT`), el sistema busca incidencias en el rango de fechas, las suma al cálculo y las marca como `PROCESSED`.
 - **Gestión de Novedades (Incidencias):**
   - **Conceptos:** Definición maestra de tipos de movimiento (Ingreso/Egreso). Tabla `payroll_concept_types`.
   - **Incidencias:** Registro diario de eventos (Faltas, Bonos, Horas Extra). Tabla `payroll_incidents`.

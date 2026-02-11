@@ -1,4 +1,5 @@
 ---
+name: building-performant-tables
 description: Guide for building high-performance, lag-free data tables with local search isolation and stable animations.
 ---
 

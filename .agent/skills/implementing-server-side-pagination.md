@@ -1,3 +1,8 @@
+---
+name: implementing-server-side-pagination
+description: Use when implementing tables with server-side pagination, sorting, and multi-filtering in the ERP.
+---
+
 # Implementing Server-Side Pagination & Filtering
 
 This skill outlines the standard pattern for implementing high-performance tables with server-side pagination, sorting, and robust multi-filtering in the ERP.
@@ -5,12 +10,14 @@ This skill outlines the standard pattern for implementing high-performance table
 ## 1. Backend Implementation (NestJS)
 
 ### 1.1 Create Search DTO
+
 Create a DTO in `dto/find-[resource].dto.ts`. It MUST support pagination parameters and robust array transformation for filters to handle comma-separated strings (e.g., `?status=A, B`).
 
 **Standard DTO Pattern:**
+
 ```typescript
-import { IsOptional, IsString, IsNumber, Min, IsEnum } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { IsOptional, IsString, IsNumber, Min, IsEnum } from "class-validator";
+import { Type, Transform } from "class-transformer";
 
 export class FindResourceDto {
   @IsOptional()
@@ -32,9 +39,12 @@ export class FindResourceDto {
   // Multi-value Filter
   @IsOptional()
   @Transform(({ value }) => {
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       // Split by comma, trim whitespace, and remove empty entries
-      return value.split(',').map((v) => v.trim()).filter(Boolean);
+      return value
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
     }
     return value;
   })
@@ -44,9 +54,11 @@ export class FindResourceDto {
 ```
 
 ### 1.2 Service Logic
+
 The service `findAll` method must handle `limit/offset` and build dynamic `WHERE` clauses.
 
 **Key Requirements:**
+
 1.  **Multi-Filter Support:** Use `inArray` when the filter is an array.
     ```typescript
     if (status && status.length > 0) {
@@ -73,15 +85,18 @@ The service `findAll` method must handle `limit/offset` and build dynamic `WHERE
 ## 2. Frontend Implementation (Next.js)
 
 ### 2.1 React Query Hook
+
 The hook must serialize array parameters into comma-separated strings to be URL-friendly.
 
 ```typescript
 export function useResource(params: FindParams = {}) {
   const serializedParams = {
     ...params,
-    status: Array.isArray(params.status) ? params.status.join(",") : params.status,
+    status: Array.isArray(params.status)
+      ? params.status.join(",")
+      : params.status,
   };
-  
+
   return useQuery({
     queryKey: ["resource", serializedParams],
     // ...
@@ -90,6 +105,7 @@ export function useResource(params: FindParams = {}) {
 ```
 
 ### 2.2 TanStack Table Component
+
 The table component replaces client-side filtering with server-side state management.
 
 1.  **Manual Pagination:**
@@ -106,6 +122,7 @@ The table component replaces client-side filtering with server-side state manage
 2.  **Multi-Select Filters:** Implement dropdowns that toggle values in a local array state (`string[]`) before passing them to the parent/hook.
 
 ### 2.3 Page Integration
+
 The page component manages the state (`pagination`, `search`, `filters`) and passes it to the hook and the table.
 
 ```typescript
