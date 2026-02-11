@@ -10,10 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
-import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
-
+import { SidebarInset } from "@/components/ui/sidebar";
+import { AppHeader } from "@/components/layout/app-header";
 import {
   useOrders,
   useOrderMutations,
@@ -127,13 +125,7 @@ export default function PurchaseOrdersPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
-        <div className="flex items-center gap-2">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <DynamicBreadcrumb />
-        </div>
-      </header>
+      <AppHeader />
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -154,7 +146,7 @@ export default function PurchaseOrdersPage() {
 
         <OrderStatusCards type="PURCHASE" />
 
-        <Card className="border shadow-xl bg-white/60 backdrop-blur-sm">
+        <Card className="border premium-shadow">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold">
               Historial de Compras

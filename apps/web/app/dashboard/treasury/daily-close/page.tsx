@@ -4,14 +4,9 @@ import { useState } from "react";
 import { useDailyClose } from "@/modules/treasury/hooks/use-treasury";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import {
-  Loader2,
-  Printer,
-  Calendar as CalendarIcon,
-  ArrowLeft,
-} from "lucide-react";
+import { Loader2, Printer, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Card,
   CardContent,
@@ -29,7 +24,8 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarInset } from "@/components/ui/sidebar";
+import { AppHeader } from "@/components/layout/app-header";
 import { Separator } from "@/components/ui/separator";
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 
@@ -49,13 +45,7 @@ export default function DailyClosePage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10 print:hidden">
-        <div className="flex items-center gap-2">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <DynamicBreadcrumb />
-        </div>
-      </header>
+      <AppHeader className="print:hidden" />
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -86,16 +76,13 @@ export default function DailyClosePage() {
           </div>
 
           <div className="flex items-center gap-3 print:hidden">
-            <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-1.5 bg-white shadow-sm transition-all hover:border-blue-300">
-              <CalendarIcon className="h-4 w-4 text-blue-500" />
-              <input
-                type="date"
-                value={date}
-                max={new Date().toISOString().split("T")[0]}
-                onChange={(e) => setDate(e.target.value)}
-                className="bg-transparent border-none focus:outline-none text-sm font-medium"
-              />
-            </div>
+            <DatePicker
+              value={date}
+              onChange={(v) => setDate(v)}
+              maxDate={new Date()}
+              placeholder="Seleccionar fecha"
+              className="w-[220px]"
+            />
 
             <Button
               variant="outline"
@@ -150,7 +137,7 @@ export default function DailyClosePage() {
               </Card>
             </div>
 
-            <Card className="border shadow-xl bg-white/60 backdrop-blur-sm print:shadow-none print:ring-0">
+            <Card className="border premium-shadow print:shadow-none print:ring-0">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold">
                   Desglose por Método de Pago

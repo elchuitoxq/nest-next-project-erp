@@ -16,7 +16,8 @@ import { Plus, List, ArrowLeftRight } from "lucide-react";
 
 type Tab = "history" | "new";
 
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarInset } from "@/components/ui/sidebar";
+import { AppHeader } from "@/components/layout/app-header";
 import { Separator } from "@/components/ui/separator";
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 import { PageHeader } from "@/components/layout/page-header";
@@ -26,13 +27,7 @@ export default function TreasuryPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
-        <div className="flex items-center gap-2">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <DynamicBreadcrumb />
-        </div>
-      </header>
+      <AppHeader />
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <PageHeader
           title="Pagos y Cobranzas"

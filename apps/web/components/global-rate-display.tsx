@@ -30,16 +30,16 @@ export function GlobalRateDisplay() {
 
   return (
     <div className="px-2 py-2">
-      <div className="flex items-center justify-between gap-2 rounded-md bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 px-3 py-2">
+      <div className="flex items-center justify-between gap-2 rounded-md bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20 border border-emerald-500/20 px-3 py-2">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-full bg-emerald-100 text-emerald-700">
+          <div className="p-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400">
             <TrendingUp className="h-3.5 w-3.5" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] uppercase font-bold text-emerald-600/80 tracking-wider">
+            <span className="text-[10px] uppercase font-bold text-emerald-600/80 dark:text-emerald-400/80 tracking-wider">
               Tasa BCV
             </span>
-            <span className="text-sm font-black text-emerald-900 leading-none">
+            <span className="text-sm font-black text-emerald-900 dark:text-emerald-100 leading-none">
               {Number(vesRate.rate).toLocaleString("es-VE", {
                 minimumFractionDigits: 2,
               })}{" "}

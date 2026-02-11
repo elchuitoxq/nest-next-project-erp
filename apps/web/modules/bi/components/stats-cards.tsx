@@ -57,7 +57,7 @@ export function StatsCards({ data, chartData, isLoading }: StatsCardsProps) {
                     <Line
                       type="monotone"
                       dataKey="income"
-                      stroke="#0d9488"
+                      stroke="var(--color-chart-1)"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -93,7 +93,7 @@ export function StatsCards({ data, chartData, isLoading }: StatsCardsProps) {
                     <Line
                       type="monotone"
                       dataKey="expense"
-                      stroke="#ea580c"
+                      stroke="var(--color-chart-2)"
                       strokeWidth={2}
                       dot={false}
                     />

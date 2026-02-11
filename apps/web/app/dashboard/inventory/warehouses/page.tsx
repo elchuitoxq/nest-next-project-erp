@@ -11,7 +11,8 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card";
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarInset } from "@/components/ui/sidebar";
+import { AppHeader } from "@/components/layout/app-header";
 import { Separator } from "@/components/ui/separator";
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
 
@@ -51,13 +52,7 @@ export default function WarehousesPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
-        <div className="flex items-center gap-2">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <DynamicBreadcrumb />
-        </div>
-      </header>
+      <AppHeader />
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -94,7 +89,7 @@ export default function WarehousesPage() {
               Array.from({ length: 3 }).map((_, i) => (
                 <Card
                   key={i}
-                  className="border shadow-xl bg-white/60 backdrop-blur-sm group hover:shadow-2xl transition-all duration-300 animate-pulse"
+                  className="border premium-shadow group hover:shadow-2xl transition-all duration-300 animate-pulse"
                 >
                   <CardHeader className="h-24 bg-muted/20" />
                   <CardContent className="h-32" />
@@ -115,7 +110,7 @@ export default function WarehousesPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.05 }}
                 >
-                  <Card className="flex flex-col justify-between premium-shadow border-none hover:ring-2 hover:ring-primary/20 transition-all duration-300 group h-full">
+                  <Card className="flex flex-col justify-between border premium-shadow hover:ring-2 hover:ring-primary/20 transition-all duration-300 group h-full">
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
                         <CardTitle className="text-lg font-bold group-hover:text-primary transition-colors">

@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { GuideHint } from "@/components/guide/guide-hint";
 import {
@@ -94,11 +95,10 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
                 Fecha
                 <GuideHint text="Día en que ocurrió la novedad. Debe estar dentro del periodo de nómina." />
               </Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
+                onChange={(v) => setDate(v)}
+                placeholder="Seleccionar fecha"
               />
             </div>
             <div className="space-y-2">

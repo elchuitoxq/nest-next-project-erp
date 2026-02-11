@@ -35,7 +35,7 @@ export function GuideHint({ text, className }: GuideHintProps) {
         </TooltipTrigger>
         <TooltipContent
           side="right"
-          className="max-w-[280px] text-xs p-3 bg-white/95 backdrop-blur-md border-blue-100 text-slate-700 shadow-xl z-50"
+          className="max-w-[280px] text-xs p-3 bg-popover/95 backdrop-blur-md border-primary/20 text-popover-foreground shadow-xl z-50"
         >
           <p className="font-semibold text-blue-600 mb-1 flex items-center gap-1">
             💡 Guía Rápida

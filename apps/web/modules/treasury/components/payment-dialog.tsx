@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
@@ -10,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -453,10 +456,10 @@ export function PaymentDialog({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Fecha Comprobante</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={voucherDate}
-                  onChange={(e) => setVoucherDate(e.target.value)}
+                  onChange={(v) => setVoucherDate(v)}
+                  placeholder="Fecha comprobante"
                 />
               </div>
               <div className="space-y-2">

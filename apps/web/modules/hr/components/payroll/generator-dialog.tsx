@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useState } from "react";
 import { usePayrollMutations } from "../../hooks/use-payroll";
 import { Label } from "@/components/ui/label";
@@ -73,18 +73,18 @@ export function PayrollGeneratorDialog({ open, onOpenChange }: GeneratorProps) {
                 Desde
                 <GuideHint text="Fecha de inicio del periodo fiscal." />
               </Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={setStartDate}
+                placeholder="Inicio"
               />
             </div>
             <div className="space-y-2">
               <Label>Hasta</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={setEndDate}
+                placeholder="Fin"
               />
             </div>
           </div>

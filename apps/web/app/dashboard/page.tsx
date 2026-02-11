@@ -1,8 +1,7 @@
 "use client";
 
-import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarInset } from "@/components/ui/sidebar";
+import { AppHeader } from "@/components/layout/app-header";
 import { StatsCards } from "@/modules/bi/components/stats-cards";
 import { OverviewChart } from "@/modules/bi/components/overview-chart";
 import { useBiStats } from "@/modules/bi/hooks/use-bi";
@@ -34,18 +33,7 @@ export default function Page() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white/50 backdrop-blur-md sticky top-0 z-10">
-        <div className="flex items-center gap-2 px-4 w-full justify-between">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
-            <Separator
-              orientation="vertical"
-              className="mr-2 data-[orientation=vertical]:h-4"
-            />
-            <DynamicBreadcrumb />
-          </div>
-        </div>
-      </header>
+      <AppHeader />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
