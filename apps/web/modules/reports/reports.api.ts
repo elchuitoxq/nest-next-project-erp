@@ -57,4 +57,17 @@ export const fiscalReportsApi = {
     const { data } = await api.get(`/credit-notes/${id}`);
     return data;
   },
+  getFiscalBookExcel: async (
+    type: "ventas" | "compras",
+    month: string,
+    year: string,
+    branchId?: string,
+    fortnight?: string,
+  ) => {
+    const { data } = await api.get(`/reports/fiscal/${type}/export/excel`, {
+      params: { month, year, branchId, fortnight },
+      responseType: "blob",
+    });
+    return data;
+  },
 };

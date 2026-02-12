@@ -6,6 +6,7 @@ import {
   UseGuards,
   UseInterceptors,
   Req,
+  Param,
 } from '@nestjs/common';
 import { FiscalReportsService } from './fiscal-reports.service';
 import { Response } from 'express';
@@ -117,5 +118,35 @@ export class FiscalReportsController {
       req.branchId,
       fortnight,
     );
+  }
+
+  @Get(':type/export/excel')
+  async downloadFiscalBookExcel(
+    @Param('type') type: 'ventas' | 'compras',
+    @Query('month') month: string,
+    @Query('year') year: string,
+    @Query('fortnight') fortnight: 'first' | 'second',
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    if (type !== 'ventas' && type !== 'compras') {
+      res.status(400).send('Invalid report type');
+      return;
+    }
+
+    const buffer = await this.fiscalReportsService.generateFiscalBookExcel(
+      type,
+      month,
+      year,
+      req.branchId,
+      fortnight,
+    );
+
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="Libro_${type}_${month}_${year}.xlsx"`,
+    });
+    res.send(buffer);
   }
 }

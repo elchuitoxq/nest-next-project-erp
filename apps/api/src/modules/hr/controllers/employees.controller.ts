@@ -19,7 +19,7 @@ export class EmployeesController {
 
   @Get()
   findAll(@Query('status') status?: string) {
-    return this.employeesService.findAll(status);
+    return this.employeesService.findAll(undefined, status);
   }
 
   @Get(':id')

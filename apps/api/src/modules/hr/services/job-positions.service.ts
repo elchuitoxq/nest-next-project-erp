@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { db, jobPositions } from '@repo/db';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
+import { db, jobPositions, employees } from '@repo/db';
 import { eq, desc } from 'drizzle-orm';
 import {
   CreateJobPositionDto,
@@ -58,7 +62,17 @@ export class JobPositionsService {
   }
 
   async delete(id: string) {
-    // TODO: Check if employees are assigned
+    // Check if employees are assigned to this position
+    const assignedEmployees = await db.query.employees.findFirst({
+      where: eq(employees.positionId, id),
+    });
+
+    if (assignedEmployees) {
+      throw new BadRequestException(
+        'No se puede eliminar el cargo porque tiene empleados asignados',
+      );
+    }
+
     return await db.delete(jobPositions).where(eq(jobPositions.id, id));
   }
 }

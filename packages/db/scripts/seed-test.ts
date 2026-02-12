@@ -26,6 +26,7 @@ import {
   paymentMethodAccounts,
   jobPositions,
   employees,
+  departments,
   // New tables for complete seed
   taxConcepts,
   creditNotes,
@@ -38,8 +39,13 @@ import {
   banks,
   payrollRuns,
   payrollItems,
+  payrollItemLines,
   payrollConceptTypes,
   payrollIncidents,
+  payrollSettings,
+  accountingAccounts,
+  accountingEntries,
+  accountingEntryLines,
 } from "../src";
 import { sql, eq } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
@@ -160,6 +166,14 @@ async function main() {
           bankAccountId: wallet.id,
         });
       }
+
+      // Add accounting account for this bank
+      await db.insert(accountingAccounts).values({
+        code: `1.1.02.${wallet.id.substring(0, 4)}`,
+        name: wallet.name,
+        type: "ASSET",
+        branchId: b.id,
+      });
     }
 
     // Historical Rates (60 days)
@@ -383,11 +397,73 @@ async function main() {
     console.log(`   ✅ Created ${jobPositionsData.length} job positions`);
 
     // =================================================================================
+    // NEW: DEPARTMENTS (Departamentos)
+    // =================================================================================
+    console.log("🏛️ [L3.2.5] Creating Departments...");
+
+    const departmentsData = await db
+      .insert(departments)
+      .values([
+        { name: "Administración", branchId: branchCCS.id },
+        { name: "Ventas", branchId: branchCCS.id },
+        { name: "Almacén", branchId: branchCCS.id },
+        { name: "Contabilidad", branchId: branchCCS.id },
+        { name: "Recursos Humanos", branchId: branchCCS.id },
+        { name: "Administración", branchId: branchVAL.id },
+        { name: "Ventas", branchId: branchVAL.id },
+        { name: "Almacén", branchId: branchVAL.id },
+      ])
+      .returning();
+
+    console.log(`   ✅ Created ${departmentsData.length} departments`);
+
+    // =================================================================================
+    // NEW: ACCOUNTING COA (Plan de Cuentas)
+    // =================================================================================
+    console.log("📊 [L3.2.6] Creating Accounting COA...");
+
+    const coaData = [
+      {
+        code: "5.1.01.01",
+        name: "Sueldos y Salarios",
+        type: "EXPENSE",
+        branchId: branchCCS.id,
+      },
+      {
+        code: "5.1.01.01",
+        name: "Sueldos y Salarios",
+        type: "EXPENSE",
+        branchId: branchVAL.id,
+      },
+      {
+        code: "2.1.04.01",
+        name: "Retenciones y Aportes por Pagar",
+        type: "LIABILITY",
+        branchId: branchCCS.id,
+      },
+      {
+        code: "2.1.04.01",
+        name: "Retenciones y Aportes por Pagar",
+        type: "LIABILITY",
+        branchId: branchVAL.id,
+      },
+    ];
+
+    await db.insert(accountingAccounts).values(coaData);
+    console.log(`   ✅ Created ${coaData.length} base accounting accounts`);
+
+    // =================================================================================
     // NEW: EMPLOYEES (Empleados)
     // =================================================================================
     console.log("👷 [L3.3] Creating Employees...");
 
     const employeesData: any[] = [];
+    const ccsDepartments = departmentsData.filter(
+      (d) => d.branchId === branchCCS.id,
+    );
+    const valDepartments = departmentsData.filter(
+      (d) => d.branchId === branchVAL.id,
+    );
 
     for (let i = 0; i < 12; i++) {
       const position = faker.helpers.arrayElement(jobPositionsData);
@@ -408,6 +484,12 @@ async function main() {
           ? faker.helpers.arrayElement(allBanks)
           : null;
 
+      // Assign branch: first 8 to CCS, last 4 to VAL
+      const branch = i < 8 ? branchCCS : branchVAL;
+      const dept = faker.helpers.arrayElement(
+        branch.id === branchCCS.id ? ccsDepartments : valDepartments,
+      );
+
       const [emp] = await db
         .insert(employees)
         .values({
@@ -417,6 +499,8 @@ async function main() {
           email: faker.internet.email(),
           phone: `+58 4${faker.string.numeric(2)}-${faker.string.numeric(7)}`,
           positionId: position.id,
+          departmentId: dept.id,
+          branchId: branch.id,
           hireDate: faker.date.past({ years: 3 }),
           salaryCurrencyId: currUSD.id,
           baseSalary: salary.toFixed(2),
@@ -1164,6 +1248,53 @@ async function main() {
       } as any)
       .returning();
 
+    // 2.5 Payroll Settings (Venezuelan contribution rates)
+    await db.insert(payrollSettings).values([
+      {
+        key: "CESTATICKET_USD",
+        label: "Cestaticket Socialista",
+        value: "40.0000",
+        type: "FIXED_USD",
+      },
+      {
+        key: "SSO_EMP",
+        label: "SSO (Empleado)",
+        value: "4.0000",
+        type: "PERCENTAGE",
+      },
+      {
+        key: "SSO_PAT",
+        label: "SSO (Patronal)",
+        value: "9.0000",
+        type: "PERCENTAGE",
+      },
+      {
+        key: "FAOV_EMP",
+        label: "FAOV (Empleado)",
+        value: "1.0000",
+        type: "PERCENTAGE",
+      },
+      {
+        key: "FAOV_PAT",
+        label: "FAOV (Patronal)",
+        value: "2.0000",
+        type: "PERCENTAGE",
+      },
+      {
+        key: "INCE",
+        label: "INCE (Patronal)",
+        value: "2.0000",
+        type: "PERCENTAGE",
+      },
+      {
+        key: "LPH",
+        label: "LPH - Régimen Penitenciario",
+        value: "0.5000",
+        type: "PERCENTAGE",
+      },
+    ] as any);
+    console.log("   ✅ Payroll settings seeded");
+
     // 2. Incidents (For Current Month Draft)
     const currStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
     const currEndDate = new Date(today.getFullYear(), today.getMonth(), 15);
@@ -1305,20 +1436,107 @@ async function main() {
           .where(eq(payrollIncidents.id, inc.id));
       }
 
+      // Legal Deductions (Social Security, etc.)
+      const sso = biweeklyVes * 0.04;
+      const faov = biweeklyVes * 0.01;
+      const rpe = biweeklyVes * 0.005;
+      const legalDeductions = sso + faov + rpe;
+
       const totalBonuses = cestaticketVes + incidentIncome;
-      const totalDeductions = incidentDeduction;
+      const totalDeductions = incidentDeduction + legalDeductions;
       const netTotal = biweeklyVes + totalBonuses - totalDeductions;
 
       totalDraft += netTotal;
 
-      await db.insert(payrollItems).values({
-        runId: draftRun.id,
-        employeeId: emp.id,
-        baseAmount: biweeklyVes.toFixed(2),
-        bonuses: totalBonuses.toFixed(2),
-        deductions: totalDeductions.toFixed(2),
-        netTotal: netTotal.toFixed(2),
+      const [pItem] = await db
+        .insert(payrollItems)
+        .values({
+          runId: draftRun.id,
+          employeeId: emp.id,
+          baseAmount: biweeklyVes.toFixed(2),
+          bonuses: totalBonuses.toFixed(2),
+          deductions: totalDeductions.toFixed(2),
+          netTotal: netTotal.toFixed(2),
+        })
+        .returning();
+
+      // Insert Detailed Lines for Payslip
+      const lines: any[] = [];
+
+      // 1. Base Salary
+      lines.push({
+        itemId: pItem.id,
+        conceptName: "Sueldo Base",
+        conceptCode: "SUELDO_BASE",
+        category: "INCOME",
+        amount: biweeklyVes.toFixed(2),
+        isFixed: true,
       });
+
+      // 2. Cestaticket
+      lines.push({
+        itemId: pItem.id,
+        conceptName: "Cestaticket Socialista",
+        conceptCode: "CESTATICKET",
+        category: "INCOME",
+        amount: cestaticketVes.toFixed(2),
+        isFixed: true,
+      });
+
+      // 3. Legal Deductions
+      lines.push({
+        itemId: pItem.id,
+        conceptName: "SSO (4%)",
+        conceptCode: "RET_SSO",
+        category: "DEDUCTION",
+        amount: sso.toFixed(2),
+        rate: "0.04",
+      });
+      lines.push({
+        itemId: pItem.id,
+        conceptName: "FAOV (1%)",
+        conceptCode: "RET_FAOV",
+        category: "DEDUCTION",
+        amount: faov.toFixed(2),
+        rate: "0.01",
+      });
+      lines.push({
+        itemId: pItem.id,
+        conceptName: "RPE (0.5%)",
+        conceptCode: "RET_RPE",
+        category: "DEDUCTION",
+        amount: rpe.toFixed(2),
+        rate: "0.005",
+      });
+
+      // 4. Incidents
+      for (const inc of empIncidents) {
+        const amountVes = parseFloat(inc.amount) * rateVes;
+
+        let conceptCode = "INCIDENTE";
+        let isIncome = false;
+
+        if (inc.conceptId === concBono.id) {
+          conceptCode = concBono.code;
+          isIncome = true;
+        } else if (inc.conceptId === concExtra.id) {
+          conceptCode = concExtra.code;
+          isIncome = true;
+        } else if (inc.conceptId === concFalta.id) {
+          conceptCode = concFalta.code;
+          isIncome = false;
+        }
+
+        lines.push({
+          itemId: pItem.id,
+          conceptName: inc.notes || "Novedad de Nómina",
+          conceptCode: conceptCode,
+          category: isIncome ? "INCOME" : "DEDUCTION",
+          amount: amountVes.toFixed(2),
+        });
+      }
+
+      await db.insert(payrollItemLines).values(lines);
     }
 
     await db

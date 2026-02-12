@@ -11,6 +11,7 @@ export interface Employee {
   email?: string;
   phone?: string;
   positionId: string;
+  departmentId?: string;
   position?: JobPosition;
   salaryCurrencyId?: string;
   baseSalary: string;
@@ -40,6 +41,7 @@ export interface CreateEmployeeValues {
   email?: string;
   phone?: string;
   positionId: string;
+  departmentId?: string;
   salaryCurrencyId?: string;
   baseSalary: number;
   payFrequency?: string;
@@ -76,7 +78,13 @@ export function useEmployeeMutations() {
   });
 
   const updateEmployee = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: CreateEmployeeValues }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: CreateEmployeeValues;
+    }) => {
       return await api.put(`/hr/employees/${id}`, data);
     },
     onSuccess: () => {

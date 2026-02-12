@@ -28,8 +28,8 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { usePositionMutations, JobPosition } from "../hooks/use-positions";
-import { positionSchema, PositionFormValues } from "../schemas/hr.schema";
+import { usePositionMutations, JobPosition } from "../../hooks/use-positions";
+import { positionSchema, PositionFormValues } from "../../schemas/hr.schema";
 import { useCurrencies } from "@/modules/settings/currencies/hooks/use-currencies";
 import { GuideHint } from "@/components/guide/guide-hint";
 

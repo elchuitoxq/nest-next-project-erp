@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { db, payrollConceptTypes } from '@repo/db';
 import { eq, asc } from 'drizzle-orm';
 
@@ -22,6 +22,21 @@ export class PayrollConceptsService {
       .values(data)
       .returning();
     return concept;
+  }
+
+  async update(
+    id: string,
+    data: { name?: string; code?: string; category?: string },
+  ) {
+    const [updated] = await db
+      .update(payrollConceptTypes)
+      .set(data)
+      .where(eq(payrollConceptTypes.id, id))
+      .returning();
+
+    if (!updated)
+      throw new NotFoundException('Concepto de nómina no encontrado');
+    return updated;
   }
 
   async delete(id: string) {

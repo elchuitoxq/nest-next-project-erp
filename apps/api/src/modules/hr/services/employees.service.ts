@@ -4,17 +4,24 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { db, employees, jobPositions } from '@repo/db';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { CreateEmployeeDto, UpdateEmployeeDto } from '../dto/employee.dto';
 
 @Injectable()
 export class EmployeesService {
-  async findAll(status = 'ACTIVE') {
+  async findAll(branchId?: string, status = 'ACTIVE') {
+    const conditions = [eq(employees.status, status)];
+    if (branchId) {
+      conditions.push(eq(employees.branchId, branchId));
+    }
+
     return await db.query.employees.findMany({
-      where: eq(employees.status, status),
+      where: conditions.length === 1 ? conditions[0] : and(...conditions),
       orderBy: desc(employees.hireDate),
       with: {
         position: true,
+        department: true,
+        branch: true,
         salaryCurrency: true,
         bank: true,
       },
@@ -26,6 +33,8 @@ export class EmployeesService {
       where: eq(employees.id, id),
       with: {
         position: true,
+        department: true,
+        branch: true,
         salaryCurrency: true,
         bank: true,
       },
@@ -51,6 +60,8 @@ export class EmployeesService {
         email: data.email,
         phone: data.phone,
         positionId: data.positionId,
+        departmentId: data.departmentId,
+        branchId: data.branchId,
         salaryCurrencyId: data.salaryCurrencyId,
         baseSalary: data.baseSalary.toString(),
         payFrequency: data.payFrequency,
@@ -75,6 +86,8 @@ export class EmployeesService {
         email: data.email,
         phone: data.phone,
         positionId: data.positionId,
+        departmentId: data.departmentId,
+        branchId: data.branchId,
         salaryCurrencyId: data.salaryCurrencyId,
         baseSalary: data.baseSalary.toString(),
         payFrequency: data.payFrequency,

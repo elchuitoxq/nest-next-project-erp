@@ -23,7 +23,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useEmployees, Employee } from "@/modules/hr/hooks/use-employees";
-import { EmployeeDialog } from "@/modules/hr/components/employee-dialog";
+import { EmployeeDialog } from "@/modules/hr/components/dialogs/employee-dialog";
+import { TerminationDialog } from "@/modules/hr/components/dialogs/termination-dialog";
+import { ContractDialog } from "@/modules/hr/components/dialogs/contract-dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -34,6 +36,8 @@ export default function EmployeesPage() {
   const [selectedEmployee, setSelectedEmployee] = useState<
     Employee | undefined
   >();
+  const [contractDialogOpen, setContractDialogOpen] = useState(false);
+  const [pendingEmployee, setPendingEmployee] = useState<Employee | null>(null);
   const [search, setSearch] = useState("");
 
   const handleEdit = (emp: Employee) => {
@@ -44,6 +48,16 @@ export default function EmployeesPage() {
   const handleCreate = () => {
     setSelectedEmployee(undefined);
     setDialogOpen(true);
+  };
+
+  const [terminationOpen, setTerminationOpen] = useState(false);
+  const [employeeToTerminate, setEmployeeToTerminate] =
+    useState<Employee | null>(null);
+
+  const handleTerminate = (e: React.MouseEvent, emp: Employee) => {
+    e.stopPropagation();
+    setEmployeeToTerminate(emp);
+    setTerminationOpen(true);
   };
 
   // Client-side filtering
@@ -117,6 +131,7 @@ export default function EmployeesPage() {
                     <TableHead className="px-4">Salario Base</TableHead>
                     <TableHead className="px-4">Frecuencia</TableHead>
                     <TableHead className="px-4">Estado</TableHead>
+                    <TableHead className="px-4 text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -174,6 +189,18 @@ export default function EmployeesPage() {
                               {emp.status === "ACTIVE" ? "Activo" : "Inactivo"}
                             </Badge>
                           </TableCell>
+                          <TableCell className="py-3 px-4 text-right">
+                            {emp.status === "ACTIVE" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                onClick={(e) => handleTerminate(e, emp)}
+                              >
+                                Dar de Baja
+                              </Button>
+                            )}
+                          </TableCell>
                         </motion.tr>
                       ))
                     ) : (
@@ -183,7 +210,7 @@ export default function EmployeesPage() {
                         exit={{ opacity: 0 }}
                       >
                         <TableCell
-                          colSpan={5}
+                          colSpan={6}
                           className="h-32 text-center text-muted-foreground italic"
                         >
                           No se encontraron empleados.
@@ -201,6 +228,31 @@ export default function EmployeesPage() {
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           employee={selectedEmployee}
+          onSuccess={(employee) => {
+            if (!selectedEmployee) {
+              setPendingEmployee(employee);
+              setContractDialogOpen(true);
+            }
+          }}
+        />
+
+        {pendingEmployee && (
+          <ContractDialog
+            open={contractDialogOpen}
+            onOpenChange={(open) => {
+              setContractDialogOpen(open);
+              if (!open) setPendingEmployee(null);
+            }}
+            employeeId={pendingEmployee.id}
+            employeeName={`${pendingEmployee.firstName} ${pendingEmployee.lastName}`}
+          />
+        )}
+
+        <TerminationDialog
+          open={terminationOpen}
+          onOpenChange={setTerminationOpen}
+          employeeId={employeeToTerminate?.id || ""}
+          employeeName={`${employeeToTerminate?.firstName} ${employeeToTerminate?.lastName}`}
         />
       </motion.div>
     </SidebarInset>

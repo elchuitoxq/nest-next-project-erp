@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { fiscalReportsApi } from "../reports.api";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import { useGuideStore } from "@/stores/use-guide-store";
 
 import {
@@ -30,7 +31,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Download } from "lucide-react";
-import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -98,129 +98,20 @@ export function ReportsView() {
     if (type === "liquidacion") return;
     if (!data || !data.items || data.items.length === 0) return;
 
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet(`Libro ${type}`);
-
-    const columns = [
-      { header: "#", key: "nro_operacion", width: 5 },
-      { header: "Fecha", key: "fecha", width: 15 },
-      { header: "RIF", key: "rif", width: 15 },
-      { header: "Nombre", key: "nombre", width: 30 },
-      { header: "Factura", key: "numero_factura", width: 15 },
-      { header: "Control", key: "numero_control", width: 15 },
-      {
-        header: "Total",
-        key: "total",
-        width: 15,
-        style: { numFmt: "#,##0.00" },
-      },
-      {
-        header: "Base",
-        key: "base_imponible",
-        width: 15,
-        style: { numFmt: "#,##0.00" },
-      },
-      {
-        header: "IVA",
-        key: "impuesto",
-        width: 15,
-        style: { numFmt: "#,##0.00" },
-      },
-      {
-        header: "IVA Retenido",
-        key: "iva_retenido",
-        width: 15,
-        style: { numFmt: "#,##0.00" },
-      },
-      { header: "N° Comprobante", key: "numero_comprobante", width: 20 },
-    ];
-
-    if (type === "ventas") {
-      columns.push({
-        header: "IGTF Percibido",
-        key: "igtf_percibido",
-        width: 15,
-        style: { numFmt: "#,##0.00" },
-      });
+    try {
+      const fortnightParam = fortnight === "full" ? undefined : fortnight;
+      const blob = await fiscalReportsApi.getFiscalBookExcel(
+        type,
+        month,
+        year,
+        undefined,
+        fortnightParam,
+      );
+      saveAs(blob, `Libro_${type}_${month}_${year}.xlsx`);
+    } catch (error) {
+      console.error("Failed to download Excel", error);
+      toast.error("Error al descargar Excel");
     }
-
-    worksheet.columns = columns;
-
-    data.items.forEach((row: any) => {
-      const totalValue =
-        row.total_ventas_incluyendo_iva || row.total_compras_incluyendo_iva;
-      worksheet.addRow({
-        nro_operacion: row.nro_operacion,
-        fecha: new Date(row.fecha).toLocaleDateString(),
-        rif: row.rif || "",
-        nombre: row.nombre || "",
-        numero_factura: row.numero_factura || "",
-        numero_control: row.numero_control || "",
-        total: Number(totalValue || 0),
-        base_imponible: Number(row.base_imponible || 0),
-        impuesto: Number(row.impuesto || 0),
-        iva_retenido: Number(row.iva_retenido || 0),
-        numero_comprobante: row.numero_comprobante || "",
-        igtf_percibido: Number(row.igtf_percibido || 0),
-      });
-    });
-
-    worksheet.addRow([]);
-    worksheet.addRow(["RESUMEN GENERAL"]);
-    if (worksheet.lastRow) worksheet.lastRow.font = { bold: true };
-
-    if (data.summary) {
-      if (type === "ventas") {
-        worksheet.addRow([
-          "Total Ventas Gravadas",
-          Number(data.summary.total_ventas_gravadas || 0),
-        ]);
-        worksheet.addRow([
-          "Total Base Imponible",
-          Number(data.summary.total_base_imponible || 0),
-        ]);
-        worksheet.addRow([
-          "Total Débito Fiscal (IVA)",
-          Number(data.summary.total_debito_fiscal || 0),
-        ]);
-        worksheet.addRow([
-          "Total IVA Retenido",
-          Number(data.summary.total_iva_retenido || 0),
-        ]);
-        worksheet.addRow(["Total IGTF", Number(data.summary.total_igtf || 0)]);
-      } else {
-        worksheet.addRow([
-          "Total Compras Gravadas",
-          Number(data.summary.total_compras_gravadas || 0),
-        ]);
-        worksheet.addRow([
-          "Total Base Imponible",
-          Number(data.summary.total_base_imponible || 0),
-        ]);
-        worksheet.addRow([
-          "Total Crédito Fiscal (IVA)",
-          Number(data.summary.total_credito_fiscal || 0),
-        ]);
-        worksheet.addRow([
-          "Total IVA Retenido a Terceros",
-          Number(data.summary.total_iva_retenido_terceros || 0),
-        ]);
-      }
-    }
-
-    const headerRow = worksheet.getRow(1);
-    headerRow.font = { bold: true };
-    headerRow.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFE0E0E0" },
-    };
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-    saveAs(blob, `Libro_${type}_${month}_${year}.xlsx`);
   };
 
   const handleDownloadTxt = async () => {

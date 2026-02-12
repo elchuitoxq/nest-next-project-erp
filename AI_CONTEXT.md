@@ -184,3 +184,47 @@ El sistema maneja una **Tesorería Multimoneda Real** con soporte para **Anticip
 - **Moneda:**
   - Se visualizan montos con formato explícito de moneda (ej. `Bs 100.00`, `$ 25.00`).
   - **Disclaimers:** Los pedidos incluyen nota legal sobre la tasa de cambio referencial.
+
+---
+
+## 🛠️ Patrones de Implementación (Actualizado)
+
+### 1. Manejo de Rutas Dinámicas (Next.js 15)
+
+- **Cambio Crítico:** En Next.js 15, `params` y `searchParams` en `page.tsx` y `layout.tsx` son **Promesas**.
+- **Regla:** Siempre usar `await params` antes de acceder a las propiedades.
+
+  ```typescript
+  // ❌ Incorrecto
+  const { id } = params;
+
+  // ✅ Correcto
+  const { id } = await params;
+  ```
+
+### 2. Exportación y Descarga de Archivos Protegidos
+
+- **Problema:** `window.open(url)` no envía encabezados de autorización (Bearer Token), provocando errores 401 en endpoints protegidos.
+- **Patrón Obligatorio:**
+  1. **Backend:** El endpoint debe retornar un `StreamableFile` o `Buffer` y configurar `Content-Type` y `Content-Disposition`.
+  2. **Frontend (API Client):** Crear un método en `*.api.ts` con `responseType: 'blob'`.
+  3. **Frontend (Componente):** Consumir el blob y usar `file-saver` (`saveAs`).
+
+  ```typescript
+  // api.ts
+  downloadExcel: async (id: string) => {
+    const { data } = await api.get(`/resource/${id}/export`, {
+      responseType: "blob",
+    });
+    return data;
+  };
+
+  // component.tsx
+  const blob = await api.downloadExcel(id);
+  saveAs(blob, "report.xlsx");
+  ```
+
+### 3. Generación de Archivos Pesados (Excel/PDF)
+
+- **Regla:** La generación de archivos complejos (ej. Excel con múltiples hojas, PDF fiscales) **DEBE** realizarse en el Backend (`apps/api`) usando librerías como `exceljs` o `pdfkit`.
+- **Excepción:** Reportes simples o puramente visuales pueden generarse en frontend si no requieren datos adicionales de la BD.

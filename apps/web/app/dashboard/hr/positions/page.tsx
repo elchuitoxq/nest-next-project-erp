@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePositions, JobPosition } from "@/modules/hr/hooks/use-positions";
-import { PositionDialog } from "@/modules/hr/components/position-dialog";
+import { PositionDialog } from "@/modules/hr/components/dialogs/position-dialog";
 import { formatCurrency } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/page-header";

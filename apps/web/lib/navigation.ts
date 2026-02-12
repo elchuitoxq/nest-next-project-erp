@@ -117,12 +117,20 @@ export const NAV_ITEMS: NavItem[] = [
         url: "/dashboard/hr/positions",
       },
       {
+        title: "Departamentos",
+        url: "/dashboard/hr/departments",
+      },
+      {
         title: "Nóminas",
         url: "/dashboard/hr/payroll",
       },
       {
         title: "Novedades",
         url: "/dashboard/hr/incidents",
+      },
+      {
+        title: "Configuración",
+        url: "/dashboard/hr/settings",
       },
     ],
   },
@@ -143,10 +151,6 @@ export const NAV_ITEMS: NavItem[] = [
       {
         title: "Maestro de Bancos",
         url: "/dashboard/settings/banks",
-      },
-      {
-        title: "Conceptos de Nómina",
-        url: "/dashboard/settings/payroll-concepts",
       },
       {
         title: "Conceptos ISLR",

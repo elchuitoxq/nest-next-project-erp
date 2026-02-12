@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { GuideToggle } from "../guide/guide-toggle";
 
 interface PageHeaderProps {
-  title: string;
+  title: string | React.ReactNode;
   description?: string;
   children?: React.ReactNode;
   className?: string;

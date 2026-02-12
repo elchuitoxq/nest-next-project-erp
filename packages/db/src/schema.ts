@@ -6,6 +6,7 @@ import {
   boolean,
   jsonb,
   numeric,
+  integer,
   primaryKey,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -524,6 +525,7 @@ export const payments = pgTable("payments", {
   }).notNull(),
 
   bankAccountId: uuid("bank_account_id").references(() => bankAccounts.id), // Where money was deposited
+  payrollRunId: uuid("payroll_run_id"), // Link to payroll run (for payroll EXPENSE payments)
 
   reference: text("reference"), // Transaction number
   metadata: jsonb("metadata"), // For retentions (voucher number, tax base, etc)
@@ -619,6 +621,18 @@ export const loanItems = pgTable("loan_items", {
 
 // --- HR ---
 
+export const departments = pgTable("departments", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  name: text("name").notNull(),
+  parentId: uuid("parent_id"), // Self-reference for hierarchy
+  branchId: uuid("branch_id")
+    .references(() => branches.id)
+    .notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const jobPositions = pgTable("job_positions", {
   id: uuid("id")
     .primaryKey()
@@ -638,6 +652,96 @@ export const jobPositions = pgTable("job_positions", {
   }).default("0"),
 
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const employeeContracts = pgTable("employee_contracts", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  employeeId: uuid("employee_id")
+    .references(() => employees.id)
+    .notNull(),
+  type: text("type").notNull(), // INDEFINIDO, DETERMINADO, OBRA
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"), // Nullable for indefinite
+  trialPeriodEnd: timestamp("trial_period_end"), // Art. 80 LOTTT
+  weeklyHours: numeric("weekly_hours", { precision: 10, scale: 2 }).default(
+    "40",
+  ),
+  notes: text("notes"),
+  status: text("status").default("ACTIVE"), // ACTIVE, EXPIRED, TERMINATED
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const employeeBenefits = pgTable("employee_benefits", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  employeeId: uuid("employee_id")
+    .references(() => employees.id)
+    .notNull(),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(),
+  monthlySalary: numeric("monthly_salary", {
+    precision: 20,
+    scale: 2,
+  }).notNull(),
+  integralSalary: numeric("integral_salary", {
+    precision: 20,
+    scale: 2,
+  }).notNull(),
+  days: integer("days").default(15),
+  amount: numeric("amount", { precision: 20, scale: 2 }).notNull(),
+  accumulatedAmount: numeric("accumulated_amount", {
+    precision: 20,
+    scale: 2,
+  }).default("0"),
+  type: text("type").default("REGULAR"), // REGULAR, ANTICIPO, LIQUIDACION
+  paid: boolean("paid").default(false),
+  paymentDate: timestamp("payment_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const employeeVacations = pgTable("employee_vacations", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  employeeId: uuid("employee_id")
+    .references(() => employees.id)
+    .notNull(),
+  year: integer("year").notNull(),
+  totalDays: integer("total_days").notNull(), // 15 + 1 per year (max 30)
+  daysTaken: integer("days_taken").default(0),
+  daysPending: integer("days_pending").notNull(), // Computed or stored
+  status: text("status").default("PENDING"), // PENDING, TAKEN, PAID
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  returnDate: timestamp("return_date"),
+  paymentDate: timestamp("payment_date"),
+  amount: numeric("amount", { precision: 20, scale: 2 }), // Bono vacacional amount
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const employeeProfitSharing = pgTable("employee_profit_sharing", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  employeeId: uuid("employee_id")
+    .references(() => employees.id)
+    .notNull(),
+  year: integer("year").notNull(),
+  daysToPay: integer("days_to_pay").notNull(), // e.g., 30, 60, 120
+  amount: numeric("amount", { precision: 20, scale: 2 }).notNull(),
+  paymentDate: timestamp("payment_date"),
+  status: text("status").default("PENDING"), // PENDING, PAID
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const banks = pgTable("banks", {
@@ -661,8 +765,12 @@ export const employees = pgTable("employees", {
   phone: text("phone"),
 
   positionId: uuid("position_id").references(() => jobPositions.id), // Link to Position
+  departmentId: uuid("department_id").references(() => departments.id), // Link to Department
+  branchId: uuid("branch_id").references(() => branches.id), // Link to Branch
 
   hireDate: timestamp("hire_date").defaultNow(),
+  terminationDate: timestamp("termination_date"), // When employee left
+  terminationReason: text("termination_reason"), // Reason for leaving
 
   // Salary Configuration
   salaryCurrencyId: uuid("salary_currency_id").references(() => currencies.id), // USD or VES
@@ -723,6 +831,35 @@ export const payrollItems = pgTable("payroll_items", {
   netTotal: numeric("net_total", { precision: 20, scale: 2 }).notNull(),
 });
 
+export const payrollItemLines = pgTable("payroll_item_lines", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  itemId: uuid("item_id")
+    .references(() => payrollItems.id)
+    .notNull(),
+  conceptCode: text("concept_code").notNull(), // Snapshot: "SSO_EMP", "CESTATICKET"
+  conceptName: text("concept_name").notNull(), // Snapshot: "Seguro Social (Empleado)"
+  category: text("category").notNull(), // INCOME, DEDUCTION, EMPLOYER
+  base: numeric("base", { precision: 20, scale: 2 }).default("0"), // Base for calculation
+  rate: numeric("rate", { precision: 10, scale: 4 }).default("0"), // % applied (e.g. 0.04)
+  amount: numeric("amount", { precision: 20, scale: 2 }).notNull(), // Final calculated amount
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const payrollSettings = pgTable("payroll_settings", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  key: text("key").notNull().unique(), // "CESTATICKET_USD", "SSO_EMP", etc.
+  label: text("label").notNull(), // "Cestaticket Socialista"
+  value: numeric("value", { precision: 20, scale: 4 }).notNull(), // Rate or fixed amount
+  type: text("type").notNull(), // FIXED_USD, PERCENTAGE, FIXED_VES
+  branchId: uuid("branch_id").references(() => branches.id), // Null = global
+  isActive: boolean("is_active").default(true),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const payrollConceptTypes = pgTable("payroll_concept_types", {
   id: uuid("id")
     .primaryKey()
@@ -756,6 +893,24 @@ export const payrollIncidents = pgTable("payroll_incidents", {
   ),
 
   notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const employeeSalaryHistory = pgTable("employee_salary_history", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  employeeId: uuid("employee_id")
+    .references(() => employees.id)
+    .notNull(),
+  previousSalary: numeric("previous_salary", {
+    precision: 20,
+    scale: 2,
+  }).notNull(),
+  newSalary: numeric("new_salary", { precision: 20, scale: 2 }).notNull(),
+  currencyId: uuid("currency_id").references(() => currencies.id),
+  reason: text("reason"),
+  effectiveDate: timestamp("effective_date").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -1108,6 +1263,14 @@ export const paymentMethodAccountsRelations = relations(
   }),
 );
 
+export const departmentsRelations = relations(departments, ({ one, many }) => ({
+  branch: one(branches, {
+    fields: [departments.branchId],
+    references: [branches.id],
+  }),
+  employees: many(employees),
+}));
+
 export const jobPositionsRelations = relations(
   jobPositions,
   ({ one, many }) => ({
@@ -1124,6 +1287,14 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
     fields: [employees.positionId],
     references: [jobPositions.id],
   }),
+  department: one(departments, {
+    fields: [employees.departmentId],
+    references: [departments.id],
+  }),
+  branch: one(branches, {
+    fields: [employees.branchId],
+    references: [branches.id],
+  }),
   salaryCurrency: one(currencies, {
     fields: [employees.salaryCurrencyId],
     references: [currencies.id],
@@ -1134,7 +1305,64 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
   }),
   payrollItems: many(payrollItems),
   incidents: many(payrollIncidents),
+  salaryHistory: many(employeeSalaryHistory),
+  contracts: many(employeeContracts),
+  benefits: many(employeeBenefits),
 }));
+
+export const employeeContractsRelations = relations(
+  employeeContracts,
+  ({ one }) => ({
+    employee: one(employees, {
+      fields: [employeeContracts.employeeId],
+      references: [employees.id],
+    }),
+  }),
+);
+
+export const employeeBenefitsRelations = relations(
+  employeeBenefits,
+  ({ one }) => ({
+    employee: one(employees, {
+      fields: [employeeBenefits.employeeId],
+      references: [employees.id],
+    }),
+  }),
+);
+
+export const employeeVacationsRelations = relations(
+  employeeVacations,
+  ({ one }) => ({
+    employee: one(employees, {
+      fields: [employeeVacations.employeeId],
+      references: [employees.id],
+    }),
+  }),
+);
+
+export const employeeProfitSharingRelations = relations(
+  employeeProfitSharing,
+  ({ one }) => ({
+    employee: one(employees, {
+      fields: [employeeProfitSharing.employeeId],
+      references: [employees.id],
+    }),
+  }),
+);
+
+export const employeeSalaryHistoryRelations = relations(
+  employeeSalaryHistory,
+  ({ one }) => ({
+    employee: one(employees, {
+      fields: [employeeSalaryHistory.employeeId],
+      references: [employees.id],
+    }),
+    currency: one(currencies, {
+      fields: [employeeSalaryHistory.currencyId],
+      references: [currencies.id],
+    }),
+  }),
+);
 
 export const payrollRunsRelations = relations(payrollRuns, ({ one, many }) => ({
   branch: one(branches, {
@@ -1149,18 +1377,35 @@ export const payrollRunsRelations = relations(payrollRuns, ({ one, many }) => ({
   processedIncidents: many(payrollIncidents, {
     relationName: "processedInRun",
   }),
+  payments: many(payments, {
+    relationName: "payrollPayments",
+  }),
 }));
 
-export const payrollItemsRelations = relations(payrollItems, ({ one }) => ({
-  run: one(payrollRuns, {
-    fields: [payrollItems.runId],
-    references: [payrollRuns.id],
+export const payrollItemsRelations = relations(
+  payrollItems,
+  ({ one, many }) => ({
+    run: one(payrollRuns, {
+      fields: [payrollItems.runId],
+      references: [payrollRuns.id],
+    }),
+    employee: one(employees, {
+      fields: [payrollItems.employeeId],
+      references: [employees.id],
+    }),
+    lines: many(payrollItemLines),
   }),
-  employee: one(employees, {
-    fields: [payrollItems.employeeId],
-    references: [employees.id],
+);
+
+export const payrollItemLinesRelations = relations(
+  payrollItemLines,
+  ({ one }) => ({
+    item: one(payrollItems, {
+      fields: [payrollItemLines.itemId],
+      references: [payrollItems.id],
+    }),
   }),
-}));
+);
 
 export const payrollConceptTypesRelations = relations(
   payrollConceptTypes,
@@ -1187,6 +1432,93 @@ export const payrollIncidentsRelations = relations(
     processedInRun: one(payrollRuns, {
       fields: [payrollIncidents.processedInRunId],
       references: [payrollRuns.id],
+    }),
+  }),
+);
+
+// --- ACCOUNTING SCHEMA ---
+
+export const accountingAccounts = pgTable(
+  "accounting_accounts",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => uuidv7()),
+    code: text("code").notNull(), // e.g. "5.1.01.01"
+    name: text("name").notNull(),
+    type: text("type").notNull(), // ASSET, LIABILITY, EQUITY, INCOME, EXPENSE
+    branchId: uuid("branch_id").references(() => branches.id),
+    parentId: uuid("parent_id"), // For hierarchy
+    isActive: boolean("is_active").default(true),
+  },
+  (table) => [
+    uniqueIndex("accounting_accounts_code_branch_idx").on(
+      table.code,
+      table.branchId,
+    ),
+  ],
+);
+
+export const accountingEntries = pgTable("accounting_entries", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  date: timestamp("date").notNull(),
+  description: text("description").notNull(),
+  reference: text("reference"), // Source: "NOM-2024-01-15"
+  branchId: uuid("branch_id").references(() => branches.id),
+  status: text("status").default("POSTED"), // DRAFT, POSTED
+  createdAt: timestamp("created_at").defaultNow(),
+  userId: uuid("user_id").references(() => users.id),
+});
+
+export const accountingEntryLines = pgTable("accounting_entry_lines", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  entryId: uuid("entry_id")
+    .references(() => accountingEntries.id)
+    .notNull(),
+  accountId: uuid("account_id")
+    .references(() => accountingAccounts.id)
+    .notNull(),
+  debit: numeric("debit", { precision: 20, scale: 2 }).default("0"),
+  credit: numeric("credit", { precision: 20, scale: 2 }).default("0"),
+  description: text("description"), // Line detail
+});
+
+export const accountingAccountsRelations = relations(
+  accountingAccounts,
+  ({ one, many }) => ({
+    branch: one(branches, {
+      fields: [accountingAccounts.branchId],
+      references: [branches.id],
+    }),
+    entries: many(accountingEntryLines),
+  }),
+);
+
+export const accountingEntriesRelations = relations(
+  accountingEntries,
+  ({ one, many }) => ({
+    branch: one(branches, {
+      fields: [accountingEntries.branchId],
+      references: [branches.id],
+    }),
+    lines: many(accountingEntryLines),
+  }),
+);
+
+export const accountingEntryLinesRelations = relations(
+  accountingEntryLines,
+  ({ one }) => ({
+    entry: one(accountingEntries, {
+      fields: [accountingEntryLines.entryId],
+      references: [accountingEntries.id],
+    }),
+    account: one(accountingAccounts, {
+      fields: [accountingEntryLines.accountId],
+      references: [accountingAccounts.id],
     }),
   }),
 );

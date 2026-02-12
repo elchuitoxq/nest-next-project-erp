@@ -651,7 +651,7 @@ export class TreasuryService {
 
     // To avoid N+1, let's fetch all allocations for these payments
     const paymentIds = rows.map((r) => r.payment.id);
-    let allocationsMap = new Map<string, any[]>();
+    const allocationsMap = new Map<string, any[]>();
 
     if (paymentIds.length > 0) {
       const allocs = await db.query.paymentAllocations.findMany({
@@ -680,7 +680,7 @@ export class TreasuryService {
       .filter((r) => r.payment.invoiceId && !allocationsMap.has(r.payment.id))
       .map((r) => r.payment.invoiceId as string);
 
-    let legacyInvoicesMap = new Map<string, string>();
+    const legacyInvoicesMap = new Map<string, string>();
     if (legacyInvoiceIds.length > 0) {
       const legacyInvs = await db.query.invoices.findMany({
         where: sql`${invoices.id} IN ${legacyInvoiceIds}`,
@@ -690,7 +690,7 @@ export class TreasuryService {
     }
 
     return rows.map(({ payment, user, bankAccount, partner, method }) => {
-      let finalAllocations = allocationsMap.get(payment.id) || [];
+      const finalAllocations = allocationsMap.get(payment.id) || [];
 
       // Backwards compatibility for legacy single-invoice payments without allocations
       if (finalAllocations.length === 0 && payment.invoiceId) {

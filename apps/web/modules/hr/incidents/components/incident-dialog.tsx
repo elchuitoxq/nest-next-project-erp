@@ -23,7 +23,7 @@ import { useState } from "react";
 import { useIncidentMutations } from "../hooks/use-incidents";
 import { useEmployees } from "../../hooks/use-employees";
 import { usePayrollConcepts } from "../../concepts/hooks/use-payroll-concepts";
-import { EmployeeCombobox } from "../../components/employee-combobox";
+import { EmployeeCombobox } from "../../components/shared/employee-combobox";
 
 interface IncidentDialogProps {
   open: boolean;

@@ -12,6 +12,7 @@ export interface Payment {
   invoiceId?: string;
   partnerId: string;
   methodId: string;
+  methodName?: string;
   currencyId: string;
   amount: string;
   type: "INCOME" | "EXPENSE";

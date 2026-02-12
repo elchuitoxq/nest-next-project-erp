@@ -27,27 +27,31 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useEmployeeMutations, Employee } from "../hooks/use-employees";
+import { useEmployeeMutations, Employee } from "../../hooks/use-employees";
 import { GuideCard } from "@/components/guide/guide-card";
-import { employeeSchema, EmployeeFormValues } from "../schemas/hr.schema";
+import { employeeSchema, EmployeeFormValues } from "../../schemas/hr.schema";
 import { useCurrencies } from "@/modules/settings/currencies/hooks/use-currencies";
-import { usePositions } from "../hooks/use-positions";
+import { usePositions } from "../../hooks/use-positions";
+import { useDepartments } from "../../hooks/use-departments";
 import { useBanks } from "@/modules/settings/banks/hooks/use-banks";
 
 interface EmployeeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   employee?: Employee; // If provided, edit mode
+  onSuccess?: (employee: Employee) => void;
 }
 
 export function EmployeeDialog({
   open,
   onOpenChange,
   employee,
+  onSuccess,
 }: EmployeeDialogProps) {
   const { createEmployee, updateEmployee } = useEmployeeMutations();
   const { data: currencies } = useCurrencies();
   const { data: positions } = usePositions();
+  const { data: departments } = useDepartments();
   const { data: banks } = useBanks();
 
   const form = useForm<EmployeeFormValues>({
@@ -59,6 +63,7 @@ export function EmployeeDialog({
       email: "",
       phone: "",
       positionId: "",
+      departmentId: "",
       salaryCurrencyId: "",
       baseSalary: 0,
       payFrequency: "BIWEEKLY",
@@ -94,6 +99,7 @@ export function EmployeeDialog({
         email: employee.email || "",
         phone: employee.phone || "",
         positionId: employee.positionId,
+        departmentId: employee.departmentId || "",
         salaryCurrencyId: employee.salaryCurrencyId || "",
         baseSalary: Number(employee.baseSalary),
         payFrequency: (employee.payFrequency as any) || "BIWEEKLY",
@@ -110,6 +116,7 @@ export function EmployeeDialog({
         email: "",
         phone: "",
         positionId: "",
+        departmentId: "",
         salaryCurrencyId: "",
         baseSalary: 0,
         payFrequency: "BIWEEKLY",
@@ -123,12 +130,16 @@ export function EmployeeDialog({
 
   const onSubmit = async (data: EmployeeFormValues) => {
     try {
+      let result;
       if (employee) {
-        await updateEmployee.mutateAsync({ id: employee.id, data });
+        result = await updateEmployee.mutateAsync({ id: employee.id, data });
       } else {
-        await createEmployee.mutateAsync(data);
+        result = await createEmployee.mutateAsync(data);
       }
       onOpenChange(false);
+      if (result) {
+        onSuccess?.(result as unknown as Employee);
+      }
     } catch (error) {
       console.error(error);
     }
@@ -237,6 +248,34 @@ export function EmployeeDialog({
                         {positions?.map((pos) => (
                           <SelectItem key={pos.id} value={pos.id}>
                             {pos.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="departmentId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Departamento</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {departments?.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.id}>
+                            {dept.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
