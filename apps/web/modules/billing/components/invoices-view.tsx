@@ -21,6 +21,13 @@ import { PaginationState } from "@tanstack/react-table";
 import { PageHeader } from "@/components/layout/page-header";
 import { GuideCard } from "@/components/guide/guide-card";
 import { GuideHint } from "@/components/guide/guide-hint";
+import { DocumentFlow } from "@/modules/common/components/document-flow";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function InvoicesView() {
   const router = useRouter();
@@ -120,6 +127,12 @@ export function InvoicesView() {
     setIsDetailsOpen(true);
   };
 
+  const [isFlowOpen, setIsFlowOpen] = useState(false);
+  const handleViewFlow = (invoice: Invoice) => {
+    setSelectedId(invoice.id);
+    setIsFlowOpen(true);
+  };
+
   return (
     <SidebarInset>
       <AppHeader />
@@ -175,6 +188,7 @@ export function InvoicesView() {
                 pagination={{ pageIndex, pageSize }}
                 onPaginationChange={setPagination}
                 onViewDetails={handleViewDetails}
+                onViewFlow={handleViewFlow}
                 isLoading={isLoading}
                 search={search}
                 onSearchChange={handleSearchChange}
@@ -192,6 +206,15 @@ export function InvoicesView() {
           onOpenChange={setIsDetailsOpen}
           invoice={activeInvoice}
         />
+
+        <Dialog open={isFlowOpen} onOpenChange={setIsFlowOpen}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Flujo Documental</DialogTitle>
+            </DialogHeader>
+            {selectedId && <DocumentFlow documentId={selectedId} />}
+          </DialogContent>
+        </Dialog>
       </div>
     </SidebarInset>
   );

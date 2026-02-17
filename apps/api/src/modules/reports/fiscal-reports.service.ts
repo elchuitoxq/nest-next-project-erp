@@ -207,9 +207,11 @@ export class FiscalReportsService {
             : 'Documento emitido y reportado en el periodo actual.',
         numero_comprobante: voucherCode,
         total_ventas_incluyendo_iva: total.toNumber(),
-        ventas_exentas: 0,
+        ventas_exentas: 0, // TODO: IF mixed, calculate from items. For now assuming full invoice is one rate.
         base_imponible: base.toNumber(),
-        aliquota: '16%',
+        aliquota: base.equals(0)
+          ? '0%'
+          : `${tax.div(base).times(100).toFixed(0)}%`,
         impuesto: tax.toNumber(),
         iva_retenido: retainedThisMonth.toNumber(),
         igtf_percibido: igtf.toNumber(),
@@ -378,7 +380,9 @@ export class FiscalReportsService {
         total_compras_incluyendo_iva: total.toNumber(),
         compras_exentas: 0,
         base_imponible: base.toNumber(),
-        aliquota: '16%',
+        aliquota: base.equals(0)
+          ? '0%'
+          : `${tax.div(base).times(100).toFixed(0)}%`,
         impuesto: tax.toNumber(),
         iva_retenido: retainedThisMonth.toNumber(),
       };

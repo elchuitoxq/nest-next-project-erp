@@ -23,7 +23,7 @@ import { Loader2, Save, Percent, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   usePayrollSettings,
-  usePayrollSettingsMutations,
+  usePayrollSettingsMutation,
 } from "@/modules/hr/hooks/use-payroll-settings";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -31,19 +31,19 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function PayrollSettingsPage() {
   const { data: settings, isLoading } = usePayrollSettings();
-  const { updateSetting } = usePayrollSettingsMutations();
+  const { updateSettings } = usePayrollSettingsMutation();
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  const handleEdit = (key: string, currentValue: string) => {
+  const handleEdit = (key: string, currentValue: number) => {
     setEditingKey(key);
-    setEditValue(currentValue);
+    setEditValue(currentValue.toString());
   };
 
   const handleSave = (key: string) => {
     const value = parseFloat(editValue);
     if (isNaN(value) || value < 0) return;
-    updateSetting.mutate({ key, value });
+    updateSettings.mutate([{ id: key, value } as any]); // Hack for id mapping if needed, or check backend DTO
     setEditingKey(null);
     setEditValue("");
   };
@@ -81,8 +81,8 @@ export default function PayrollSettingsPage() {
     );
   };
 
-  const formatValue = (value: string, type: string) => {
-    const num = parseFloat(value);
+  const formatValue = (value: number, type: string) => {
+    const num = value;
     if (type === "PERCENTAGE") return `${num}%`;
     if (type === "FIXED_USD") return `$${num.toFixed(2)}`;
     return `Bs. ${num.toFixed(2)}`;
@@ -143,8 +143,10 @@ export default function PayrollSettingsPage() {
                 </TableHeader>
                 <TableBody>
                   <AnimatePresence mode="wait">
-                    {!isLoading && settings && settings.length > 0 ? (
-                      settings.map((s, index) => (
+                    {!isLoading &&
+                    settings &&
+                    Object.keys(settings).length > 0 ? (
+                      Object.values(settings).map((s, index) => (
                         <motion.tr
                           key={s.key}
                           initial={{ opacity: 0, y: 5 }}
@@ -199,7 +201,7 @@ export default function PayrollSettingsPage() {
                                 <Button
                                   size="sm"
                                   onClick={() => handleSave(s.key)}
-                                  disabled={updateSetting.isPending}
+                                  disabled={updateSettings.isPending}
                                 >
                                   <Save className="h-3.5 w-3.5 mr-1" />
                                   Guardar

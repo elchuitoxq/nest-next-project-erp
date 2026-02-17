@@ -46,6 +46,10 @@ import {
   accountingAccounts,
   accountingEntries,
   accountingEntryLines,
+  auditLogs,
+  documentLinks,
+  accountingMaps,
+  productBatches,
 } from "../src";
 import { sql, eq } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
@@ -59,8 +63,22 @@ dotenv.config({ path: "../src/.env" });
 const randomMoney = (min: number, max: number) =>
   faker.number.float({ min, max, fractionDigits: 2 }).toString();
 
+// Elegant Logger Utility
+const Logger = {
+  section: (title: string) => {
+    console.log("\n" + "=".repeat(80));
+    console.log(` 🚀 ${title.toUpperCase()}`);
+    console.log("=".repeat(80) + "\n");
+  },
+  success: (msg: string) => console.log(`   ✅ ${msg}`),
+  info: (msg: string) => console.log(`   🔹 ${msg}`),
+  step: (level: string, title: string) =>
+    console.log(`\n📦 [${level}] ${title}...`),
+  error: (msg: string) => console.log(`   ❌ ERROR: ${msg}`),
+};
+
 async function main() {
-  console.log("🚀 STARTING E2E MULTICURRENCY SEED...");
+  Logger.section("Starting E2E Multi-Currency Seed (Transversal)");
 
   try {
     // 1. RUN BASIC SEED (Infrastructure)
@@ -570,7 +588,7 @@ async function main() {
     // =================================================================================
     // LEVEL 4: PROCUREMENT CYCLE (Purchases)
     // =================================================================================
-    console.log("🚚 [L4] Executing Purchase Cycle (Restocking)...");
+    Logger.step("L4", "Executing Purchase Cycle (Restocking)");
 
     for (let i = 0; i < 30; i++) {
       const branch = i % 2 === 0 ? branchCCS : branchVAL;
@@ -625,6 +643,22 @@ async function main() {
         const lineTotal = unitCost * qty;
         totalOrder += lineTotal;
 
+        const isBatchTracked = prod.hasBatches === true;
+        let batchId: string | null = null;
+
+        if (isBatchTracked) {
+          const [batch] = await db
+            .insert(productBatches)
+            .values({
+              productId: prod.id,
+              batchNumber: `BAT-${faker.string.numeric(5)}`,
+              expirationDate: faker.date.future(),
+              cost: unitCost.toFixed(2),
+            })
+            .returning();
+          batchId = batch.id;
+        }
+
         orderLines.push({
           orderId: order.id,
           productId: prod.id,
@@ -633,10 +667,15 @@ async function main() {
         });
 
         // Stock Movement (IN)
-        // We need to create stock records if they don't exist
         const existingStock = await db.query.stock.findFirst({
           where: (stock, { and, eq }) =>
-            and(eq(stock.warehouseId, wh.id), eq(stock.productId, prod.id)),
+            and(
+              eq(stock.warehouseId, wh.id),
+              eq(stock.productId, prod.id),
+              batchId
+                ? eq(stock.batchId, batchId)
+                : sql`${stock.batchId} IS NULL`,
+            ),
         });
         if (existingStock) {
           await db
@@ -651,6 +690,7 @@ async function main() {
           await db.insert(stock).values({
             warehouseId: wh.id,
             productId: prod.id,
+            batchId: batchId as any,
             quantity: qty.toString(),
           });
         }
@@ -770,13 +810,14 @@ async function main() {
         const qty = faker.number.int({ min: 1, max: 5 });
 
         // Check Stock
-        // (Skipping strict check for seed, assuming purchases filled enough, or allowing negative for test)
-        // But let's decrement
         const existingStock = await db.query.stock.findFirst({
           where: (stock, { and, eq }) =>
             and(eq(stock.warehouseId, wh.id), eq(stock.productId, prod.id)),
         });
+
+        let batchId: string | null = null;
         if (existingStock) {
+          batchId = existingStock.batchId;
           const newQty = parseFloat(existingStock.quantity || "0") - qty;
           await db
             .update(stock)
@@ -796,12 +837,15 @@ async function main() {
         orderLines.push({
           orderId: order.id,
           productId: prod.id,
+          batchId, // Store for move lines
           quantity: qty.toString(),
           price: unitPrice.toFixed(2),
         });
       }
 
-      await db.insert(orderItems).values(orderLines);
+      await db
+        .insert(orderItems)
+        .values(orderLines.map(({ batchId, ...rest }) => rest));
       await db
         .update(orders)
         .set({ total: totalBase.toFixed(2) })
@@ -824,6 +868,7 @@ async function main() {
       const moveLines = orderLines.map((l) => ({
         moveId: move.id,
         productId: l.productId,
+        batchId: l.batchId,
         quantity: l.quantity,
         cost: "0", // Simplified
       }));
@@ -1615,15 +1660,243 @@ async function main() {
       total: "5000.00",
       taxRate: "0.00",
     });
+    // Enable batches for first 5 products
+    for (const prod of productsData.slice(0, 5)) {
+      await db
+        .update(products)
+        .set({ hasBatches: true })
+        .where(eq(products.id, prod.id));
+      prod.hasBatches = true;
+    }
 
-    console.log(
-      `   ✅ Created VES Credit Note for ${targetCustomer.name}: Bs. 5000.00`,
+    // =================================================================================
+    // LEVEL 13: ACCOUNTING MAPS (Mapeos Contables)
+    // =================================================================================
+    Logger.step("L13", "Setting up Automated Accounting Maps");
+
+    const allAccAccounts = await db.select().from(accountingAccounts);
+
+    // Account finding helpers
+    const findAcc = (name: string, codePrefix: string) =>
+      allAccAccounts.find(
+        (a) => a.name.includes(name) || a.code.startsWith(codePrefix),
+      ) || allAccAccounts[0];
+
+    const accVentas = findAcc("Ventas", "4");
+    const accCaja = findAcc("Caja", "1.1");
+    const accAR = findAcc("Clientes", "1.1.02"); // Cuentas por Cobrar
+    const accIVA = findAcc("IVA", "2.1.03"); // Débito Fiscal
+    const accInventario = findAcc("Inventario", "1.1.03"); // Activo Inventario
+    const accCostoVentas = findAcc("Costo de Ventas", "5.1.01"); // COGS
+
+    await db.insert(accountingMaps).values([
+      // Sales Revenue (Global)
+      {
+        branchId: branchCCS.id,
+        module: "SALES",
+        transactionType: "SALES_REVENUE",
+        creditAccountId: accVentas.id,
+      },
+      // Accounts Receivable (Global)
+      {
+        branchId: branchCCS.id,
+        module: "SALES",
+        transactionType: "INVOICE_AR",
+        debitAccountId: accAR.id,
+      },
+      // Tax Mapping
+      {
+        branchId: branchCCS.id,
+        module: "TAXES",
+        transactionType: "IVA_OUTPUT",
+        creditAccountId: accIVA.id,
+      },
+      // Inventory Mappings (Caracas)
+      {
+        branchId: branchCCS.id,
+        module: "INVENTORY",
+        transactionType: "ASSET",
+        debitAccountId: accInventario.id, // Service uses debitAccountId for Asset account
+      },
+      {
+        branchId: branchCCS.id,
+        module: "INVENTORY",
+        transactionType: "COGS",
+        debitAccountId: accCostoVentas.id, // Service uses debitAccountId for COGS account
+      },
+      // Payment Mapping
+      {
+        branchId: branchCCS.id,
+        module: "SALES",
+        transactionType: "INVOICE",
+        categoryId: catTech.id,
+        creditAccountId: accVentas.id,
+        debitAccountId: accCaja.id,
+      },
+      // Repeat for Valencia
+      {
+        branchId: branchVAL.id,
+        module: "SALES",
+        transactionType: "SALES_REVENUE",
+        creditAccountId: accVentas.id,
+      },
+      {
+        branchId: branchVAL.id,
+        module: "SALES",
+        transactionType: "INVOICE_AR",
+        debitAccountId: accAR.id,
+      },
+      {
+        branchId: branchVAL.id,
+        module: "TAXES",
+        transactionType: "IVA_OUTPUT",
+        creditAccountId: accIVA.id,
+      },
+      {
+        branchId: branchVAL.id,
+        module: "INVENTORY",
+        transactionType: "ASSET",
+        debitAccountId: accInventario.id,
+      },
+      {
+        branchId: branchVAL.id,
+        module: "INVENTORY",
+        transactionType: "COGS",
+        debitAccountId: accCostoVentas.id,
+      },
+    ] as any);
+
+    Logger.success(
+      "Created essential accounting maps (AR, TAX, Revenue, Inventory)",
     );
 
-    console.log("✅ E2E SEED COMPLETED SUCCESSFULLY!");
+    // =================================================================================
+    // LEVEL 11: AUDIT TRAILS (Trazabilidad y Auditoría)
+    // =================================================================================
+    Logger.step("L11", "Generating Audit Trails for Documents");
+
+    const recentOrders = await db.select().from(orders).limit(50);
+    const recentInvoices = await db.select().from(invoices).limit(50);
+    const recentPayments = await db.select().from(payments).limit(50);
+
+    const auditData: any[] = [];
+
+    // Audit for Orders
+    for (const order of recentOrders) {
+      auditData.push({
+        entityTable: "orders",
+        entityId: order.id,
+        action: "CREATE",
+        userId: adminUser.id,
+        documentCode: order.code,
+        documentStatus: order.status,
+        description: "Pedido creado desde el sistema de ventas",
+        createdAt: order.date,
+      });
+      if (order.status === "CONFIRMED" || order.status === "COMPLETED") {
+        auditData.push({
+          entityTable: "orders",
+          entityId: order.id,
+          action: "UPDATE",
+          userId: adminUser.id,
+          documentCode: order.code,
+          documentStatus: order.status,
+          description: "Pedido confirmado y listo para facturar",
+          createdAt: new Date(order.date!.getTime() + 1000 * 60 * 60), // +1 hour
+        });
+      }
+    }
+
+    // Audit for Invoices
+    for (const inv of recentInvoices) {
+      auditData.push({
+        entityTable: "invoices",
+        entityId: inv.id,
+        action: "CREATE",
+        userId: adminUser.id,
+        documentCode: inv.code,
+        documentStatus: "DRAFT",
+        description: "Borrador de factura generado",
+        createdAt: inv.date,
+      });
+      if (inv.status === "POSTED" || inv.status === "PAID") {
+        auditData.push({
+          entityTable: "invoices",
+          entityId: inv.id,
+          action: "UPDATE",
+          userId: adminUser.id,
+          documentCode: inv.code,
+          documentStatus: inv.status,
+          description: "Factura emitida y contabilizada",
+          createdAt: new Date(inv.date!.getTime() + 1000 * 60 * 30), // +30 mins
+        });
+      }
+    }
+
+    // Audit for Payments
+    for (const pay of recentPayments) {
+      auditData.push({
+        entityTable: "payments",
+        entityId: pay.id,
+        action: "CREATE",
+        userId: adminUser.id,
+        documentCode: pay.reference || pay.id.substring(0, 8),
+        documentStatus: "REGISTRADO",
+        description: "Pago registrado en tesorería",
+        changes: { amount: pay.amount, currency: { code: "VES" } },
+        createdAt: pay.date,
+      });
+    }
+
+    // Chunk insert audit logs
+    const chunkSize = 100;
+    for (let i = 0; i < auditData.length; i += chunkSize) {
+      await db.insert(auditLogs).values(auditData.slice(i, i + chunkSize));
+    }
+    Logger.success(`Generated ${auditData.length} enriched audit logs`);
+
+    // =================================================================================
+    // LEVEL 12: DOCUMENT LINKS (Traceability)
+    // =================================================================================
+    Logger.step("L12", "Linking Document Flows");
+
+    const linksData: any[] = [];
+
+    // Order -> Invoice links
+    const invoicesWithOrders = recentInvoices.filter((inv) => inv.orderId);
+    for (const inv of invoicesWithOrders) {
+      linksData.push({
+        sourceId: inv.orderId,
+        sourceTable: "orders",
+        targetId: inv.id,
+        targetTable: "invoices",
+        type: "ORDER_TO_INVOICE",
+        userId: adminUser.id,
+      });
+    }
+
+    // Invoice -> Payment links
+    const paymentsWithInvoices = recentPayments.filter((p) => p.invoiceId);
+    for (const pay of paymentsWithInvoices) {
+      linksData.push({
+        sourceId: pay.invoiceId,
+        sourceTable: "invoices",
+        targetId: pay.id,
+        targetTable: "payments",
+        type: "INVOICE_TO_PAYMENT",
+        userId: adminUser.id,
+      });
+    }
+
+    if (linksData.length > 0) {
+      await db.insert(documentLinks).values(linksData);
+    }
+    Logger.success(`Created ${linksData.length} document trace links`);
+
+    Logger.section("E2E SEED COMPLETED SUCCESSFULLY!");
     process.exit(0);
   } catch (error) {
-    console.error("❌ Seeding failed:", error);
+    Logger.error(`Seeding failed: ${(error as Error).message}`);
     process.exit(1);
   }
 }

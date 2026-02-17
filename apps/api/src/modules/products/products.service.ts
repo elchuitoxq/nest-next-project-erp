@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { db, products, productCategories, stock, warehouses } from '@repo/db';
+import {
+  db,
+  products,
+  productCategories,
+  stock,
+  warehouses,
+  productBatches,
+} from '@repo/db';
 import { eq, desc, ilike, or, and, sql } from 'drizzle-orm';
 
 @Injectable()
@@ -71,10 +78,10 @@ export class ProductsService {
   async update(id: string, dto: any) {
     const { cost, price, taxRate, minStock, ...rest } = dto;
     const values: any = { ...rest };
-    if (cost !== undefined) values.cost = cost.toString();
-    if (price !== undefined) values.price = price.toString();
-    if (taxRate !== undefined) values.taxRate = taxRate.toString();
-    if (minStock !== undefined) values.minStock = minStock.toString();
+    if (cost !== undefined) values.cost = cost?.toString();
+    if (price !== undefined) values.price = price?.toString();
+    if (taxRate !== undefined) values.taxRate = taxRate?.toString();
+    if (minStock !== undefined) values.minStock = minStock?.toString();
 
     values.updatedAt = new Date();
 
@@ -82,6 +89,52 @@ export class ProductsService {
       .update(products)
       .set(values)
       .where(eq(products.id, id))
+      .returning();
+  }
+
+  // --- BATCHES ---
+
+  async findBatches(productId: string) {
+    return await db
+      .select()
+      .from(productBatches)
+      .where(
+        and(
+          eq(productBatches.productId, productId),
+          eq(productBatches.isActive, true),
+        ),
+      )
+      .orderBy(desc(productBatches.createdAt));
+  }
+
+  async createBatch(productId: string, dto: any) {
+    const { batchNumber, expirationDate, cost } = dto;
+    return await db
+      .insert(productBatches)
+      .values({
+        productId,
+        batchNumber,
+        expirationDate: expirationDate ? new Date(expirationDate) : null,
+        cost: cost?.toString(),
+      })
+      .returning();
+  }
+
+  async updateBatch(id: string, dto: any) {
+    const { batchNumber, expirationDate, cost, isActive } = dto;
+    const values: any = {};
+    if (batchNumber !== undefined) values.batchNumber = batchNumber;
+    if (expirationDate !== undefined)
+      values.expirationDate = expirationDate ? new Date(expirationDate) : null;
+    if (cost !== undefined) values.cost = cost?.toString();
+    if (isActive !== undefined) values.isActive = isActive;
+
+    values.updatedAt = new Date();
+
+    return await db
+      .update(productBatches)
+      .set(values)
+      .where(eq(productBatches.id, id))
       .returning();
   }
 }

@@ -246,6 +246,7 @@ export class OrdersService {
           data.items.map((item) => ({
             orderId: order.id,
             productId: item.productId,
+            batchId: item.batchId,
             quantity: item.quantity.toString(),
             price: item.price.toString(),
           })),
@@ -285,6 +286,7 @@ export class OrdersService {
       const moveLines = order.items.map((item) => ({
         productId: item.productId,
         quantity: parseFloat(item.quantity),
+        batchId: item.batchId || undefined,
         cost: 0, // Cost logic should ideally come from order price for Purchases
       }));
 

@@ -13,7 +13,6 @@ import {
   paymentAllocations,
   orders,
   orderItems,
-  stock,
   inventoryMoves,
   exchangeRates,
   bankAccounts,
@@ -22,13 +21,31 @@ import {
   products,
   branches,
   warehouses,
+  currencies,
+  stock,
+  productBatches,
 } from '@repo/db';
 import { eq, desc } from 'drizzle-orm';
 import { faker } from '@faker-js/faker';
 import Decimal from 'decimal.js';
 
+// Elegant Logger Utility
+const Logger = {
+  section: (title: string) => {
+    console.log('\n' + '='.repeat(80));
+    console.log(` 🚀 ${title.toUpperCase()}`);
+    console.log('='.repeat(80) + '\n');
+  },
+  success: (msg: string) => console.log(`   ✅ ${msg}`),
+  info: (msg: string) => console.log(`   🔹 ${msg}`),
+  step: (level: string, title: string) =>
+    console.log(`\n📦 [${level}] ${title}...`),
+  error: (msg: string) => console.log(`   ❌ ERROR: ${msg}`),
+  item: (msg: string) => console.log(`      • ${msg}`),
+};
+
 async function seedTransactions() {
-  console.log('🚀 Starting Transaction Seed (API Logic Mode)...');
+  Logger.section('Starting Transaction Seed (API Logic Mode)');
 
   const app = await NestFactory.createApplicationContext(AppModule);
 
@@ -79,7 +96,7 @@ async function seedTransactions() {
       return rate ? rate.rate : '352.7063000000'; // Fallback
     };
 
-    console.log('🛒 Generating Sales Orders & Invoices...');
+    Logger.step('SALE', 'Generating Sales Orders & Invoices');
 
     // 2. Generate 20 Sales (Full Cycle: Order -> Confirm -> Invoice -> Post -> Pay)
     for (let i = 0; i < 20; i++) {
@@ -99,18 +116,40 @@ async function seedTransactions() {
 
       for (let j = 0; j < itemsCount; j++) {
         const prod = faker.helpers.arrayElement(allProducts);
+        // Find available batch if product requires it
+        let batchId: string | undefined = undefined;
+        if (prod.hasBatches) {
+          // Look for an existing batch in the stock table for this warehouse
+          const stockWithBatch = await db.query.stock.findFirst({
+            where: (stock, { and, eq }) =>
+              and(
+                eq(stock.warehouseId, warehouse.id),
+                eq(stock.productId, prod.id),
+              ),
+          });
+          batchId = stockWithBatch?.batchId || undefined;
+
+          if (!batchId) {
+            // No batch available for this product — skip it in this sale
+            continue;
+          }
+        }
+
         // Convert USD Price to VES for the Order Item
-        // Since we are creating a VES Order, items must be in VES
         const priceUSD = Number(prod.price);
         const rate = Number(dailyRate);
         const priceVES = priceUSD * rate;
 
         items.push({
           productId: prod.id,
+          batchId: batchId,
           quantity: faker.number.int({ min: 1, max: 5 }),
           price: priceVES, // Send price in VES
         });
       }
+
+      // If no items passed batch validation, skip this sale
+      if (items.length === 0) continue;
 
       try {
         // Create (Pending)
@@ -209,15 +248,15 @@ async function seedTransactions() {
           }
         }
 
-        console.log(
-          `   ✅ Sale ${postedInvoice.code} ($${order.total}) -> Bs ${postedInvoice.total}`,
+        Logger.item(
+          `Sale ${postedInvoice.code} | $${order.total} -> Bs ${postedInvoice.total}`,
         );
       } catch (e) {
-        console.error(`   ❌ Failed Sale: ${e.message}`);
+        Logger.error(`Failed Sale: ${(e as Error).message}`);
       }
     }
 
-    console.log('📦 Generating Purchase Orders...');
+    Logger.step('PURCHASE', 'Generating Purchase Orders');
     // 3. Generate 10 Purchases
     for (let i = 0; i < 10; i++) {
       const branch = faker.helpers.arrayElement(allBranches);
@@ -240,8 +279,26 @@ async function seedTransactions() {
         const rate = Number(dailyRate);
         const costVES = costUSD * rate;
 
+        let batchId: string | undefined = undefined;
+        if (prod.hasBatches) {
+          // Purchase: usually creates a new batch or adds to existing.
+          // For simplicity in seed, we'll create one if it doesn't exist for this product/date
+          const batchNum = `BAT-${faker.string.numeric(5)}`;
+          const [newBatch] = await db
+            .insert(productBatches)
+            .values({
+              productId: prod.id,
+              batchNumber: batchNum,
+              expirationDate: faker.date.future(),
+              cost: costVES.toFixed(2),
+            } as any)
+            .returning();
+          batchId = newBatch.id;
+        }
+
         items.push({
           productId: prod.id,
+          batchId: batchId,
           quantity: faker.number.int({ min: 10, max: 50 }),
           price: costVES, // USD Cost converted to VES
         });
@@ -295,15 +352,15 @@ async function seedTransactions() {
           invoice.id,
           adminUser.id,
         );
-        console.log(
-          `   ✅ Purchase ${postedInvoice.code} (Bs ${postedInvoice.total})`,
+        Logger.item(
+          `Purchase ${postedInvoice.code} | Bs ${postedInvoice.total}`,
         );
       } catch (e) {
-        console.error(`   ❌ Failed Purchase: ${e.message}`);
+        Logger.error(`Failed Purchase: ${(e as Error).message}`);
       }
     }
 
-    console.log('✅ Transaction Seed Completed!');
+    Logger.section('Transaction Seed Completed Successfully!');
     await app.close();
     process.exit(0);
   } catch (error) {

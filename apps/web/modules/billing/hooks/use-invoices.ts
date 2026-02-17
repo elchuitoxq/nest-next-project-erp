@@ -35,6 +35,17 @@ export function useInvoices(params: FindInvoicesParams = {}) {
   });
 }
 
+export function useInvoice(id: string) {
+  return useQuery({
+    queryKey: ["invoices", id],
+    queryFn: async () => {
+      const { data } = await api.get<Invoice>(`/billing/invoices/${id}`);
+      return data;
+    },
+    enabled: !!id,
+  });
+}
+
 export function usePostInvoice() {
   const queryClient = useQueryClient();
 

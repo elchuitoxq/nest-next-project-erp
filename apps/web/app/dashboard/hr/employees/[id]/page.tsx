@@ -16,11 +16,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, User, FileText, Briefcase, Calendar } from "lucide-react";
 import api from "@/lib/api";
 import { formatCurrency } from "@/lib/utils";
-import { ContractsTab } from "@/modules/hr/components/contracts-tab";
-import { BenefitsTab } from "@/modules/hr/components/benefits-tab";
-import { VacationsTab } from "@/modules/hr/components/vacations-tab";
-import { ProfitSharingTab } from "@/modules/hr/components/profit-sharing-tab";
-import { IncidentsTab } from "@/modules/hr/components/incidents-tab";
+import { ContractsTab } from "@/modules/hr/components/tabs/contracts-tab";
+import { BenefitsTab } from "@/modules/hr/components/tabs/benefits-tab";
+import { VacationsTab } from "@/modules/hr/components/tabs/vacations-tab";
+import { ProfitSharingTab } from "@/modules/hr/components/tabs/profit-sharing-tab";
+import { IncidentsTab } from "@/modules/hr/components/tabs/incidents-tab";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export default function EmployeeDetailPage() {

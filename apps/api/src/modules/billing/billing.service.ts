@@ -34,6 +34,8 @@ import {
 import Decimal from 'decimal.js';
 import { InventoryService } from '../inventory/inventory.service';
 import { CurrenciesService } from '../settings/currencies/currencies.service';
+import { AccountingService } from '../accounting/accounting.service'; // Import first
+import { DocumentsService } from '../documents/documents.service';
 import { CreateInvoiceDto, InvoiceType } from './dto/create-invoice.dto';
 import { FindInvoicesDto } from './dto/find-invoices.dto';
 
@@ -42,6 +44,8 @@ export class BillingService {
   constructor(
     private readonly inventoryService: InventoryService,
     private readonly currenciesService: CurrenciesService,
+    private readonly accountingService: AccountingService,
+    private readonly documentsService: DocumentsService,
   ) {}
 
   async findOne(id: string) {
@@ -51,6 +55,8 @@ export class BillingService {
         partner: true,
         branch: true,
         currency: true,
+        user: true,
+        order: true,
         items: {
           with: {
             product: true,
@@ -59,6 +65,8 @@ export class BillingService {
         payments: {
           with: {
             method: true,
+            user: true,
+            currency: true,
           },
         },
       },
@@ -66,7 +74,118 @@ export class BillingService {
 
     if (!invoice) throw new NotFoundException('Factura no encontrada');
 
-    return invoice;
+    // Fetch allocations manually since relation might not be defined in schema 'relations'
+    const allocations = await db.query.paymentAllocations.findMany({
+      where: eq(paymentAllocations.invoiceId, id),
+      with: {
+        payment: {
+          with: {
+            method: true,
+            user: true,
+            currency: true,
+          },
+        },
+      },
+    });
+
+    // Merge Direct Payments and Allocated Payments
+    const result = { ...invoice } as any;
+    const directPayments = result.payments || [];
+
+    // Map of Payment ID -> Allocated Amount for THIS invoice
+    const allocationMap = new Map<string, string>();
+    if (allocations) {
+      for (const a of allocations) {
+        allocationMap.set(a.paymentId, a.amount);
+      }
+    }
+
+    const allPayments: any[] = [];
+    const seenPaymentIds = new Set<string>();
+
+    // 1. Process Direct Payments
+    for (const p of directPayments) {
+      const allocatedAmount = allocationMap.get(p.id);
+      // If there is an specific allocation for this invoice, use it. Otherwise use full amount (legacy)
+      const amountToShow = allocatedAmount || p.amount;
+
+      allPayments.push({
+        ...p,
+        amount: amountToShow,
+        originalAmount: p.amount, // Keep reference just in case
+      });
+      seenPaymentIds.add(p.id);
+    }
+
+    // 2. Add Payments found via Allocations (that were not directly linked)
+    if (allocations) {
+      for (const alloc of allocations) {
+        if (alloc.payment && !seenPaymentIds.has(alloc.payment.id)) {
+          allPayments.push({
+            ...alloc.payment,
+            amount: alloc.amount, // Use the allocated amount
+            originalAmount: alloc.payment.amount,
+          });
+          seenPaymentIds.add(alloc.payment.id);
+        }
+      }
+    }
+
+    // Sort by date desc
+    allPayments.sort((a: any, b: any) => {
+      const dateA = a.date ? new Date(a.date).getTime() : 0;
+      const dateB = b.date ? new Date(b.date).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    return {
+      ...result,
+      payments: allPayments,
+    };
+  }
+
+  async getFiscalJson(id: string) {
+    const invoice = await this.findOne(id);
+
+    // Map to Generic Fiscal JSON Format (Venezuela Best Practices)
+    return {
+      documento: {
+        tipo: invoice.type === 'SALE' ? 'FACTURA' : 'COMPRA', // Usually Digital Invoice is for SALES
+        numero: invoice.code,
+        fecha: invoice.date,
+        vencimiento: invoice.dueDate,
+        moneda: invoice.currency?.code,
+        tasaCambio: invoice.exchangeRate,
+        cliente: {
+          rif: invoice.partner?.taxId,
+          razonSocial: invoice.partner?.name,
+          direccion: invoice.partner?.address,
+          telefono: invoice.partner?.phone,
+          email: invoice.partner?.email,
+        },
+        items: invoice.items.map((item: any) => {
+          const product = item.product;
+          return {
+            codigo: product?.sku || '000',
+            descripcion: product?.name || 'Item',
+            cantidad: Number(item.quantity),
+            precio: Number(item.price), // Unit Price
+            tasaImpuesto: Number(item.taxRate), // %
+            montoImpuesto: new Decimal(item.total)
+              .minus(new Decimal(item.quantity).times(item.price))
+              .toNumber(), // Approximate
+            total: Number(item.total),
+          };
+        }),
+        totales: {
+          base: Number(invoice.totalBase),
+          impuesto: Number(invoice.totalTax),
+          igtf: Number(invoice.totalIgtf),
+          total: Number(invoice.total),
+        },
+        observaciones: 'Generado desde ERP',
+      },
+    };
   }
 
   async voidInvoice(
@@ -301,12 +420,23 @@ export class BillingService {
       // Inventory is NOT handled here anymore for Purchases.
       // It is handled in postInvoice (when confirmed).
 
+      if (data.orderId) {
+        await this.documentsService.createLink({
+          sourceId: data.orderId,
+          sourceTable: 'orders',
+          targetId: invoice.id,
+          targetTable: 'invoices',
+          type: 'ORDER_TO_INVOICE',
+          userId: data.userId,
+        });
+      }
+
       return invoice;
     });
   }
 
   async postInvoice(id: string, userId: string) {
-    return await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const invoice = await tx.query.invoices.findFirst({
         where: eq(invoices.id, id),
         with: {
@@ -378,6 +508,7 @@ export class BillingService {
             branchId: invoice.branchId,
             note: `Compra Directa #${nextCode}`,
             userId,
+            skipAccounting: true,
           });
         } else {
           // Direct Sale -> OUT
@@ -404,6 +535,26 @@ export class BillingService {
 
       return updatedInvoice;
     });
+
+    try {
+      if (result.type === 'SALE') {
+        // Enum might be tricky with imports, using string literal or check imports
+        // InvoiceType.SALE is imported.
+        // But to be safe and match logic: result.type === InvoiceType.SALE
+        // Wait, result is type 'any' or inferred?
+        // invoices.type is text/enum.
+      }
+      if (result.type === InvoiceType.SALE) {
+        await this.accountingService.createEntryForInvoice(result.id);
+      }
+    } catch (error) {
+      console.error(
+        `Error creando asiento contable para factura ${result.code}:`,
+        error,
+      );
+    }
+
+    return result;
   }
 
   async updateInvoice(id: string, updates: any, userId: string) {
@@ -437,18 +588,20 @@ export class BillingService {
     const conditions = [eq(invoices.branchId, branchId)];
 
     if (type && type.length > 0) {
-      if (Array.isArray(type)) {
-        conditions.push(inArray(invoices.type, type));
-      } else {
-        conditions.push(eq(invoices.type, type));
+      const validTypes = Array.isArray(type)
+        ? type.filter((t) => t && t.trim() !== '')
+        : [type];
+      if (validTypes.length > 0) {
+        conditions.push(inArray(invoices.type, validTypes));
       }
     }
 
     if (status && status.length > 0) {
-      if (Array.isArray(status)) {
-        conditions.push(inArray(invoices.status, status));
-      } else {
-        conditions.push(eq(invoices.status, status));
+      const validStatuses = Array.isArray(status)
+        ? status.filter((s) => s && s.trim() !== '')
+        : [status];
+      if (validStatuses.length > 0) {
+        conditions.push(inArray(invoices.status, validStatuses));
       }
     }
 

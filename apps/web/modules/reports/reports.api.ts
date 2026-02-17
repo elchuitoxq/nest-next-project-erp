@@ -49,6 +49,19 @@ export const fiscalReportsApi = {
     });
     return data;
   },
+
+  getRetencionesXml: async (
+    month: string,
+    year: string,
+    branchId?: string,
+    fortnight?: string,
+  ) => {
+    const { data } = await api.get("/reports/fiscal/retenciones-xml", {
+      params: { month, year, branchId, fortnight },
+      responseType: "blob",
+    });
+    return data;
+  },
   getInvoice: async (id: string) => {
     const { data } = await api.get(`/billing/invoices/${id}`);
     return data;

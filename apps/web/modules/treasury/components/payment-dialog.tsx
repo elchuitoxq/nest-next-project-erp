@@ -147,6 +147,14 @@ export function PaymentDialog({
   useEffect(() => {
     if (!selectedMethod) return;
 
+    // Reset Bank Account if switching to Retention or Balance
+    if (
+      selectedMethod.code?.startsWith("RET_") ||
+      selectedMethod.code?.startsWith("BALANCE")
+    ) {
+      setBankAccountId("");
+    }
+
     if (selectedMethod.code === "RET_IVA_75") {
       const retAmount = Number(invoice.totalTax) * 0.75;
       setAmount(retAmount.toFixed(2));
@@ -270,7 +278,8 @@ export function PaymentDialog({
         currencyId: invoice.currencyId,
         amount,
         reference,
-        bankAccountId,
+        bankAccountId:
+          isRetention || isBalancePayment ? undefined : bankAccountId,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       },
       {

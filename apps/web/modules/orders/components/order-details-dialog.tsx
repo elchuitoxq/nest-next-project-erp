@@ -8,11 +8,14 @@ import {
   ShoppingCart,
   Calendar,
   User,
-  Globe,
   Store,
   Box,
+  Globe,
+  History as HistoryIcon,
 } from "lucide-react";
 import { DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DocumentHistory } from "@/modules/common/components/document-history";
 import {
   Dialog,
   DialogContent,
@@ -147,18 +150,6 @@ export function OrderDetailsDialog({
 
           <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
             <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
-              <Box className="size-4" />
-              <p className="text-[10px] font-bold uppercase tracking-wider">
-                Almacén Origin
-              </p>
-            </div>
-            <p className="text-sm font-semibold truncate">
-              {order.warehouse?.name || "No asignado"}
-            </p>
-          </div>
-
-          <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
-            <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
               <Store className="size-4" />
               <p className="text-[10px] font-bold uppercase tracking-wider">
                 Sucursal
@@ -168,62 +159,124 @@ export function OrderDetailsDialog({
               {order.branch?.name || "N/A"}
             </p>
           </div>
+
+          <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group border-emerald-100 dark:border-emerald-900/30">
+            <div className="flex items-center gap-2 text-emerald-600 group-hover:text-emerald-700 transition-colors">
+              <User className="size-4" />
+              <p className="text-[10px] font-bold uppercase tracking-wider">
+                Operador
+              </p>
+            </div>
+            <p
+              className="text-sm font-semibold truncate"
+              title={order.user?.name || "Sistema"}
+            >
+              {order.user?.name || "Sistema"}
+            </p>
+          </div>
+
+          {order.exchangeRate && Number(order.exchangeRate) > 1 && (
+            <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group col-span-1 sm:col-span-2 lg:col-span-4">
+              <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+                <Globe className="size-4" />
+                <p className="text-[10px] font-bold uppercase tracking-wider">
+                  Tasa de Cambio
+                </p>
+              </div>
+              <p className="text-sm font-semibold">
+                1 USD = {Number(order.exchangeRate).toFixed(4)} VES
+              </p>
+            </div>
+          )}
         </div>
 
-        <div className="rounded-md border w-full min-w-0 block overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="hidden sm:table-cell">SKU</TableHead>
-                <TableHead>Producto</TableHead>
-                <TableHead className="text-right">Cant.</TableHead>
-                <TableHead className="text-right hidden sm:table-cell">
-                  Precio
-                </TableHead>
-                <TableHead className="text-right">Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {order.items?.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-mono text-xs hidden sm:table-cell">
-                    {item.product?.sku || "-"}
-                  </TableCell>
-                  <TableCell>
-                    {item.product?.name || "Producto desconocido"}
-                  </TableCell>
-                  <TableCell className="text-right">{item.quantity}</TableCell>
-                  <TableCell className="text-right hidden sm:table-cell">
-                    {formatCurrency(
-                      parseFloat(item.price.toString()).toFixed(2),
-                      currencyCode,
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatCurrency(
-                      (
-                        parseFloat(item.quantity.toString()) *
-                        parseFloat(item.price.toString())
-                      ).toFixed(2),
-                      currencyCode,
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              <TableRow>
-                <TableCell colSpan={4} className="text-right font-bold">
-                  Total General
-                </TableCell>
-                <TableCell className="text-right font-bold">
-                  {formatCurrency(
-                    parseFloat(order.total.toString()).toFixed(2),
-                    currencyCode,
-                  )}
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
+        <Tabs defaultValue="items" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="items" className="flex items-center gap-2">
+              <Box className="h-4 w-4" />
+              Renglones del Pedido
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <HistoryIcon className="h-4 w-4" />
+              Historial y Proceso
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="items" className="space-y-4">
+            <div className="rounded-md border w-full min-w-0 block overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="hidden sm:table-cell">SKU</TableHead>
+                    <TableHead>Producto</TableHead>
+                    <TableHead className="text-right">Cant.</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">
+                      Precio
+                    </TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {order.items?.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-mono text-xs hidden sm:table-cell">
+                        {item.product?.sku || "-"}
+                      </TableCell>
+                      <TableCell>
+                        {item.product?.name || "Producto desconocido"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {item.quantity}
+                      </TableCell>
+                      <TableCell className="text-right hidden sm:table-cell">
+                        {formatCurrency(
+                          parseFloat(item.price.toString()).toFixed(2),
+                          currencyCode,
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(
+                          (
+                            parseFloat(item.quantity.toString()) *
+                            parseFloat(item.price.toString())
+                          ).toFixed(2),
+                          currencyCode,
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-right font-bold">
+                      Total General
+                    </TableCell>
+                    <TableCell className="text-right font-bold">
+                      {formatCurrency(
+                        parseFloat(order.total.toString()).toFixed(2),
+                        currencyCode,
+                      )}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent
+            value="history"
+            className="border rounded-xl p-4 bg-muted/20"
+          >
+            <div className="mb-4">
+              <h4 className="text-sm font-semibold flex items-center gap-2 mb-1">
+                <HistoryIcon className="h-4 w-4 text-primary" />
+                Trazabilidad del Documento
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Línea de tiempo de acciones, cambios y documentos relacionados.
+              </p>
+            </div>
+            <DocumentHistory entityTable="orders" entityId={order.id} />
+          </TabsContent>
+        </Tabs>
 
         <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 mt-6 border-t pt-6">
           <Button

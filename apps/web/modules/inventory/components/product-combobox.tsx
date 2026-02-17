@@ -78,15 +78,29 @@ export function ProductCombobox({
           cost: p.cost,
           currencyId: p.currencyId,
         }))
-      : (stockItems || []).map((s) => ({
-          id: s.product.id,
-          name: s.product.name,
-          sku: s.product.sku,
-          detail: `Disp: ${parseFloat(s.quantity).toFixed(2)}`,
-          quantity: parseFloat(s.quantity),
-          price: s.product.price,
-          cost: s.product.cost,
-          currencyId: s.product.currencyId,
+      : Object.values(
+          (stockItems || []).reduce((acc: any, s) => {
+            const prodId = s.product.id;
+            const qty = parseFloat(s.quantity);
+
+            if (!acc[prodId]) {
+              acc[prodId] = {
+                id: prodId,
+                name: s.product.name,
+                sku: s.product.sku,
+                quantity: 0,
+                price: s.product.price,
+                cost: s.product.cost,
+                currencyId: s.product.currencyId,
+              };
+            }
+
+            acc[prodId].quantity += qty;
+            return acc;
+          }, {}),
+        ).map((p: any) => ({
+          ...p,
+          detail: `Disp: ${p.quantity.toFixed(2)}`,
         }));
 
   // Find selected item label (We need to search in the loaded list OR fallback if not found)

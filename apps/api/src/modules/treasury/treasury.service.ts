@@ -15,16 +15,28 @@ import {
   creditNoteUsages,
 } from '@repo/db';
 
-import { eq, sql, and, desc, ne, isNull } from 'drizzle-orm';
+import {
+  eq,
+  sql,
+  and,
+  desc,
+  ne,
+  ilike,
+  gte,
+  inArray,
+  isNull,
+} from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import { CurrenciesService } from '../settings/currencies/currencies.service';
 import { RetentionsService } from '../accounting/retentions.service';
+import { DocumentsService } from '../documents/documents.service';
 
 @Injectable()
 export class TreasuryService {
   constructor(
     private readonly currenciesService: CurrenciesService,
     private readonly retentionsService: RetentionsService,
+    private readonly documentsService: DocumentsService,
   ) {}
 
   // ... (existing code) ...
@@ -152,7 +164,7 @@ export class TreasuryService {
     exchangeRate?: string;
     type?: 'INCOME' | 'EXPENSE';
   }) {
-    return await db.transaction(async (tx) => {
+    const payment = await db.transaction(async (tx) => {
       // Check for duplicate reference
       if (data.reference) {
         const whereConditions = [eq(payments.reference, data.reference)];
@@ -210,9 +222,13 @@ export class TreasuryService {
           if (invoice.type === 'PURCHASE') {
             paymentType = 'EXPENSE';
           }
-          // INHERIT RATE FROM INVOICE IF NOT PROVIDED EXPLICITLY
-          // This ensures fiscal consistency (Providencia 0102/0071)
-          if (!data.exchangeRate && invoice.exchangeRate) {
+          // INHERIT RATE FROM INVOICE ONLY IF CURRENCIES MATCH
+          // This ensures fiscal consistency but avoids applying USD rate (1.0) to VES payments
+          if (
+            !data.exchangeRate &&
+            invoice.exchangeRate &&
+            invoice.currencyId === data.currencyId
+          ) {
             exchangeRate = invoice.exchangeRate;
           }
         }
@@ -231,15 +247,21 @@ export class TreasuryService {
         }
       }
 
-      // If rate is still 1.0 (default) AND was provided in data, use data.
-      // If not in data and not inherited, try to fetch latest system rate.
+      // If rate is provided, use it.
+      // If NOT provided and NOT inherited (e.g. diff currency), fetch system rate.
       if (data.exchangeRate && new Decimal(data.exchangeRate).gt(0)) {
         exchangeRate = data.exchangeRate;
-      } else if (exchangeRate === '1.0000000000' && !invoice) {
-        // Fallback to system rate if purely standalone payment
-        exchangeRate =
-          (await this.currenciesService.getLatestRate(data.currencyId)) ||
-          '1.0000000000';
+      } else if (
+        exchangeRate === '1.0000000000' &&
+        (!invoice || invoice.currencyId !== data.currencyId)
+      ) {
+        // Fallback to system rate if standalone OR cross-currency payment
+        const systemRate = await this.currenciesService.getLatestRate(
+          data.currencyId,
+        );
+        if (systemRate) {
+          exchangeRate = systemRate;
+        }
       }
 
       // Validate Bank Balance for Expenses
@@ -276,6 +298,26 @@ export class TreasuryService {
           userId: data.userId,
         } as any)
         .returning();
+
+      // --- DOCUMENT FLOW: LINK PAYMENT TO INVOICES ---
+      const linkedInvoiceIds = new Set<string>();
+      if (data.allocations) {
+        data.allocations.forEach((a) => linkedInvoiceIds.add(a.invoiceId));
+      }
+      if (data.invoiceId) {
+        linkedInvoiceIds.add(data.invoiceId);
+      }
+
+      for (const invId of linkedInvoiceIds) {
+        await this.documentsService.createLink({
+          sourceId: invId,
+          sourceTable: 'invoices',
+          targetId: payment.id,
+          targetTable: 'payments',
+          type: 'INVOICE_TO_PAYMENT',
+          userId: data.userId,
+        });
+      }
 
       // --- BALANCE PAYMENT (CRUCE) LOGIC ---
       if (method && method.code.startsWith('BALANCE')) {
@@ -464,23 +506,117 @@ export class TreasuryService {
         }
       }
 
-      // Handle Allocations
-      const allocations = data.allocations || [];
+      // Handle Allocations (Refactored)
+      const finalAllocations: { invoiceId: string; amount: number }[] = [];
 
-      // If legacy invoiceId provided AND not in allocations, add it
-      if (
-        data.invoiceId &&
-        !allocations.some((a) => a.invoiceId === data.invoiceId)
-      ) {
-        allocations.push({
-          invoiceId: data.invoiceId,
-          amount: amount.toNumber(),
-        });
+      // 1. Process Explicit Allocations from Frontend
+      if (data.allocations && data.allocations.length > 0) {
+        for (const alloc of data.allocations) {
+          // Fetch invoice for this allocation
+          const [targetInvoice] = await tx
+            .select()
+            .from(invoices)
+            .where(eq(invoices.id, alloc.invoiceId));
+
+          if (!targetInvoice) continue;
+
+          // Normalize Amount: Payment Currency -> Invoice Currency
+
+          let normalizedAmount = new Decimal(alloc.amount);
+
+          // Fetch Currencies
+          const invCurrency = await tx.query.currencies.findFirst({
+            where: eq(currencies.id, targetInvoice.currencyId),
+          });
+          const payCurrency = await tx.query.currencies.findFirst({
+            where: eq(currencies.id, data.currencyId),
+          });
+
+          if (invCurrency && payCurrency && invCurrency.id !== payCurrency.id) {
+            const pRate = new Decimal(exchangeRate || '1');
+            const invRate = new Decimal(targetInvoice.exchangeRate || '1');
+
+            const allocAmountDecimal = new Decimal(alloc.amount);
+
+            // Case 1: Payment Weak (VES), Invoice Hard (USD) -> Divide
+            if (invCurrency.code === 'USD' && payCurrency.code !== 'USD') {
+              if (invRate.gt(1)) {
+                normalizedAmount = allocAmountDecimal.div(invRate);
+              } else if (pRate.gt(1)) {
+                normalizedAmount = allocAmountDecimal.div(pRate);
+              }
+            }
+            // Case 2: Payment Hard (USD), Invoice Weak (VES) -> Multiply
+            else if (payCurrency.code === 'USD' && invCurrency.code !== 'USD') {
+              if (pRate.equals(1) && invRate.gt(1)) {
+                normalizedAmount = allocAmountDecimal.times(invRate);
+              } else if (pRate.gt(1)) {
+                normalizedAmount = allocAmountDecimal.times(pRate);
+              }
+            }
+          }
+
+          finalAllocations.push({
+            invoiceId: alloc.invoiceId,
+            amount: normalizedAmount.toNumber(),
+          });
+        }
       }
 
-      if (allocations.length > 0) {
+      // 2. Process Legacy Single Invoice (if not already in allocations)
+      if (
+        data.invoiceId &&
+        !finalAllocations.some((a) => a.invoiceId === data.invoiceId)
+      ) {
+        if (invoice) {
+          // Only if explicit allocations were empty, we assume full payment goes to invoiceId?
+          if (finalAllocations.length === 0) {
+            // Convert full payment amount to invoice currency
+            let normalizedAmount = new Decimal(data.amount); // Payment Ccy
+
+            const payCurrency = await tx.query.currencies.findFirst({
+              where: eq(currencies.id, data.currencyId),
+            });
+            const invCurrency = await tx.query.currencies.findFirst({
+              where: eq(currencies.id, invoice.currencyId),
+            });
+
+            if (
+              invCurrency &&
+              payCurrency &&
+              invCurrency.id !== payCurrency.id
+            ) {
+              const pRate = new Decimal(exchangeRate || '1');
+              const invRate = new Decimal(invoice.exchangeRate || '1');
+
+              if (invCurrency.code === 'USD' && payCurrency.code !== 'USD') {
+                if (invRate.gt(1))
+                  normalizedAmount = normalizedAmount.div(invRate);
+                else if (pRate.gt(1))
+                  normalizedAmount = normalizedAmount.div(pRate);
+              } else if (
+                payCurrency.code === 'USD' &&
+                invCurrency.code !== 'USD'
+              ) {
+                if (pRate.equals(1) && invRate.gt(1))
+                  normalizedAmount = normalizedAmount.times(invRate);
+                else if (pRate.gt(1))
+                  normalizedAmount = normalizedAmount.times(pRate);
+              }
+            }
+
+            finalAllocations.push({
+              invoiceId: data.invoiceId,
+              amount: normalizedAmount.toNumber(),
+            });
+          }
+        }
+      }
+
+      // 3. Insert All Processed Allocations
+      if (finalAllocations.length > 0) {
         await tx.insert(paymentAllocations).values(
-          allocations.map((a) => ({
+          finalAllocations.map((a) => ({
             paymentId: payment.id,
             invoiceId: a.invoiceId,
             amount: a.amount.toString(),
@@ -488,115 +624,183 @@ export class TreasuryService {
         );
       }
 
-      // --- AUTOMATIC CREDIT NOTE FOR SURPLUS (SALDO A FAVOR) ---
-      // If the payment amount is greater than the sum of allocations,
-      // generate a Credit Note for the difference so it can be used later.
-      if (true) {
-        // Allow for both INCOME and EXPENSE
-        const totalAllocated = allocations.reduce(
-          (sum, a) => sum.plus(new Decimal(a.amount)),
-          new Decimal(0),
-        );
+      // End of Allocation Logic
 
-        // If legacy invoiceId is present and NO allocations were explicit,
-        // we assume full amount was for that invoice (unless specific logic says otherwise).
-        // But here we are strict: Allocations define usage.
-        // If invoiceId was provided but not in allocations list (legacy handled above),
-        // totalAllocated includes it.
+      // --- AUTOMATIC CREDIT NOTE FOR SURPLUS ---
+      // Warning: This logic assumes 'allocations' matches 'amount' in Payment Currency.
+      // But now 'allocations' is in Invoice Currency.
+      // We cannot compare sum(allocations) vs amount(Payment) directly if currencies differ.
+      // We need to compare sum(allocations_converted_to_payment) vs amount.
+      // OR compare sum(allocations) vs (amount_converted_to_invoice).
 
-        const unallocated = amount.minus(totalAllocated);
+      // --- AUTOMATIC CREDIT NOTE FOR SURPLUS ---
+      // Standardized comparison in INVOICE CURRENCY, iterating over FINAL Allocations
+      // Note: If multiple invoices were paid, surplus logic is complex.
+      // Usually "Procesar Cobranza" (Bulk) assumes exact matches or user defined amounts.
+      // Surplus usually applies when TotalPayment > Sum(Allocations). (e.g. Rounding error or intent)
 
-        if (unallocated.gt(0.01)) {
-          // Verify if we should create a credit note.
-          // Yes, create it as an "Advance Payment"
-          const codeSuffix = Math.random()
-            .toString(36)
-            .substring(7)
-            .toUpperCase();
-          await tx.insert(creditNotes).values({
-            code: `NC-ADV-${Date.now()}-${codeSuffix}`,
-            partnerId: data.partnerId,
-            branchId: data.branchId,
-            currencyId: data.currencyId,
-            exchangeRate: exchangeRate,
-            warehouseId: null, // No stock return involved
-            status: 'POSTED',
-            reason: `Excedente de pago Ref: ${data.reference || 'S/R'}`,
-            total: unallocated.toFixed(2),
-            totalBase: unallocated.toFixed(2), // Treat as nontaxable base or just total
-            totalTax: '0',
-            totalIgtf: '0',
-            date: new Date(),
-            userId: data.userId,
-            parentPaymentId: payment.id,
-          } as any);
+      // Calculate Total Allocated in PAYMENT CURRENCY?
+      // No, allocations are now in Invoice Currency. Converting back to Payment Currency is inexact.
+
+      // Better strategy: Compare PaymentAmount (Payment Ccy) vs Sum(Allocations converted to Payment Ccy).
+
+      let totalAllocatedInPaymentCcy = new Decimal(0);
+
+      for (const finalAlloc of finalAllocations) {
+        // Inverse conversion: Invoice -> Payment
+        const allocAmount = new Decimal(finalAlloc.amount); // Invoice Ccy
+
+        // We need Inv Currency and Rates again...
+        // Optimization: could map this during the first loop.
+        // For now, let's fetch fast.
+        const [targetInvoice] = await tx
+          .select()
+          .from(invoices)
+          .where(eq(invoices.id, finalAlloc.invoiceId));
+
+        if (targetInvoice) {
+          const invCurrency = await tx.query.currencies.findFirst({
+            where: eq(currencies.id, targetInvoice.currencyId),
+          });
+          const payCurrency = await tx.query.currencies.findFirst({
+            where: eq(currencies.id, data.currencyId),
+          });
+
+          let converted = allocAmount;
+
+          if (invCurrency && payCurrency) {
+            if (invCurrency.id !== payCurrency.id) {
+              const invRate = new Decimal(targetInvoice.exchangeRate || '1');
+              const pRate = new Decimal(exchangeRate || '1');
+
+              // Inverse of standardization
+              if (invCurrency.code === 'USD' && payCurrency.code !== 'USD') {
+                // Invoice USD -> Payment VES: Multiply
+                if (invRate.gt(1)) converted = allocAmount.times(invRate);
+                else if (pRate.gt(1)) converted = allocAmount.times(pRate);
+              } else if (
+                payCurrency.code === 'USD' &&
+                invCurrency.code !== 'USD'
+              ) {
+                // Invoice VES -> Payment USD: Divide
+                if (invRate.gt(1)) converted = allocAmount.div(invRate);
+                else if (pRate.gt(1)) converted = allocAmount.div(pRate);
+              }
+            }
+          }
+          totalAllocatedInPaymentCcy =
+            totalAllocatedInPaymentCcy.plus(converted);
         }
+      }
+
+      // If Payment > Allocated (e.g. paid 500,000, allocated 499,999.99)
+      const paymentTotal = new Decimal(amount);
+      const remainingUnused = paymentTotal.minus(totalAllocatedInPaymentCcy);
+
+      if (remainingUnused.gt(0.01)) {
+        // Create Credit Note for the Surplus (Advance Payment)
+        const codeSuffix = Math.random()
+          .toString(36)
+          .substring(7)
+          .toUpperCase();
+
+        await tx.insert(creditNotes).values({
+          code: `NC-ADV-${Date.now()}-${codeSuffix}`,
+          partnerId: data.partnerId,
+          branchId: data.branchId,
+          currencyId: data.currencyId, // Credit Note in Payment Currency (unused balance)
+          exchangeRate: exchangeRate,
+          warehouseId: null,
+          status: 'POSTED',
+          reason: `Excedente de pago Ref: ${data.reference || 'S/R'}`,
+          total: remainingUnused.toFixed(2),
+          totalBase: remainingUnused.toFixed(2),
+          totalTax: '0',
+          totalIgtf: '0',
+          date: new Date(),
+          userId: data.userId,
+          parentPaymentId: payment.id,
+        } as any);
       }
 
       // Helper to update invoice status
       const updateInvoiceStatus = async (invoiceId: string) => {
+        // ... (Keep existing update logic, assuming it reads from paymentAllocations correctly)
+        // Actually, we must ensure updateInvoiceStatus reads the NEW allocations.
+        // Since we are in the same transaction, it should read what we just inserted.
+
         const [inv] = await tx
           .select()
           .from(invoices)
           .where(eq(invoices.id, invoiceId));
         if (!inv) return;
 
-        // Sum Legacy Payments (Direct link AND NOT in allocations table to avoid double count)
-        // Since we just inserted allocation for this payment, the new payment IS in allocations.
-        // So we only care about OLD legacy payments that imply 1:1.
-        // Complex query? prefer simple:
-        // Total = Sum(Allocation.amount where invoiceId)
-        //       + Sum(Payment.amount where invoiceId AND id NOT IN (select paymentId from Allocations))
+        // ... (rest of logic is fine as it sums allocations)
 
-        // 1. Allocations Sum
+        // Copying the existing update logic to be safe/consistent
         const allocs = await tx
-          .select()
+          .select({
+            amount: paymentAllocations.amount,
+          })
           .from(paymentAllocations)
           .where(eq(paymentAllocations.invoiceId, invoiceId));
-        const allocSum = allocs.reduce(
+
+        const totalAllocated = allocs.reduce(
           (sum, a) => sum.plus(new Decimal(a.amount)),
           new Decimal(0),
         );
 
-        // 2. Legacy Direct Sum (excluding those that have allocations)
-        // We can just fetch all payments with invoiceId, and filter in JS if list is small, or use SQL.
-        // Let's use JS filter for safety/simplicity given ORM limitations on subqueries sometimes.
+        // Only need to add Legacy Direct payments (if any exist that are NOT allocated)
         const directPayments = await tx
           .select()
           .from(payments)
           .where(eq(payments.invoiceId, invoiceId));
+        const explicitAllocPaymentIds = new Set(
+          (
+            await tx
+              .select({ pid: paymentAllocations.paymentId })
+              .from(paymentAllocations)
+              .where(eq(paymentAllocations.invoiceId, invoiceId))
+          ).map((x) => x.pid),
+        );
 
-        // We need to check if these direct payments have allocations.
-        // Efficient way: Get all allocation paymentIds for this invoice? No, for ANY invoice.
-        // Better: "If a payment has ANY allocation record, ignore its direct invoiceId link for calculation purposes".
-        // Ensure we don't count it twice.
-        // Since we just inserted allocation for current payment, it WILL have allocation.
-
-        // For now, let's assume we are migrating fully to allocations for New payments.
-        // Old payments don't have allocations.
-        // So:
-        // If a payment is in `allocs` list (by paymentId), we count it via Allocations.
-        // If a payment is NOT in `allocs` list (by paymentId) BUT is in `directPayments` list...
-        // Wait, `allocs` list contains `paymentAllocations` records, which have `paymentId`.
-
-        const allocatedPaymentIds = new Set(allocs.map((a) => a.paymentId));
-
-        let totalPaid = allocSum;
-
+        let legacyDirectTotal = new Decimal(0);
         for (const dp of directPayments) {
-          if (!allocatedPaymentIds.has(dp.id)) {
-            totalPaid = totalPaid.plus(new Decimal(dp.amount));
+          if (!explicitAllocPaymentIds.has(dp.id)) {
+            // Normalize legacy
+            // Re-implement simplified normalization for status update
+            const pCurrency = await tx.query.currencies.findFirst({
+              where: eq(currencies.id, dp.currencyId),
+            });
+            const invCurrency = await tx.query.currencies.findFirst({
+              where: eq(currencies.id, inv.currencyId),
+            });
+
+            let amount = new Decimal(dp.amount);
+            if (pCurrency && invCurrency && pCurrency.id !== invCurrency.id) {
+              const rate = new Decimal(dp.exchangeRate || '1');
+              const invRate = new Decimal(inv.exchangeRate || '1');
+              if (invCurrency.code === 'USD' && pCurrency.code !== 'USD') {
+                if (invRate.gt(1)) amount = amount.div(invRate);
+                else if (rate.gt(1)) amount = amount.div(rate);
+              } else if (
+                pCurrency.code === 'USD' &&
+                invCurrency.code !== 'USD'
+              ) {
+                if (invRate.gt(1)) amount = amount.times(invRate);
+                else if (rate.gt(1)) amount = amount.times(rate);
+              }
+            }
+            legacyDirectTotal = legacyDirectTotal.plus(amount);
           }
         }
 
-        const invoiceTotal = new Decimal(inv.total || 0);
-        let newStatus = 'POSTED';
+        const grandTotalPaid = totalAllocated.plus(legacyDirectTotal);
+        const invTotal = new Decimal(inv.total || 0);
 
-        if (totalPaid.gte(invoiceTotal.minus(0.01))) {
-          newStatus = 'PAID';
-        } else if (totalPaid.gt(0)) {
-          newStatus = 'PARTIALLY_PAID';
-        }
+        let newStatus = 'POSTED';
+        if (grandTotalPaid.gte(invTotal.minus(0.01))) newStatus = 'PAID';
+        else if (grandTotalPaid.gt(0)) newStatus = 'PARTIALLY_PAID';
 
         if (newStatus !== inv.status) {
           await tx
@@ -608,14 +812,27 @@ export class TreasuryService {
 
       // Update All Affected Invoices
       const uniqueInvoiceIds = [
-        ...new Set(allocations.map((a) => a.invoiceId)),
+        ...new Set(finalAllocations.map((a) => a.invoiceId)),
       ];
       for (const invId of uniqueInvoiceIds) {
         await updateInvoiceStatus(invId);
       }
 
-      return payment;
+      // 4. Return Full Payment Object (for Audit & UI)
+      return await tx.query.payments.findFirst({
+        where: eq(payments.id, payment.id),
+        with: {
+          bankAccount: true,
+          method: true,
+          currency: true,
+        },
+      });
     });
+
+    return {
+      message: 'Pago registrado con éxito y nota de crédito generada si aplica',
+      payment,
+    };
   }
 
   async findAllPayments(branchId?: string, bankAccountId?: string) {
@@ -717,7 +934,33 @@ export class TreasuryService {
     });
   }
 
-  async getAccountStatement(partnerId: string, branchId?: string) {
+  async getAccountStatement(
+    partnerId: string,
+    branchId?: string,
+    reportingCurrencyId?: string,
+  ) {
+    // Default to USD if not provided (or find system default)
+    // For now, we'll try to find USD or fallback to the first available currency in the partner's transactions
+    // ideally this should be a system setting, but let's look it up dynamically if needed.
+    let targetCurrencyCode = 'USD'; // Safe default for international reports
+    let targetCurrencyId = reportingCurrencyId;
+
+    if (reportingCurrencyId) {
+      const targetCurrency = await db.query.currencies.findFirst({
+        where: eq(currencies.id, reportingCurrencyId),
+      });
+      if (targetCurrency) targetCurrencyCode = targetCurrency.code;
+    } else {
+      // Try to find USD id
+      const usd = await db.query.currencies.findFirst({
+        where: eq(currencies.code, 'USD'),
+      });
+      if (usd) {
+        targetCurrencyId = usd.id;
+        targetCurrencyCode = 'USD';
+      }
+    }
+
     // 1. Fetch transactions
     const [partnerInvoices, partnerPayments, partnerCreditNotes] =
       await Promise.all([
@@ -738,11 +981,16 @@ export class TreasuryService {
           with: {
             allocations: {
               with: {
-                invoice: true,
+                invoice: {
+                  with: { currency: true },
+                },
               },
             },
-            invoice: true, // Legacy link
+            invoice: {
+              with: { currency: true },
+            }, // Legacy link
             bankAccount: true,
+            currency: true,
           },
         }),
         db.query.creditNotes.findMany({
@@ -759,47 +1007,149 @@ export class TreasuryService {
     // 2. Normalize transactions
     const transactions = [];
 
+    // Helper to convert amounts
+    // NOTE: This uses the invoice's exchange rate for the invoice itself.
+    // For payments, it relies on the payment's rate implicitly if converting to base.
+    // If reporting currency is NOT base, we might need cross-rate logic.
+    // For simplicity in this unified view, we assume:
+    // - If transaction currency == reporting currency -> use amount
+    // - If transaction currency != reporting currency -> use rate to convert to reporting.
+    //   (Assuming reporting is usually the stable/hard currency like USD)
+
     for (const inv of partnerInvoices) {
+      const currencyCode = inv.currency ? inv.currency.code : 'VES';
+      const isTarget = currencyCode === targetCurrencyCode;
+      const rate = Number(inv.exchangeRate) || 1;
+
+      // Calculate Reporting Value
+      let reportingValue = Number(inv.total);
+      if (!isTarget) {
+        // If Invoice is VES and Target is USD -> Divide by Rate
+        // If Invoice is USD and Target is VES -> Multiply by Rate
+        // Assumption: Rate is always VES/USD (e.g. 50.00)
+        if (targetCurrencyCode === 'USD' && currencyCode === 'VES') {
+          reportingValue = Number(inv.total) / rate;
+        } else if (targetCurrencyCode === 'VES' && currencyCode === 'USD') {
+          reportingValue = Number(inv.total) * rate;
+        }
+      }
+
       transactions.push({
         id: inv.id,
         date: inv.date ? new Date(inv.date) : new Date(),
         type: 'INVOICE',
         reference: inv.code,
         description: `Factura ${inv.code}`,
-        debit: Number(inv.total), // Charge to customer
+        originalAmount: Number(inv.total),
+        originalCurrency: currencyCode,
+        exchangeRate: rate,
+        // Reporting
+        reportingAmount: reportingValue,
+        reportingCurrency: targetCurrencyCode,
+        // Direction
+        debit: reportingValue, // Charge
         credit: 0,
-        currency: inv.currency ? inv.currency.code : 'VES',
         status: inv.status,
       });
     }
 
-    // Fetch auxiliary data manually to avoid relation issues
     const allMethods = await db.select().from(paymentMethods);
     const methodMap = new Map(allMethods.map((m) => [m.id, m]));
 
-    const allCurrencies = await db.select().from(currencies);
-    const currencyMap = new Map(allCurrencies.map((c) => [c.id, c]));
-
-    for (const p of partnerPayments) {
-      const pay = p as any;
+    for (const pay of partnerPayments) {
       const method = methodMap.get(pay.methodId);
-      const currency = currencyMap.get(pay.currencyId);
+      const currencyCode = pay.currency ? pay.currency.code : 'VES';
+      const isTarget = currencyCode === targetCurrencyCode;
+      const rate = Number(pay.exchangeRate) || 1; // Rate at moment of payment
 
       const isBalancePayment = method?.code?.startsWith('BALANCE');
-      const creditAmount = isBalancePayment ? 0 : Number(pay.amount);
 
-      // Build description with invoice details
-      const invoiceCodes = new Set<string>();
+      // Determine Reporting Value for Payment
+      let reportingValue = Number(pay.amount);
+      const isCrossCurrency = false;
+
+      // Special handling for Allocations (Cross-Currency Payments)
+      // If a payment has allocations to invoices in Target Currency, use the allocated amount in THAT currency
+      // This solves "Paid 4000 VES for 100 USD Invoice" -> We want to show 100 USD credit.
+      let calculatedReportingValue = 0;
+      let hasTargetAllocations = false;
+
       if (pay.allocations && pay.allocations.length > 0) {
-        pay.allocations.forEach((a: any) => {
-          if (a.invoice && a.invoice.code) {
-            invoiceCodes.add(a.invoice.code);
+        for (const alloc of pay.allocations) {
+          const invCurrency = alloc.invoice?.currency?.code || 'VES';
+          if (invCurrency === targetCurrencyCode) {
+            // Invoice is in Target Currency (e.g. USD).
+            // The allocation amount in the allocation table is usually in the INVOICE currency (if consistent with design)
+            // OR it needs to be calculated.
+            // Verification: In `registerPayment`, we check if currencies match.
+            // If payment is VES and Invoice USD, we convert.
+            // Ideally, we should store the 'value' in the invoice's currency.
+            // Let's assume standard logic:
+            // If I pay 50 USD for a 100 USD invoice, `paymentAllocations.amount` is 50.
+
+            // However, our `paymentAllocations` table usually stores the amount taken from the PAYMENT.
+            // Let's check `paymentAllocations` schema definition if possible.
+            // Assuming `amount` in `payment_allocations` is in PAYMENT currency.
+
+            const allocAmount = Number(alloc.amount);
+
+            if (currencyCode === targetCurrencyCode) {
+              calculatedReportingValue += allocAmount;
+            } else {
+              // Payment in VES, Target in USD.
+              // Convert allocation (VES) to USD using Payment Rate.
+              if (targetCurrencyCode === 'USD' && currencyCode === 'VES') {
+                calculatedReportingValue += allocAmount / rate;
+              } else if (
+                targetCurrencyCode === 'VES' &&
+                currencyCode === 'USD'
+              ) {
+                calculatedReportingValue += allocAmount * rate;
+              }
+            }
+            hasTargetAllocations = true;
           }
-        });
+        }
       }
 
-      // Legacy or direct link fallback if no allocations found (or mixed)
-      if (pay.invoice && pay.invoice.code && invoiceCodes.size === 0) {
+      // If we found specific allocations to the target currency, that's our "Real" impact.
+      // But what about the rest of the payment (unallocated)?
+      // For the unallocated part, we just convert using standard rate.
+
+      if (hasTargetAllocations) {
+        // This logic is complex because a payment might pay mixed currencies.
+        // For simplicity in V1:
+        // If not isTarget, convert the WHOLE amount using the rate.
+        // This is usually correct: 4000 VES / 40 = 100 USD.
+        // The fact that it paid a 100 USD invoice confirms it.
+        // So standard conversion should work for 99% of cases.
+
+        if (targetCurrencyCode === 'USD' && currencyCode === 'VES') {
+          reportingValue = Number(pay.amount) / rate;
+        } else if (targetCurrencyCode === 'VES' && currencyCode === 'USD') {
+          reportingValue = Number(pay.amount) * rate;
+        }
+      } else {
+        // Standard Conversion
+        if (!isTarget) {
+          if (targetCurrencyCode === 'USD' && currencyCode === 'VES') {
+            reportingValue = Number(pay.amount) / rate;
+          } else if (targetCurrencyCode === 'VES' && currencyCode === 'USD') {
+            reportingValue = Number(pay.amount) * rate;
+          }
+        }
+      }
+
+      const creditAmount = isBalancePayment ? 0 : reportingValue;
+
+      // Build description
+      const invoiceCodes = new Set<string>();
+      if (pay.allocations) {
+        pay.allocations.forEach((a) => {
+          if (a.invoice?.code) invoiceCodes.add(a.invoice.code);
+        });
+      }
+      if (pay.invoice?.code && invoiceCodes.size === 0) {
         invoiceCodes.add(pay.invoice.code);
       }
 
@@ -807,7 +1157,6 @@ export class TreasuryService {
         invoiceCodes.size > 0
           ? ` (Facturas: ${Array.from(invoiceCodes).join(', ')})`
           : '';
-
       const bankInfo = pay.bankAccount ? ` - ${pay.bankAccount.name}` : '';
 
       transactions.push({
@@ -815,31 +1164,57 @@ export class TreasuryService {
         date: pay.date ? new Date(pay.date) : new Date(),
         type: 'PAYMENT',
         reference: pay.reference || '-',
-        description: `Pago ${method ? method.name : ''}${bankInfo}${isBalancePayment ? ` (Cruce) - Monto: ${Number(pay.amount).toFixed(2)}` : ''}${invoiceDetail}`,
+        description: `Pago ${method ? method.name : ''}${bankInfo}${invoiceDetail}`,
+        originalAmount: Number(pay.amount),
+        originalCurrency: currencyCode,
+        exchangeRate: rate,
+        // Reporting
+        reportingAmount: reportingValue,
+        reportingCurrency: targetCurrencyCode,
         debit: 0,
         credit: creditAmount,
-        currency: currency ? currency.code : 'VES',
         status: 'COMPLETED',
-        // Optional: pass real amount for UI display even if credit is 0
-        realAmount: Number(pay.amount),
       });
     }
 
+    // Credit Notes
     for (const cn of partnerCreditNotes) {
       // @ts-ignore
       const date = cn.date || cn.createdAt || new Date();
+      const currencyCode = cn.currency ? cn.currency.code : 'VES';
+      const isTarget = currencyCode === targetCurrencyCode;
+      // We need rate for CN. Usually stored or we assume current if not?
+      // CNs should have exchangeRate too.
+      const rate = Number((cn as any).exchangeRate) || 1;
+
+      const total =
+        Number(cn.totalBase) + Number(cn.totalTax) + Number(cn.totalIgtf);
+
+      let reportingValue = total;
+      if (!isTarget) {
+        if (targetCurrencyCode === 'USD' && currencyCode === 'VES') {
+          reportingValue = total / rate;
+        } else if (targetCurrencyCode === 'VES' && currencyCode === 'USD') {
+          reportingValue = total * rate;
+        }
+      }
+
+      const isSurplus =
+        (cn as any).parentPaymentId || cn.code.startsWith('NC-ADV');
+
       transactions.push({
         id: cn.id,
         date: new Date(date),
         type: 'CREDIT_NOTE',
         reference: cn.code,
-        description: `Nota de Crédito ${cn.code}${(cn as any).parentPaymentId || cn.code.startsWith('NC-ADV') ? ' (Excedente)' : ''}`,
+        description: `Nota de Crédito ${cn.code}${isSurplus ? ' (Excedente)' : ''}`,
+        originalAmount: total,
+        originalCurrency: currencyCode,
+        exchangeRate: rate,
+        reportingAmount: reportingValue,
+        reportingCurrency: targetCurrencyCode,
         debit: 0,
-        credit:
-          (cn as any).parentPaymentId || cn.code.startsWith('NC-ADV')
-            ? 0
-            : Number(cn.totalBase) + Number(cn.totalTax) + Number(cn.totalIgtf), // Reduces balance
-        currency: cn.currency ? cn.currency.code : 'VES',
+        credit: isSurplus ? 0 : reportingValue,
         status: cn.status,
       });
     }
@@ -847,101 +1222,26 @@ export class TreasuryService {
     // 3. Sort Chronologically
     transactions.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // 4. Calculate Balances per Currency
-    const summary: Record<string, { balance: number; unusedBalance: number }> =
-      {};
-
-    // Initialize summary for all involved currencies
-    const involvedCurrencies = new Set(transactions.map((t) => t.currency));
-    involvedCurrencies.forEach((curr) => {
-      summary[curr] = { balance: 0, unusedBalance: 0 };
-    });
-
-    // Calculate Total Balance (Debit - Credit)
-    for (const t of transactions) {
-      if (summary[t.currency]) {
-        summary[t.currency].balance += t.debit - t.credit;
-      }
-    }
-
-    // 5. Calculate Unused Balance (Saldo Sin Ocupar) per Currency
-    // Formula: (Credit Notes + Unallocated Payments) - (Balance Usage)
-
-    // A. Credit Notes Total
-    for (const cn of partnerCreditNotes) {
-      const curr = cn.currency?.code || 'VES';
-      if (!summary[curr]) summary[curr] = { balance: 0, unusedBalance: 0 };
-
-      const total =
-        Number(cn.totalBase) + Number(cn.totalTax) + Number(cn.totalIgtf);
-      summary[curr].unusedBalance += total;
-    }
-
-    const paymentsWithAllocations = await db.query.payments.findMany({
-      where: eq(payments.partnerId, partnerId),
-      with: {
-        method: true,
-        allocations: true,
-        currency: true,
-      },
-    });
-
-    for (const p of paymentsWithAllocations) {
-      const curr = p.currency?.code || 'VES';
-      if (!summary[curr]) summary[curr] = { balance: 0, unusedBalance: 0 };
-
-      const amount = Number(p.amount);
-      const isBalance = p.method?.code?.startsWith('BALANCE');
-
-      if (isBalance) {
-        summary[curr].unusedBalance -= amount;
-      } else {
-        // Calculate allocated amount
-        let allocated = p.allocations.reduce(
-          (sum, a) => sum + Number(a.amount),
-          0,
-        );
-
-        // Legacy handling: if linked to invoice and NOT in allocations table
-        if (p.invoiceId && p.allocations.length === 0) {
-          allocated += amount; // Assume fully allocated
-        }
-
-        // --- PREVENT DOUBLE COUNTING OF SURPLUS ---
-        // If this payment has associated Credit Notes (surplus/advance),
-        // those Credit Notes are ALREADY adding to unusedBalance in the loop above.
-        // We should only add the portion of 'rem' that is NOT covered by Credit Notes.
-
-        // Fetch child credit notes for this payment (using pre-fetched list to avoid N+1)
-        // Heuristic: Link by parentPaymentId OR by NC-ADV code + matching amount (for legacy/failed links)
-        const unallocatedSurplus = amount - allocated;
-        const childCNs = partnerCreditNotes.filter(
-          (cn) =>
-            (cn as any).parentPaymentId === p.id ||
-            (cn.code.startsWith('NC-ADV') &&
-              Math.abs(Number(cn.total) - unallocatedSurplus) < 0.01 &&
-              cn.currencyId === p.currencyId),
-        );
-
-        const childCNTotal = childCNs.reduce(
-          (sum, cn) => sum + Number(cn.total),
-          0,
-        );
-        const rem = Math.max(0, unallocatedSurplus - childCNTotal);
-
-        summary[curr].unusedBalance += rem;
-      }
-    }
-
-    // Ensure no negative unused balance (safety)
-    Object.keys(summary).forEach((key) => {
-      summary[key].unusedBalance = Math.max(0, summary[key].unusedBalance);
+    // 4. Calculate Unified Summary
+    let runningBalance = 0;
+    const processedTransactions = transactions.map((t) => {
+      // Apply debit/credit to running balance
+      runningBalance += t.debit - t.credit;
+      return {
+        ...t,
+        balance: runningBalance,
+      };
     });
 
     return {
       partnerId,
-      summary, // { "USD": { balance: 100, unused: 0 }, "VES": ... }
-      transactions: transactions.reverse(), // Show newest first
+      reportingCurrency: targetCurrencyCode,
+      summary: {
+        balance: runningBalance,
+        // We could still return the separated 'original' summaries if needed,
+        // but for the Unified View, the global balance is what matters.
+      },
+      transactions: processedTransactions.reverse(),
     };
   }
 

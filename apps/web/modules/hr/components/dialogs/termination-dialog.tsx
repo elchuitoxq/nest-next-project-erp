@@ -40,17 +40,12 @@ import { Separator } from "@/components/ui/separator";
 
 const terminationSchema = z.object({
   date: z.string().min(1, "Fecha requerida"),
-  reason: z.enum(
-    [
-      "RESIGNATION",
-      "DISMISSAL_JUSTIFIED",
-      "DISMISSAL_UNJUSTIFIED",
-      "CONTRACT_END",
-    ],
-    {
-      required_error: "Motivo requerido",
-    },
-  ),
+  reason: z.enum([
+    "RESIGNATION",
+    "DISMISSAL_JUSTIFIED",
+    "DISMISSAL_UNJUSTIFIED",
+    "CONTRACT_END",
+  ]),
   notes: z.string().optional(),
 });
 

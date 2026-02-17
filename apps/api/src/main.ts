@@ -3,12 +3,14 @@ import { resolve } from 'path';
 
 config({ path: resolve(process.cwd(), '../../.env') });
 
+// Schema updated - triggering restart
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.setGlobalPrefix('api');
   app.enableCors();
   app.useGlobalPipes(
     new ValidationPipe({

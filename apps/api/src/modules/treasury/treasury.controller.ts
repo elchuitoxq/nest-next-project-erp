@@ -13,14 +13,17 @@ import {
 import { TreasuryService } from './treasury.service';
 import { JwtAuthGuard } from '../../modules/auth/jwt-auth.guard';
 import { BranchInterceptor } from '../../common/interceptors/branch.interceptor';
+import { AuditInterceptor } from '../audit/audit.interceptor';
+import { Audit } from '../audit/audit.decorator';
 
 @Controller('treasury')
 @UseGuards(JwtAuthGuard)
-@UseInterceptors(BranchInterceptor)
+@UseInterceptors(BranchInterceptor, AuditInterceptor)
 export class TreasuryController {
   constructor(private readonly treasuryService: TreasuryService) {}
 
   @Post('payments')
+  @Audit('payments', 'CREATE', 'Pago registrado')
   createPayment(@Body() body: any, @Req() req: any) {
     const userId = req.user?.userId;
     // Inject branchId from interceptor
@@ -63,8 +66,16 @@ export class TreasuryController {
   }
 
   @Get('statements/:partnerId')
-  getStatement(@Param('partnerId') partnerId: string, @Req() req: any) {
-    return this.treasuryService.getAccountStatement(partnerId, req.branchId);
+  getStatement(
+    @Param('partnerId') partnerId: string,
+    @Query('reportingCurrencyId') reportingCurrencyId: string,
+    @Req() req: any,
+  ) {
+    return this.treasuryService.getAccountStatement(
+      partnerId,
+      req.branchId,
+      reportingCurrencyId,
+    );
   }
 
   @Get('daily-close')

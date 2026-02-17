@@ -131,12 +131,13 @@ El sistema opera bajo un modelo de **Multisucursal (Multi-Branch)** por defecto:
 
 El sistema maneja una **Tesorería Multimoneda Real** con soporte para **Anticipos y Cruce de Saldos**:
 
-- **Estado de Cuenta (Wallet):**
-  - Los saldos se agrupan estrictamente por moneda.
-  - El backend (`getAccountStatement`) calcula el saldo total y el **"Saldo Sin Ocupar"** (Anticipos + Notas de Crédito no aplicadas).
-- **Saldo a Favor (Advance Payments):**
-  - **Generación Automática:** Si un pago de ingreso (`INCOME`) supera el monto de las facturas seleccionadas (allocations), el sistema crea automáticamente una **Nota de Crédito** por el excedente (`NC-ADV-...`).
-  - **Uso de Saldo (Cruce):** Se utilizan los métodos de pago `BALANCE_USD` y `BALANCE_VES`. Al usarlos, el sistema consume las Notas de Crédito disponibles del cliente (`credit_note_usages`), reduciendo su deuda sin mover efectivo real.
+- **Estado de Cuenta (Wallet) - UNIFICADO:**
+  - **Problema:** Múltiples monedas (USD, VES) causan fragmentación y "basura" en los saldos cuando hay pagos cruzados (pagar factura USD con VES).
+  - **Solución (Unified View):** El backend `getAccountStatement` implementa una vista unificada. Acepta `reportingCurrencyId` y convierte todas las transacciones a esa moneda usando su tasa histórica. Detecta pagos cruzados via `allocations` para reducir correctamente la deuda en la moneda de reporte.
+  - **Interfaz:** Tabla `StatementTable` con columnas para "Monto Original" (real) y "Monto Reporte" (conversión). selector de moneda global.
+- **Pagos y Asignaciones (Strict):**
+  - **Allocations:** La relación `payment -> allocations -> invoice` es la fuente de verdad.
+  - **Monto Asignado:** En el historial de la factura, NUNCA mostrar `payment.amount` total, sino buscar la asignación específica (`allocation.amount`).
 - **Libro de Banco (Audit Ledger):**
   - Historial detallado por cuenta bancaria.
   - **Protección:** Bloqueo de egresos si el saldo es insuficiente (No saldos negativos).

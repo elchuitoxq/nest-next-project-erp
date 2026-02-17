@@ -76,6 +76,19 @@ const payload = {
 - **TypeScript Errors**: If adding relations (like `user` or `exchangeRate`) to `findAll`, remember to update the Frontend `Invoice` interface type definition to match.
 - **Duplicated Imports**: `drizzle-orm` schema imports can get large. Watch out for duplicated identifiers like `paymentMethods`.
 
+## 13. Unified Multi-Currency Statements (SAP Style)
+
+When generating client statements (`getAccountStatement`), do NOT just list transactions by currency. Implement a **Unified View**:
+
+1.  **Reporting Currency**: Allow the user (or default system) to select a single currency (e.g., USD) to view the entire ledger.
+2.  **Normalization**: Convert every transaction to the Reporting Currency using its **historical exchange rate**.
+    - `invoice (VES) / rate = invoice (USD)`
+    - `payment (VES) / rate = payment (USD)`
+3.  **Cross-Currency Allocations**: Use `payment_allocations` to detect when a VES payment covers a USD invoice. The "Reduction in Debt" is the allocated amount converted to the Invoice's currency.
+4.  **UI Columns**: Always show TWO sets of columns:
+    - **Original**: `amount` + `currency` (The legal reality).
+    - **Reporting**: `debit` / `credit` / `balance` (The financial reality in the reporting unit).
+
 ## 8. Sequential Code Generation Logic
 
 To avoid unique constraint collisions (especially when mixing `DRAFT`, `VOID`, and `POSTED` statuses), follow this pattern:

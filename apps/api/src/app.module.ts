@@ -23,6 +23,8 @@ import { AccountingModule } from './modules/accounting/accounting.module';
 import { FiscalReportsModule } from './modules/reports/fiscal-reports.module';
 import { TaxConceptsModule } from './modules/settings/tax-concepts/tax-concepts.module';
 import { BanksModule } from './modules/settings/banks/banks.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 
 import * as Joi from 'joi';
 import { ConfigModule } from '@nestjs/config';
@@ -58,6 +60,9 @@ import { ConfigModule } from '@nestjs/config';
     CronModule,
     AccountingModule,
     FiscalReportsModule,
+    FiscalReportsModule,
+    AuditModule,
+    DocumentsModule,
   ],
   controllers: [AppController],
   providers: [

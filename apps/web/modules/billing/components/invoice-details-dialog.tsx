@@ -1,4 +1,6 @@
 import { useState } from "react";
+import api from "@/lib/api";
+import { saveAs } from "file-saver";
 import {
   Dialog,
   DialogContent,
@@ -7,6 +9,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DocumentHistory } from "@/modules/common/components/document-history";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -36,6 +40,7 @@ import {
   useVoidInvoice,
   usePostInvoice,
   useUpdateInvoice,
+  useInvoice,
 } from "../hooks/use-invoices";
 import { useWarehouses } from "@/modules/inventory/hooks/use-inventory";
 import {
@@ -48,6 +53,9 @@ import {
   Hash,
   Store,
   Monitor,
+  Code,
+  History as HistoryIcon,
+  Box,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CreateCreditNoteDialog } from "./create-credit-note-dialog";
@@ -66,9 +74,17 @@ interface InvoiceDetailsDialogProps {
 export function InvoiceDetailsDialog({
   open,
   onOpenChange,
-  invoice,
+  invoice: initialInvoice,
 }: InvoiceDetailsDialogProps) {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+
+  // Fetch full details to ensure payments/allocations are up to date
+  const { data: fetchedInvoice, isLoading: isLoadingDetails } = useInvoice(
+    initialInvoice?.id || "",
+  );
+
+  // Use fetched invoice if available, otherwise fallback to props (for initial render)
+  const invoice = fetchedInvoice || initialInvoice;
 
   // Void Dialog State
   const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
@@ -220,6 +236,21 @@ export function InvoiceDetailsDialog({
     );
   };
 
+  const handleDownloadFiscalJson = async () => {
+    try {
+      const { data } = await api.get(
+        `/billing/invoices/${invoice.id}/fiscal-json`,
+      );
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      saveAs(blob, `Fiscal_${invoice.code}.json`);
+    } catch (error) {
+      console.error("Failed to download Fiscal JSON", error);
+      toast.error("Error al descargar JSON Fiscal");
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -320,6 +351,21 @@ export function InvoiceDetailsDialog({
                 {invoice.branch?.name || "N/A"}
               </p>
             </div>
+
+            <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group border-emerald-100 dark:border-emerald-900/30">
+              <div className="flex items-center gap-2 text-emerald-600 group-hover:text-emerald-700 transition-colors">
+                <User className="size-4" />
+                <p className="text-[10px] font-bold uppercase tracking-wider">
+                  Operador
+                </p>
+              </div>
+              <p
+                className="text-sm font-semibold truncate"
+                title={invoice.user?.name || "Sistema"}
+              >
+                {invoice.user?.name || "Sistema"}
+              </p>
+            </div>
           </div>
 
           <div className="flex justify-end mb-4">
@@ -343,117 +389,157 @@ export function InvoiceDetailsDialog({
             </div>
           </div>
 
-          {/* Items Table */}
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="hidden sm:table-cell">SKU</TableHead>
-                  <TableHead>Producto</TableHead>
-                  <TableHead className="text-right">Cant.</TableHead>
-                  <TableHead className="text-right hidden sm:table-cell">
-                    Precio
-                  </TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {invoice.items?.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-mono text-xs hidden sm:table-cell">
-                      {item.product?.sku || "-"}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {item.product?.name || "Producto desconocido"}
-                    </TableCell>
-                    <TableCell className="text-right text-xs">
-                      {item.quantity}
-                    </TableCell>
-                    <TableCell className="text-right text-xs hidden sm:table-cell">
-                      {formatCurrency(item.price, invoice.currency?.code)}
-                    </TableCell>
-                    <TableCell className="text-right text-xs font-bold">
-                      {formatCurrency(item.total, invoice.currency?.code)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+          <Tabs defaultValue="items" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="items" className="flex items-center gap-2">
+                <Box className="h-4 w-4" />
+                Detalles del Documento
+              </TabsTrigger>
+              <TabsTrigger value="history" className="flex items-center gap-2">
+                <HistoryIcon className="h-4 w-4" />
+                Historial y Proceso
+              </TabsTrigger>
+            </TabsList>
 
-                <TableRow>
-                  <TableCell colSpan={4} className="text-right font-bold">
-                    Base Imponible
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatCurrency(invoice.totalBase, invoice.currency?.code)}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell colSpan={4} className="text-right font-bold">
-                    IVA
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatCurrency(invoice.totalTax, invoice.currency?.code)}
-                  </TableCell>
-                </TableRow>
-                {parseFloat(invoice.totalIgtf.toString()) > 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-right font-bold">
-                      IGTF (3%)
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(
-                        invoice.totalIgtf,
-                        invoice.currency?.code,
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )}
-                <TableRow>
-                  <TableCell
-                    colSpan={2}
-                    className="sm:col-span-4 text-right font-bold text-lg"
-                  >
-                    Total
-                  </TableCell>
-                  <TableCell className="text-right font-bold text-lg">
-                    {formatCurrency(invoice.total, invoice.currency?.code)}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Payments History */}
-          {invoice.payments && invoice.payments.length > 0 && (
-            <div className="space-y-2 mt-4 w-full min-w-0">
-              <h3 className="font-semibold text-sm">Historial de Pagos</h3>
+            <TabsContent value="items" className="space-y-4">
+              {/* Items Table */}
               <div className="rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Método</TableHead>
-                      <TableHead>Referencia</TableHead>
-                      <TableHead className="text-right">Monto</TableHead>
+                      <TableHead className="hidden sm:table-cell">
+                        SKU
+                      </TableHead>
+                      <TableHead>Producto</TableHead>
+                      <TableHead className="text-right">Cant.</TableHead>
+                      <TableHead className="text-right hidden sm:table-cell">
+                        Precio
+                      </TableHead>
+                      <TableHead className="text-right">Total</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {invoice.payments.map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell>
-                          {format(new Date(p.date), "dd/MM/yyyy HH:mm")}
+                    {invoice.items?.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-mono text-xs hidden sm:table-cell">
+                          {item.product?.sku || "-"}
                         </TableCell>
-                        <TableCell>{p.method?.name || "-"}</TableCell>
-                        <TableCell>{p.reference || "-"}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(p.amount, invoice.currency?.code)}
+                        <TableCell className="text-xs">
+                          {item.product?.name || "Producto desconocido"}
+                        </TableCell>
+                        <TableCell className="text-right text-xs">
+                          {item.quantity}
+                        </TableCell>
+                        <TableCell className="text-right text-xs hidden sm:table-cell">
+                          {formatCurrency(item.price, invoice.currency?.code)}
+                        </TableCell>
+                        <TableCell className="text-right text-xs font-bold">
+                          {formatCurrency(item.total, invoice.currency?.code)}
                         </TableCell>
                       </TableRow>
                     ))}
+
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-right font-bold">
+                        Base Imponible
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(
+                          invoice.totalBase,
+                          invoice.currency?.code,
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-right font-bold">
+                        IVA
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(
+                          invoice.totalTax,
+                          invoice.currency?.code,
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {parseFloat(invoice.totalIgtf.toString()) > 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-right font-bold">
+                          IGTF (3%)
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(
+                            invoice.totalIgtf,
+                            invoice.currency?.code,
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    <TableRow>
+                      <TableCell
+                        colSpan={2}
+                        className="sm:col-span-4 text-right font-bold text-lg"
+                      >
+                        Total
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-lg">
+                        {formatCurrency(invoice.total, invoice.currency?.code)}
+                      </TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               </div>
-            </div>
-          )}
+
+              {/* Payments History */}
+              {invoice.payments && invoice.payments.length > 0 && (
+                <div className="space-y-2 mt-4 w-full min-w-0">
+                  <h3 className="font-semibold text-sm">Historial de Pagos</h3>
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Fecha</TableHead>
+                          <TableHead>Método</TableHead>
+                          <TableHead>Referencia</TableHead>
+                          <TableHead className="text-right">Monto</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invoice.payments.map((p) => (
+                          <TableRow key={p.id}>
+                            <TableCell>
+                              {format(new Date(p.date), "dd/MM/yyyy HH:mm")}
+                            </TableCell>
+                            <TableCell>{p.method?.name || "-"}</TableCell>
+                            <TableCell>{p.reference || "-"}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(p.amount, invoice.currency?.code)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent
+              value="history"
+              className="border rounded-xl p-4 bg-muted/20"
+            >
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold flex items-center gap-2 mb-1">
+                  <HistoryIcon className="h-4 w-4 text-primary" />
+                  Trazabilidad del Proceso
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Visión consolidada desde el pedido original hasta los pagos
+                  realizados.
+                </p>
+              </div>
+              <DocumentHistory entityTable="invoices" entityId={invoice.id} />
+            </TabsContent>
+          </Tabs>
 
           <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 mt-8 border-t pt-6">
             <Button
@@ -517,6 +603,17 @@ export function InvoiceDetailsDialog({
                 </Button>
               )}
             </PDFDownloadLink>
+
+            {/* Fiscal JSON Button */}
+            <Button
+              variant="outline"
+              onClick={handleDownloadFiscalJson}
+              className="w-full sm:w-auto px-8"
+              title="Descargar JSON para Impresora Fiscal / Facturación Electrónica"
+            >
+              <Code className="mr-2 h-4 w-4" />
+              JSON Fiscal
+            </Button>
 
             {invoice.status === "DRAFT" && (
               <div className="flex flex-col-reverse sm:flex-row items-center gap-2 w-full sm:w-auto">

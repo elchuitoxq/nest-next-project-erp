@@ -75,6 +75,79 @@ export class RetentionsService {
     return txt;
   }
 
+  private escapeXml(unsafe: string): string {
+    if (!unsafe) return '';
+    return unsafe.replace(/[<>&'"]/g, (c) => {
+      switch (c) {
+        case '<':
+          return '&lt;';
+        case '>':
+          return '&gt;';
+        case '&':
+          return '&amp;';
+        case "'":
+          return '&apos;';
+        case '"':
+          return '&quot;';
+      }
+      return c;
+    });
+  }
+
+  /**
+   * Generates XML for SENIAT ISLR Retentions
+   */
+  generateISLRXml(retentions: any[]) {
+    if (retentions.length === 0) return '';
+
+    // Assume all retentions belong to same Agent (Branch) and Period
+    // If not, we should grouping. For now, taking the first one's info for the header.
+    const first = retentions[0];
+    const branchTaxId = (first.branch?.taxId || '').replace(/-/g, '');
+    const period = first.period; // YYYYMM
+
+    let xml = '<?xml version="1.0" encoding="ISO-8859-1"?>\r\n';
+    xml += `<RelacionRetencionesISLR RifAgente="${this.escapeXml(branchTaxId)}" Periodo="${period}">\r\n`;
+
+    for (const r of retentions) {
+      for (const line of r.lines) {
+        const partnerTaxId = (r.partner?.taxId || '').replace(/-/g, '');
+        const invoiceNumber =
+          line.invoice?.invoiceNumber || line.invoice?.code || '0';
+        const controlNumber = line.invoice?.code || '0';
+
+        let dateStr = '';
+        if (r.date) {
+          const d = new Date(r.date);
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          dateStr = `${day}/${month}/${year}`;
+        }
+
+        // TODO: Get concept code from taxes/concepts table. using line.concept?.code
+        const conceptCode = line.concept?.code || '000';
+        const amount = new Decimal(line.baseAmount).toFixed(2);
+        const percent = new Decimal(line.taxAmount)
+          .div(line.baseAmount)
+          .times(100)
+          .toFixed(2); // inferred
+
+        xml += ' <DetalleRetencion>\r\n';
+        xml += `  <RifRetenido>${this.escapeXml(partnerTaxId)}</RifRetenido>\r\n`;
+        xml += `  <NumeroFactura>${this.escapeXml(invoiceNumber)}</NumeroFactura>\r\n`;
+        xml += `  <NumeroControl>${this.escapeXml(controlNumber)}</NumeroControl>\r\n`;
+        xml += `  <FechaOperacion>${dateStr}</FechaOperacion>\r\n`;
+        xml += `  <CodigoConcepto>${this.escapeXml(conceptCode)}</CodigoConcepto>\r\n`;
+        xml += `  <MontoOperacion>${amount}</MontoOperacion>\r\n`;
+        xml += `  <PorcentajeRetencion>${percent}</PorcentajeRetencion>\r\n`;
+        xml += ' </DetalleRetencion>\r\n';
+      }
+    }
+    xml += '</RelacionRetencionesISLR>';
+    return xml;
+  }
+
   async createRetention(
     data: {
       partnerId: string;

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { payrollApi } from "../../payroll.api";
+import { saveAs } from "file-saver";
 import {
   Card,
   CardContent,
@@ -11,9 +13,6 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { payrollApi } from "../../payroll.api";
-import { saveAs } from "file-saver";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -41,7 +40,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Download, CreditCard } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  CreditCard,
+  Calendar,
+  Clock,
+  Users,
+  Banknote,
+  ScrollText,
+} from "lucide-react";
 import { usePayrollRun, usePayrollMutations } from "../../hooks/use-payroll";
 import { useBanks } from "@/modules/settings/banks/hooks/use-banks";
 import { formatCurrency } from "@/lib/utils";
@@ -116,7 +124,7 @@ export function PayrollDetailView({ id }: PayrollDetailViewProps) {
   };
 
   const formatDate = (date: string) =>
-    format(new Date(date), "dd/MM/yyyy", { locale: es });
+    format(new Date(date), "dd 'de' MMMM, yyyy", { locale: es });
 
   return (
     <SidebarInset>
@@ -132,13 +140,16 @@ export function PayrollDetailView({ id }: PayrollDetailViewProps) {
         <PageHeader
           title={
             <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <ScrollText className="size-5" />
+              </div>
               <span>Nómina {run.code}</span>
               <Badge variant={run.status === "PAID" ? "success" : "secondary"}>
                 {run.status === "PAID" ? "PAGADA" : "BORRADOR"}
               </Badge>
             </div>
           }
-          description={`Periodo: ${formatDate(run.startDate)} - ${formatDate(run.endDate)} • ${run.frequency}`}
+          description="Detalle de nómina, empleados y pagos procesados."
         >
           <div className="flex gap-2">
             {run.status === "PAID" && (
@@ -230,85 +241,118 @@ export function PayrollDetailView({ id }: PayrollDetailViewProps) {
           </div>
         </PageHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="premium-shadow">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Neto</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {formatCurrency(
-                  parseFloat(run.totalAmount),
-                  run.currency.symbol,
-                )}
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="premium-shadow">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Empleados</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{run.items?.length || 0}</div>
-            </CardContent>
-          </Card>
+        {/* Metadata Grid (Sales Order Style) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-6 px-4 bg-muted/30 rounded-xl border border-dashed">
+          <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
+            <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+              <Calendar className="size-4" />
+              <p className="text-[10px] font-bold uppercase tracking-wider">
+                Periodo
+              </p>
+            </div>
+            <p className="text-sm font-semibold">
+              {formatDate(run.startDate)} - {formatDate(run.endDate)}
+            </p>
+          </div>
+
+          <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
+            <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+              <Clock className="size-4" />
+              <p className="text-[10px] font-bold uppercase tracking-wider">
+                Frecuencia
+              </p>
+            </div>
+            <p className="text-sm font-semibold capitalize">
+              {run.frequency.toLowerCase()}
+            </p>
+          </div>
+
+          <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
+            <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+              <Users className="size-4" />
+              <p className="text-[10px] font-bold uppercase tracking-wider">
+                Empleados
+              </p>
+            </div>
+            <p className="text-sm font-semibold">{run.items?.length || 0}</p>
+          </div>
+
+          <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
+            <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+              <Banknote className="size-4" />
+              <p className="text-[10px] font-bold uppercase tracking-wider">
+                Total Neto
+              </p>
+            </div>
+            <p className="text-sm font-bold text-emerald-600">
+              {formatCurrency(parseFloat(run.totalAmount), run.currency.symbol)}
+            </p>
+          </div>
         </div>
 
-        <Card className="premium-shadow border-t-4 border-t-primary/20">
-          <CardHeader>
-            <CardTitle>Detalle por Empleado</CardTitle>
+        <Card className="border premium-shadow">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold">
+              Detalle por Empleado
+            </CardTitle>
             <CardDescription>
-              Desglose de asignaciones y deducciones.
+              Desglose de asignaciones y deducciones por trabajador
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Empleado</TableHead>
-                  <TableHead>Cédula</TableHead>
-                  <TableHead>Cargo</TableHead>
-                  <TableHead className="text-right">Asignaciones</TableHead>
-                  <TableHead className="text-right">Deducciones</TableHead>
-                  <TableHead className="text-right">Neto a Pagar</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {run.items?.map((item) => (
-                  <TableRow key={item.id} className="hover:bg-muted/50">
-                    <TableCell className="font-medium">
-                      {item.employee.firstName} {item.employee.lastName}
-                    </TableCell>
-                    <TableCell>{item.employee.identityCard}</TableCell>
-                    <TableCell>{item.employee.position?.name || "-"}</TableCell>
-                    <TableCell className="text-right text-emerald-600 font-medium">
-                      {formatCurrency(
-                        parseFloat(item.baseAmount) + parseFloat(item.bonuses),
-                        run.currency.symbol,
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right text-rose-500 font-medium">
-                      {formatCurrency(
-                        parseFloat(item.deductions),
-                        run.currency.symbol,
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-bold w-[150px]">
-                      {formatCurrency(
-                        parseFloat(item.netTotal),
-                        run.currency.symbol,
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {run.status === "PAID" && (
-                        <PayslipViewer runId={id} itemId={item.id} />
-                      )}
-                    </TableCell>
+            {/* Table Wrapper */}
+            <div className="rounded-md border w-full min-w-0 block overflow-x-auto bg-background">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Empleado</TableHead>
+                    <TableHead>Cédula</TableHead>
+                    <TableHead>Cargo</TableHead>
+                    <TableHead className="text-right">Asignaciones</TableHead>
+                    <TableHead className="text-right">Deducciones</TableHead>
+                    <TableHead className="text-right">Neto a Pagar</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {run.items?.map((item) => (
+                    <TableRow key={item.id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium">
+                        {item.employee.firstName} {item.employee.lastName}
+                      </TableCell>
+                      <TableCell>{item.employee.identityCard}</TableCell>
+                      <TableCell>
+                        {item.employee.position?.name || "-"}
+                      </TableCell>
+                      <TableCell className="text-right text-emerald-600 font-medium">
+                        {formatCurrency(
+                          parseFloat(item.baseAmount) +
+                            parseFloat(item.bonuses),
+                          run.currency.symbol,
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-rose-500 font-medium">
+                        {formatCurrency(
+                          parseFloat(item.deductions),
+                          run.currency.symbol,
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-bold w-[150px]">
+                        {formatCurrency(
+                          parseFloat(item.netTotal),
+                          run.currency.symbol,
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {run.status === "PAID" && (
+                          <PayslipViewer runId={id} itemId={item.id} />
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </motion.div>

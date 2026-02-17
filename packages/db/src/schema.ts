@@ -13,6 +13,37 @@ import {
 import { uuidv7 } from "uuidv7";
 import { relations } from "drizzle-orm";
 
+// --- AUDIT & SECURITY SCHEMA ---
+
+export const auditLogs = pgTable("audit_logs", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  entityTable: text("entity_table").notNull(), // e.g. 'products', 'bank_accounts'
+  entityId: uuid("entity_id").notNull(), // The ID of the record being changed
+  action: text("action").notNull(), // CREATE, UPDATE, DELETE
+
+  changes: jsonb("changes"), // Store { field: { old: val, new: val } }
+
+  userId: uuid("user_id").references(() => users.id), // Who made the change
+  ipAddress: text("ip_address"), // Security tracking
+  userAgent: text("user_agent"), // Browser/Device info
+
+  // Enriched metadata
+  documentCode: text("document_code"), // e.g. 'PED-001', 'FAC-002'
+  documentStatus: text("document_status"), // e.g. 'PENDING', 'PAID'
+  description: text("description"), // Detailed action description
+
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
+  }),
+}));
+
 // --- AUTH & USERS SCHEMA ---
 
 export const users = pgTable("users", {
@@ -214,9 +245,26 @@ export const products = pgTable("products", {
   // Inventory Flags
   type: text("type").default("PHYSICAL"), // PHYSICAL, SERVICE, CONSUMABLE
   minStock: numeric("min_stock", { precision: 20, scale: 2 }).default("0"),
+  hasBatches: boolean("has_batches").default(false), // Tracks expiration/batches
 
   currencyId: uuid("currency_id").references(() => currencies.id), // Added for USD Anchoring
 
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const productBatches = pgTable("product_batches", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  productId: uuid("product_id")
+    .references(() => products.id)
+    .notNull(),
+  batchNumber: text("batch_number").notNull(),
+  expirationDate: timestamp("expiration_date"),
+  cost: numeric("cost", { precision: 20, scale: 2 }).default("0"),
+
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -231,6 +279,7 @@ export const stock = pgTable("stock", {
   productId: uuid("product_id")
     .references(() => products.id)
     .notNull(),
+  batchId: uuid("batch_id").references(() => productBatches.id), // Optional, only if product has batches
   quantity: numeric("quantity", { precision: 20, scale: 4 }).default("0"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -260,6 +309,7 @@ export const inventoryMoveLines = pgTable("inventory_move_lines", {
   productId: uuid("product_id")
     .references(() => products.id)
     .notNull(),
+  batchId: uuid("batch_id").references(() => productBatches.id),
   quantity: numeric("quantity", { precision: 20, scale: 4 }).notNull(),
   cost: numeric("cost", { precision: 20, scale: 2 }), // Cost at moment of move
 });
@@ -304,6 +354,7 @@ export const orderItems = pgTable("order_items", {
   productId: uuid("product_id")
     .references(() => products.id)
     .notNull(),
+  batchId: uuid("batch_id").references(() => productBatches.id),
   quantity: numeric("quantity", { precision: 20, scale: 4 }).notNull(),
   price: numeric("price", { precision: 20, scale: 2 }).notNull(), // Unit Price
 });
@@ -554,6 +605,21 @@ export const taxRetentionLines = pgTable("tax_retention_lines", {
 });
 
 // --- TREASURY & PAYMENTS ---
+
+// --- DOCUMENT FLOW ---
+
+export const documentLinks = pgTable("document_links", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  sourceId: uuid("source_id").notNull(), // Polymorphic ID
+  sourceTable: text("source_table").notNull(), // 'orders', 'invoices'
+  targetId: uuid("target_id").notNull(), // Polymorphic ID
+  targetTable: text("target_table").notNull(), // 'invoices', 'payments'
+  type: text("type").notNull(), // ORDER_TO_INVOICE, INVOICE_TO_PAYMENT
+  createdAt: timestamp("created_at").defaultNow(),
+  userId: uuid("user_id").references(() => users.id),
+});
 
 export const paymentAllocations = pgTable("payment_allocations", {
   id: uuid("id")
@@ -986,6 +1052,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   stock: many(stock),
   moveLines: many(inventoryMoveLines),
   orderItems: many(orderItems),
+  batches: many(productBatches),
 }));
 
 export const stockRelations = relations(stock, ({ one }) => ({
@@ -997,7 +1064,23 @@ export const stockRelations = relations(stock, ({ one }) => ({
     fields: [stock.productId],
     references: [products.id],
   }),
+  batch: one(productBatches, {
+    fields: [stock.batchId],
+    references: [productBatches.id],
+  }),
 }));
+
+export const productBatchesRelations = relations(
+  productBatches,
+  ({ one, many }) => ({
+    product: one(products, {
+      fields: [productBatches.productId],
+      references: [products.id],
+    }),
+    stock: many(stock),
+    moveLines: many(inventoryMoveLines),
+  }),
+);
 
 export const inventoryMovesRelations = relations(
   inventoryMoves,
@@ -1030,6 +1113,10 @@ export const inventoryMoveLinesRelations = relations(
     product: one(products, {
       fields: [inventoryMoveLines.productId],
       references: [products.id],
+    }),
+    batch: one(productBatches, {
+      fields: [inventoryMoveLines.batchId],
+      references: [productBatches.id],
     }),
   }),
 );
@@ -1084,6 +1171,14 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
   }),
   items: many(invoiceItems),
   payments: many(payments),
+  user: one(users, {
+    fields: [invoices.userId],
+    references: [users.id],
+  }),
+  order: one(orders, {
+    fields: [invoices.orderId],
+    references: [orders.id],
+  }),
 }));
 
 export const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({
@@ -1487,6 +1582,35 @@ export const accountingEntryLines = pgTable("accounting_entry_lines", {
   description: text("description"), // Line detail
 });
 
+export const accountingMaps = pgTable("accounting_maps", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  branchId: uuid("branch_id").references(() => branches.id),
+
+  // Scope
+  module: text("module").notNull(), // SALES, PROCUREMENT, INVENTORY, TREASURY
+  transactionType: text("transaction_type"), // INVOICE, REFUND, ADJUSTMENT, PAYMENT
+
+  // Criteria (Hierarchy: Product -> Category -> Global)
+  categoryId: uuid("category_id").references(() => productCategories.id),
+  productId: uuid("product_id").references(() => products.id),
+  paymentMethodId: uuid("payment_method_id").references(
+    () => paymentMethods.id,
+  ),
+
+  // Target Accounts
+  debitAccountId: uuid("debit_account_id").references(
+    () => accountingAccounts.id,
+  ),
+  creditAccountId: uuid("credit_account_id").references(
+    () => accountingAccounts.id,
+  ),
+
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const accountingAccountsRelations = relations(
   accountingAccounts,
   ({ one, many }) => ({
@@ -1522,3 +1646,40 @@ export const accountingEntryLinesRelations = relations(
     }),
   }),
 );
+
+export const accountingMapsRelations = relations(accountingMaps, ({ one }) => ({
+  branch: one(branches, {
+    fields: [accountingMaps.branchId],
+    references: [branches.id],
+  }),
+  category: one(productCategories, {
+    fields: [accountingMaps.categoryId],
+    references: [productCategories.id],
+  }),
+  product: one(products, {
+    fields: [accountingMaps.productId],
+    references: [products.id],
+  }),
+  paymentMethod: one(paymentMethods, {
+    fields: [accountingMaps.paymentMethodId],
+    references: [paymentMethods.id],
+  }),
+  debitAccount: one(accountingAccounts, {
+    fields: [accountingMaps.debitAccountId],
+    references: [accountingAccounts.id],
+    relationName: "mapDebit",
+  }),
+  // ... existing relations ...
+  creditAccount: one(accountingAccounts, {
+    fields: [accountingMaps.creditAccountId],
+    references: [accountingAccounts.id],
+    relationName: "mapCredit",
+  }),
+}));
+
+export const documentLinksRelations = relations(documentLinks, ({ one }) => ({
+  user: one(users, {
+    fields: [documentLinks.userId],
+    references: [users.id],
+  }),
+}));

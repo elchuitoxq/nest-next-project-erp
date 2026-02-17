@@ -101,7 +101,7 @@ export function GlobalPaymentsTable() {
 
       const matchesSearch =
         payment.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        partner?.name.toLowerCase().includes(searchTerm.toLowerCase());
+        (partner?.name || "").toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesMethod =
         methodFilter === "ALL" || method?.id === methodFilter;

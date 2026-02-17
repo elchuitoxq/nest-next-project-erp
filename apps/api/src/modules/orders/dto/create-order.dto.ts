@@ -27,6 +27,10 @@ class CreateOrderItemDto {
   @IsOptional()
   currencyId?: string;
 
+  @IsString()
+  @IsOptional()
+  batchId?: string;
+
   @IsNumber()
   @IsOptional()
   maxQuantity?: number;

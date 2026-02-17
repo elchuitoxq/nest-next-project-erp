@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { useForm, useFieldArray, Resolver } from "react-hook-form";
+import {
+  useForm,
+  useFieldArray,
+  Resolver,
+  useWatch,
+  Control,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
@@ -63,6 +69,27 @@ interface OrderDialogProps {
   onOpenChange: (open: boolean) => void;
   type?: "SALE" | "PURCHASE";
 }
+
+interface ItemStockProps {
+  control: Control<OrderFormValues>;
+  index: number;
+}
+
+const ItemStock = ({ control, index }: ItemStockProps) => {
+  const maxQuantity = useWatch({
+    control,
+    name: `items.${index}.maxQuantity`,
+  });
+
+  // If undefined/null, don't show anything yet.
+  if (maxQuantity === undefined || maxQuantity === null) return null;
+
+  return (
+    <div className="text-xs text-muted-foreground mt-1">
+      Disponible: {maxQuantity}
+    </div>
+  );
+};
 
 export function OrderDialog({
   open,
@@ -255,7 +282,8 @@ export function OrderDialog({
   };
 
   const getMaxQuantity = (index: number) => {
-    return form.getValues(`items.${index}.maxQuantity`) || 999999;
+    const val = form.getValues(`items.${index}.maxQuantity`);
+    return val !== undefined ? val : 999999;
   };
 
   return (
@@ -450,6 +478,10 @@ export function OrderDialog({
                                     999999,
                                   );
                                 }
+                                // Trigger validation for quantity immediately
+                                setTimeout(() => {
+                                  form.trigger(`items.${index}.quantity`);
+                                }, 0);
                               }}
                             />
                             <FormMessage />
@@ -488,12 +520,9 @@ export function OrderDialog({
                               />
                             </FormControl>
                             <FormMessage />
-                            {!isPurchase &&
-                              form.getValues(`items.${index}.productId`) && (
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  Max: {getMaxQuantity(index)}
-                                </div>
-                              )}
+                            {!isPurchase && (
+                              <ItemStock control={form.control} index={index} />
+                            )}
                           </FormItem>
                         )}
                       />

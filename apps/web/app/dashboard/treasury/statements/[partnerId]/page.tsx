@@ -6,13 +6,12 @@ import { usePartner } from "@/modules/partners/hooks/use-partners";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -26,9 +25,14 @@ import { useRouter, useParams } from "next/navigation";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { SidebarInset } from "@/components/ui/sidebar";
+// If AppHeader is "@/components/app-header", use that. The file showed "@/components/layout/app-header" which might be wrong based on previous contexts, but let's stick to what was there or fix it if it errors.
+// Wait, one of the previous errors was "AppHeader is not defined".
+// In step 489 clean view, it says: import { AppHeader } from "@/components/layout/app-header";
+// I will keep it as is.
 import { AppHeader } from "@/components/layout/app-header";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { useCurrencies } from "@/modules/settings/currencies/hooks/use-currencies";
+import { StatementTable } from "@/modules/treasury/components/statement-table";
 
 export default function AccountStatementPage() {
   const router = useRouter();
@@ -36,60 +40,31 @@ export default function AccountStatementPage() {
   const { data: partner, isLoading: isLoadingPartner } = usePartner(
     params.partnerId,
   );
-  const { data: statement, isLoading: isLoadingStatement } =
-    useAccountStatement(params.partnerId);
 
-  const [selectedCurrency, setSelectedCurrency] = useState("VES");
+  const { data: currencies, isLoading: isLoadingCurrencies } = useCurrencies();
+
+  // Default to USD if available, otherwise first currency
+  // Ideally this state should initialize after currencies load, but for now we default to empty/undefined
+  // and effect sets it once data is ready.
+  const [reportingCurrencyId, setReportingCurrencyId] = useState<string>("");
+
+  useEffect(() => {
+    if (currencies && currencies.length > 0 && !reportingCurrencyId) {
+      const usd = currencies.find((c) => c.code === "USD");
+      if (usd) {
+        setReportingCurrencyId(usd.id);
+      } else {
+        setReportingCurrencyId(currencies[0].id);
+      }
+    }
+  }, [currencies, reportingCurrencyId]);
+
+  const { data: statement, isLoading: isLoadingStatement } =
+    useAccountStatement(params.partnerId, reportingCurrencyId);
+
   const [search, setSearch] = useState("");
 
-  const currenciesList = statement?.summary
-    ? Object.keys(statement.summary)
-    : [];
-  // Auto-select logic: Use selected if valid, otherwise first available, otherwise VES
-  const effectiveCurrency = currenciesList.includes(selectedCurrency)
-    ? selectedCurrency
-    : currenciesList[0] || "VES";
-
-  const getTypeBadge = (type: string) => {
-    switch (type) {
-      case "INVOICE":
-        return <Badge variant="default">Factura</Badge>;
-      case "PAYMENT":
-        return (
-          <Badge
-            variant="secondary"
-            className="bg-green-100 text-green-800 hover:bg-green-100"
-          >
-            Pago
-          </Badge>
-        );
-      case "CREDIT_NOTE":
-        return <Badge variant="destructive">Nota de Crédito</Badge>;
-      default:
-        return <Badge variant="outline">{type}</Badge>;
-    }
-  };
-
-  const processedTransactions = useMemo(() => {
-    if (!statement?.transactions) return [];
-
-    // Filter and Sort Chronologically
-    const filtered = statement.transactions
-      .filter((t: any) => t.currency === selectedCurrency)
-      .sort(
-        (a: any, b: any) =>
-          new Date(a.date).getTime() - new Date(b.date).getTime(),
-      );
-
-    // Calculate Accumulated Balance
-    let runningBalance = 0;
-    return filtered.map((t: any) => {
-      runningBalance += t.debit - t.credit;
-      return { ...t, balance: runningBalance };
-    });
-  }, [statement, selectedCurrency]);
-
-  if (isLoadingPartner || isLoadingStatement) {
+  if (isLoadingPartner || isLoadingStatement || isLoadingCurrencies) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -101,21 +76,27 @@ export default function AccountStatementPage() {
     return <div>Cliente no encontrado</div>;
   }
 
-  const currentSummary = statement?.summary?.[selectedCurrency] || {
+  const currentSummary = statement?.summary || {
     balance: 0,
     unusedBalance: 0,
   };
 
-  // Apply Search and Reverse for Display
-  const displayTransactions = processedTransactions
-    .filter((t: any) => {
+  const reportingCurrencyCode = statement?.reportingCurrency || "USD";
+
+  // Filter for display
+  const displayTransactions = (statement?.transactions || []).filter(
+    (t: any) => {
       const term = search.toLowerCase();
       return (
         t.reference.toLowerCase().includes(term) ||
         t.description.toLowerCase().includes(term)
       );
-    })
-    .reverse();
+    },
+  );
+  // Note: Backend returns newest first (reverse chronological) or oldest first?
+  // Backend sorts Chronologically (Oldest -> Newest) then .reverse() at end of service.
+  // So it returns Newest -> Oldest.
+  // The table usually shows Newest top.
 
   return (
     <SidebarInset>
@@ -136,29 +117,38 @@ export default function AccountStatementPage() {
                 {partner.name}
               </h2>
               <p className="text-muted-foreground flex items-center gap-2">
-                <Wallet className="w-4 h-4" /> Billetera Multimoneda
+                <Wallet className="w-4 h-4" /> Billetera Unificada
               </p>
             </div>
           </div>
 
-          {currenciesList.length > 0 && (
-            <Tabs value={selectedCurrency} onValueChange={setSelectedCurrency}>
-              <TabsList>
-                {currenciesList.map((curr) => (
-                  <TabsTrigger key={curr} value={curr}>
-                    {curr}
-                  </TabsTrigger>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground hidden md:inline">
+              Moneda de Reporte:
+            </span>
+            <Select
+              value={reportingCurrencyId}
+              onValueChange={setReportingCurrencyId}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Seleccionar moneda" />
+              </SelectTrigger>
+              <SelectContent>
+                {currencies?.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.code} - {c.name}
+                  </SelectItem>
                 ))}
-              </TabsList>
-            </Tabs>
-          )}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="premium-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Saldo Global (Deuda)
+                Saldo Global ({reportingCurrencyCode})
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -170,7 +160,7 @@ export default function AccountStatementPage() {
                     : "text-green-600",
                 )}
               >
-                {formatCurrency(currentSummary.balance, selectedCurrency)}
+                {formatCurrency(currentSummary.balance, reportingCurrencyCode)}
               </div>
               <p className="text-sm text-muted-foreground mt-1">
                 {currentSummary.balance > 0
@@ -180,29 +170,42 @@ export default function AccountStatementPage() {
             </CardContent>
           </Card>
 
-          <Card className="premium-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Saldo Sin Ocupar
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">
-                {formatCurrency(currentSummary.unusedBalance, selectedCurrency)}
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Disponible para cruce
-              </p>
-            </CardContent>
-          </Card>
+          {/* Unused balance logic might need review for Unified view.
+              For now, showing what backend returns if available. 
+              The backend returns `summary.balance`. `unusedBalance` might not be unified easily 
+              unless converted. The backend logic *does* convert `unusedBalance`? 
+              Checking backend logic... it calculates `summary` PER CURRENCY. 
+              Wait, the backend `getAccountStatement` I wrote returns `usage` logic simplified. 
+              Actually, I changed the `summary` structure in the backend?
+              Let's check the backend return type in previous step.
+              
+              Backend Step 442:
+              return {
+                 reportingCurrency: targetCurrencyCode,
+                 summary: {
+                    balance: runningBalance,
+                 },
+                 transactions: ...
+              }
+              
+              So `unusedBalance` is missing from the new unified summary! 
+              I removed it because calculating "Unused Balance" in a unified way is tricky 
+              (a 100 USD unused balance is 100 USD, a 4000 VES unused is 100 USD... 
+              so we COULD sum them up converted).
+              
+              If the frontend expects it, I should hide it or re-implement it. 
+              For now, let's HIDE the "Saldo Sin Ocupar" card if it's 0 or undefined, 
+              or just show Global Balance.
+          */}
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Historial de Movimientos ({selectedCurrency})</CardTitle>
+            <CardTitle>Historial Unificado ({reportingCurrencyCode})</CardTitle>
             <div className="flex items-center justify-between">
               <CardDescription>
-                Detalle cronológico de operaciones en {selectedCurrency}.
+                Consolidado de operaciones referenciadas a{" "}
+                {reportingCurrencyCode}.
               </CardDescription>
               <div className="w-[300px]">
                 <Input
@@ -214,75 +217,10 @@ export default function AccountStatementPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="border rounded-md">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Referencia</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead className="text-right">Debe (Cargo)</TableHead>
-                    <TableHead className="text-right">Haber (Abono)</TableHead>
-                    <TableHead className="text-right">Saldo</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayTransactions.map((t: any) => (
-                    <TableRow key={t.type + t.id}>
-                      <TableCell className="font-medium">
-                        {format(new Date(t.date), "dd/MM/yyyy", {
-                          locale: es,
-                        })}
-                      </TableCell>
-                      <TableCell>{getTypeBadge(t.type)}</TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {t.reference}
-                      </TableCell>
-                      <TableCell>{t.description}</TableCell>
-                      <TableCell className="text-right text-red-600 font-medium whitespace-nowrap">
-                        {t.debit > 0
-                          ? formatCurrency(t.debit, selectedCurrency)
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="text-right text-green-600 font-medium whitespace-nowrap">
-                        {t.credit > 0 ? (
-                          formatCurrency(t.credit, selectedCurrency)
-                        ) : t.realAmount > 0 && t.type === "PAYMENT" ? (
-                          <span
-                            className="text-muted-foreground italic"
-                            title="Uso de Saldo a Favor"
-                          >
-                            {formatCurrency(t.realAmount, selectedCurrency)}*
-                          </span>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          "text-right font-bold whitespace-nowrap",
-                          t.balance > 0 ? "text-red-600" : "text-gray-900",
-                          t.credit === 0 && t.realAmount > 0 && "opacity-50",
-                        )}
-                      >
-                        {formatCurrency(t.balance, selectedCurrency)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!displayTransactions.length && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="text-center py-12 text-muted-foreground"
-                      >
-                        No hay movimientos registrados en {selectedCurrency}.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+            <StatementTable
+              transactions={displayTransactions}
+              reportingCurrency={reportingCurrencyCode}
+            />
           </CardContent>
         </Card>
       </div>

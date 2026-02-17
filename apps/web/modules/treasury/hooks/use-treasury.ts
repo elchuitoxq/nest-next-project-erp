@@ -46,11 +46,20 @@ export const usePayments = (filters?: { bankAccountId?: string }) => {
   });
 };
 
-export const useAccountStatement = (partnerId: string) => {
+export const useAccountStatement = (
+  partnerId: string,
+  reportingCurrencyId?: string,
+) => {
   return useQuery({
-    queryKey: ["account-statement", partnerId],
+    queryKey: ["account-statement", partnerId, reportingCurrencyId],
     queryFn: async () => {
-      const { data } = await api.get(`/treasury/statements/${partnerId}`);
+      const params = new URLSearchParams();
+      if (reportingCurrencyId)
+        params.append("reportingCurrencyId", reportingCurrencyId);
+
+      const { data } = await api.get(
+        `/treasury/statements/${partnerId}?${params.toString()}`,
+      );
       return data;
     },
     enabled: !!partnerId,

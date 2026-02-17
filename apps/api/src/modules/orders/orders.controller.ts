@@ -14,10 +14,12 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { FindOrdersDto } from './dto/find-orders.dto';
 import { JwtAuthGuard } from '../../modules/auth/jwt-auth.guard';
+import { AuditInterceptor } from '../audit/audit.interceptor';
+import { Audit } from '../audit/audit.decorator';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
-@UseInterceptors(BranchInterceptor) // Inject branch context
+@UseInterceptors(BranchInterceptor, AuditInterceptor) // Inject branch context and audit
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
@@ -33,16 +35,11 @@ export class OrdersController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    // We might want to restrict findOne to the active branch too,
-    // but usually ID is sufficient if UUID.
-    // However, for strict segregation:
-    // return this.ordersService.findOne(id, req.branchId);
-    // Let's keep it simple for now, or assume service handles it if necessary.
-    // For now, I'll update findAll and create which are the critical ones.
     return this.ordersService.findOne(id);
   }
 
   @Post()
+  @Audit('orders', 'CREATE', 'Pedido creado')
   create(@Body() createOrderDto: CreateOrderDto, @Request() req: any) {
     return this.ordersService.create(
       {
@@ -54,20 +51,25 @@ export class OrdersController {
   }
 
   @Post(':id/confirm')
+  @Audit('orders', 'UPDATE', 'Pedido confirmado')
   confirm(@Param('id') id: string, @Request() req: any) {
     return this.ordersService.confirm(id, req.user.userId);
   }
+
   @Post(':id/cancel')
+  @Audit('orders', 'UPDATE', 'Pedido cancelado')
   cancel(@Param('id') id: string, @Request() req: any) {
     return this.ordersService.cancel(id, req.user.userId);
   }
 
   @Post(':id/invoice')
+  @Audit('orders', 'UPDATE', 'Factura generada desde pedido')
   generateInvoice(@Param('id') id: string, @Request() req: any) {
     return this.ordersService.generateInvoice(id, req.user.userId);
   }
 
   @Post(':id/recalculate')
+  @Audit('orders', 'UPDATE', 'Pedido recalculado')
   recalculate(@Param('id') id: string, @Request() req: any) {
     return this.ordersService.recalculate(id, req.user.userId);
   }

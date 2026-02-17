@@ -14,14 +14,17 @@ import { BillingService } from './billing.service';
 import { JwtAuthGuard } from '../../modules/auth/jwt-auth.guard';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { FindInvoicesDto } from './dto/find-invoices.dto';
+import { AuditInterceptor } from '../audit/audit.interceptor';
+import { Audit } from '../audit/audit.decorator';
 
 @Controller('billing')
 @UseGuards(JwtAuthGuard)
-@UseInterceptors(BranchInterceptor)
+@UseInterceptors(BranchInterceptor, AuditInterceptor)
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
   @Post('invoices')
+  @Audit('invoices', 'CREATE', 'Factura creada')
   createInvoice(@Body() createInvoiceDto: CreateInvoiceDto, @Req() req: any) {
     return this.billingService.createInvoice({
       ...createInvoiceDto,
@@ -40,7 +43,13 @@ export class BillingController {
     return this.billingService.findOne(id);
   }
 
+  @Get('invoices/:id/fiscal-json')
+  getFiscalJson(@Param('id') id: string) {
+    return this.billingService.getFiscalJson(id);
+  }
+
   @Post('invoices/:id') // Using POST as Patch for simplicity or strict PATCH
+  @Audit('invoices', 'UPDATE', 'Factura actualizada')
   updateInvoice(@Param('id') id: string, @Body() body: any, @Req() req: any) {
     return this.billingService.updateInvoice(id, body, req.user.userId);
   }
@@ -51,16 +60,21 @@ export class BillingController {
   }
 
   @Post('invoices/:id/post')
+  @Audit('invoices', 'UPDATE', 'Factura emitida')
   postInvoice(@Param('id') id: string, @Req() req: any) {
     return this.billingService.postInvoice(id, req.user.userId);
   }
 
   @Post('invoices/:id/void')
+  @Audit('invoices', 'UPDATE', 'Factura anulada')
   voidInvoice(
     @Param('id') id: string,
-    @Body() body: { returnStock: boolean; warehouseId?: string },
+    @Body() body: { returnStock?: boolean; warehouseId?: string },
     @Req() req: any,
   ) {
-    return this.billingService.voidInvoice(id, req.user.userId, body);
+    return this.billingService.voidInvoice(id, req.user.userId, {
+      returnStock: !!body.returnStock,
+      warehouseId: body.warehouseId,
+    });
   }
 }

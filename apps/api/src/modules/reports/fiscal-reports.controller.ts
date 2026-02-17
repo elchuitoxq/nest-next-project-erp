@@ -75,6 +75,51 @@ export class FiscalReportsController {
     res.send(txtContent);
   }
 
+  @Get('retenciones-xml')
+  async getRetencionesXml(
+    @Query('month') month: string,
+    @Query('year') year: string,
+    @Query('fortnight') fortnight: 'first' | 'second',
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const m = Number(month).toString().padStart(2, '0');
+    const y = year;
+    const nextM =
+      Number(month) === 12
+        ? '01'
+        : (Number(month) + 1).toString().padStart(2, '0');
+    const nextY = Number(month) === 12 ? (Number(year) + 1).toString() : year;
+
+    let startIso = `${y}-${m}-01`;
+    let endIso = `${nextY}-${nextM}-01`;
+
+    if (fortnight === 'first') {
+      endIso = `${y}-${m}-16`;
+    } else if (fortnight === 'second') {
+      startIso = `${y}-${m}-16`;
+    }
+
+    const startDate = new Date(startIso);
+    const endDate = new Date(endIso);
+
+    const retentions = await this.retentionsService.findByDateRange(
+      startDate,
+      endDate,
+      'ISLR',
+      req.branchId,
+      'PURCHASE',
+    );
+
+    const xmlContent = this.retentionsService.generateISLRXml(retentions);
+
+    res.set({
+      'Content-Type': 'application/xml',
+      'Content-Disposition': `attachment; filename="ISLR_${year}${month}.xml"`,
+    });
+    res.send(xmlContent);
+  }
+
   @Get('summary')
   async getFiscalSummary(
     @Query('month') month: string,

@@ -130,6 +130,21 @@ export function ReportsView() {
     }
   };
 
+  const handleDownloadISLRXml = async () => {
+    try {
+      const blob = await fiscalReportsApi.getRetencionesXml(
+        month,
+        year,
+        undefined,
+        fortnight === "full" ? undefined : fortnight,
+      );
+      saveAs(blob, `ISLR_${year}${month}.xml`);
+    } catch (error) {
+      console.error("Failed to download XML", error);
+      toast.error("Error al descargar XML ISLR");
+    }
+  };
+
   return (
     <>
       <motion.div
@@ -155,6 +170,19 @@ export function ReportsView() {
                     IVA TXT
                   </span>
                 </Button>
+                {type === "compras" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadISLRXml}
+                    className="h-9 rounded-xl px-4 w-full sm:w-auto border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-800 dark:border-orange-800 dark:bg-orange-900/20 dark:text-orange-400"
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    <span className="text-xs font-bold uppercase tracking-widest">
+                      ISLR XML
+                    </span>
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   onClick={handleExport}

@@ -10,9 +10,13 @@ import {
 import { eq, desc, and, sql, inArray, or, ilike, SQL } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import { FindMovesDto } from './dto/find-moves.dto';
+import { AccountingService } from '../accounting/accounting.service'; // Import
 
 @Injectable()
+@Injectable()
 export class InventoryService {
+  constructor(private readonly accountingService: AccountingService) {}
+
   // --- WAREHOUSES ---
   async findAllWarehouses(branchId?: string) {
     const whereClause = branchId
@@ -82,9 +86,17 @@ export class InventoryService {
     userId: string;
     branchId?: string;
     date?: Date | string;
-    lines: { productId: string; quantity: number; cost?: number }[];
+    lines: {
+      productId: string;
+      quantity: number;
+      cost?: number;
+      batchId?: string;
+    }[];
+    skipAccounting?: boolean;
   }) {
     console.log('Creating Move. Lines received:', data.lines?.length);
+
+    // ... validation ...
 
     // Strict Validation of required fields per type
     if (data.type === 'IN' && !data.toWarehouseId) {
@@ -132,7 +144,7 @@ export class InventoryService {
         }
       }
     }
-    return await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       // 1. Create Header
       const [move] = await tx
         .insert(inventoryMoves)
@@ -155,6 +167,8 @@ export class InventoryService {
           productId: line.productId,
           quantity: line.quantity.toString(),
           cost: line.cost ? line.cost.toString() : null,
+          // @ts-ignore
+          batchId: line.batchId,
         });
 
         // Logic per type
@@ -165,6 +179,7 @@ export class InventoryService {
             line.productId,
             line.quantity,
             line.cost, // Pass cost
+            line.batchId,
           );
         } else if (data.type === 'OUT' && data.fromWarehouseId) {
           await this.updateStock(
@@ -172,6 +187,8 @@ export class InventoryService {
             data.fromWarehouseId,
             line.productId,
             -line.quantity,
+            undefined,
+            line.batchId,
           );
         } else if (
           data.type === 'TRANSFER' &&
@@ -183,12 +200,16 @@ export class InventoryService {
             data.fromWarehouseId,
             line.productId,
             -line.quantity,
+            undefined,
+            line.batchId,
           );
           await this.updateStock(
             tx,
             data.toWarehouseId,
             line.productId,
             line.quantity,
+            undefined, // Cost logic for transfer? Keeps original?
+            line.batchId,
           );
         } else if (data.type === 'ADJUST' && data.fromWarehouseId) {
           await this.updateStock(
@@ -196,11 +217,26 @@ export class InventoryService {
             data.fromWarehouseId,
             line.productId,
             line.quantity,
+            line.cost, // Adjust can change cost if it's an IN adjust
+            line.batchId,
           );
         }
       }
       return move;
     });
+
+    if (!data.skipAccounting) {
+      try {
+        await this.accountingService.createEntryForInventoryMove(result.id);
+      } catch (error) {
+        console.error(
+          'Error creating accounting entry for inventory move:',
+          error,
+        );
+      }
+    }
+
+    return result;
   }
 
   // --- MOVES ---
@@ -310,57 +346,81 @@ export class InventoryService {
     productId: string,
     delta: number,
     unitCost?: number, // Incoming Unit Cost
+    batchId?: string,
   ) {
+    // 0. Validate Batch Requirement
+    const product = await tx.query.products.findFirst({
+      where: eq(products.id, productId),
+    });
+
+    if (!product) throw new BadRequestException('Producto no encontrado');
+
+    if (product.hasBatches && !batchId) {
+      throw new BadRequestException(
+        `El producto ${product.sku} requiere lote (Batch Management)`,
+      );
+    }
+
     // 1. Update Global Cost (Weighted Average) ONLY if adding stock
+    // TODO: Verify if cost update should be skipped for Batch products or kept as reference
     if (delta > 0 && unitCost) {
-      const product = await tx.query.products.findFirst({
-        where: eq(products.id, productId),
-      });
+      // Calculate Total Current Stock across all warehouses
+      const allStock = await tx
+        .select({ quantity: stock.quantity })
+        .from(stock)
+        .where(eq(stock.productId, productId));
 
-      if (product) {
-        // Calculate Total Current Stock across all warehouses
-        const allStock = await tx
-          .select({ quantity: stock.quantity })
-          .from(stock)
-          .where(eq(stock.productId, productId));
+      const currentTotalQty = allStock.reduce(
+        (sum: number, s: { quantity: string }) => sum + parseFloat(s.quantity),
+        0,
+      );
 
-        const currentTotalQty = allStock.reduce(
-          (sum: number, s: { quantity: string }) =>
-            sum + parseFloat(s.quantity),
-          0,
-        );
+      const currentCost = parseFloat(product.cost || '0');
+      const incomingQty = delta;
 
-        const currentCost = parseFloat(product.cost || '0');
-        const incomingQty = delta;
+      // WAC Formula
+      const currentVal = new Decimal(currentTotalQty).times(currentCost);
+      const incomingVal = new Decimal(incomingQty).times(unitCost);
+      const newTotalQty = new Decimal(currentTotalQty).plus(incomingQty);
 
-        // WAC Formula: ((CurrentQty * CurrentCost) + (IncomingQty * IncomingCost)) / (CurrentQty + IncomingQty)
-        const currentVal = new Decimal(currentTotalQty).times(currentCost);
-        const incomingVal = new Decimal(incomingQty).times(unitCost);
-        const newTotalQty = new Decimal(currentTotalQty).plus(incomingQty);
-
-        if (newTotalQty.gt(0)) {
-          const newCost = currentVal.plus(incomingVal).div(newTotalQty);
-          await tx
-            .update(products)
-            .set({ cost: newCost.toFixed(2), updatedAt: new Date() })
-            .where(eq(products.id, productId));
-        }
+      if (newTotalQty.gt(0)) {
+        const newCost = currentVal.plus(incomingVal).div(newTotalQty);
+        await tx
+          .update(products)
+          .set({ cost: newCost.toFixed(2), updatedAt: new Date() })
+          .where(eq(products.id, productId));
       }
     }
 
-    // 2. Check if stock record exists in Warehouse
+    // 2. Check if stock record exists in Warehouse (AND Batch if applicable)
+    const stockConditions = [
+      eq(stock.warehouseId, warehouseId),
+      eq(stock.productId, productId),
+    ];
+    if (batchId) {
+      // @ts-ignore
+      stockConditions.push(eq(stock.batchId, batchId));
+    } else {
+      // Ensure we treat null batchId correctly if needed,
+      // but schema says batchId is nullable reference.
+      // Drizzle 'eq(stock.batchId, null)' might be risky, usually simply 'isNull(stock.batchId)'
+      // But typically for non-batch products it is just null.
+      // If we mix batch and non-batch for same product (should not happen due to hasBatches flag),
+      // we need to be careful.
+      // @ts-ignore
+      stockConditions.push(sql`${stock.batchId} IS NULL`);
+    }
+
     const [existing] = await tx
       .select()
       .from(stock)
-      .where(
-        and(eq(stock.warehouseId, warehouseId), eq(stock.productId, productId)),
-      );
+      .where(and(...stockConditions));
 
     if (existing) {
       const newQty = parseFloat(existing.quantity) + delta;
       if (newQty < 0)
         throw new BadRequestException(
-          `Stock negativo bloqueado para Producto ${productId} en Almacén ${warehouseId}`,
+          `Stock negativo bloqueado para Producto ${product.sku} en Almacén ${warehouseId}`,
         );
 
       await tx
@@ -370,12 +430,14 @@ export class InventoryService {
     } else {
       if (delta < 0)
         throw new BadRequestException(
-          `Stock negativo bloqueado para Producto ${productId}`,
+          `Stock negativo bloqueado para Producto ${product.sku}`,
         );
       await tx.insert(stock).values({
         warehouseId,
         productId,
         quantity: delta.toString(),
+        // @ts-ignore
+        batchId: batchId || null,
       });
     }
   }

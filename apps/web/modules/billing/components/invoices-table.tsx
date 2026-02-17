@@ -48,6 +48,7 @@ interface InvoicesTableProps {
   pagination: PaginationState;
   onPaginationChange: OnChangeFn<PaginationState>;
   onViewDetails: (invoice: Invoice) => void;
+  onViewFlow: (invoice: Invoice) => void;
   isLoading?: boolean;
 
   // Filters
@@ -83,6 +84,7 @@ export function InvoicesTable({
   pagination,
   onPaginationChange,
   onViewDetails,
+  onViewFlow,
   isLoading,
   search, // Initial/Parent search value
   onSearchChange,
@@ -215,6 +217,10 @@ export function InvoicesTable({
                 <DropdownMenuItem onClick={() => onViewDetails(row.original)}>
                   <Eye className="mr-2 h-4 w-4" />
                   Ver Detalles
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onViewFlow(row.original)}>
+                  <Filter className="mr-2 h-4 w-4" />
+                  Ver Flujo Documental
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
