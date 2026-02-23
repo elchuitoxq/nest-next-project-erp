@@ -14,8 +14,12 @@ import { JwtAuthGuard } from '../../../modules/auth/jwt-auth.guard';
 import { BranchInterceptor } from '../../../common/interceptors/branch.interceptor';
 import { Response } from 'express';
 
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RequirePermission } from '../../../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '@repo/db';
+
 @Controller('treasury/retentions')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @UseInterceptors(BranchInterceptor)
 export class TaxRetentionController {
   constructor(
@@ -24,6 +28,7 @@ export class TaxRetentionController {
   ) {}
 
   @Get()
+  @RequirePermission(PERMISSIONS.FINANCE.RETENTIONS.VIEW)
   async findAll(
     @Query('type') type: 'IVA' | 'ISLR',
     @Query('page') page: string,

@@ -1,11 +1,11 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,6 +14,7 @@ export function ExchangeRateWidget() {
 
   // Fetch Currencies to map IDs
   const { data: currencies } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["currencies"],
     queryFn: async () => {
       const { data } = await api.get<any[]>("/settings/currencies");
@@ -22,9 +23,12 @@ export function ExchangeRateWidget() {
   });
 
   const { data: latestRates, isLoading } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["exchange-rates", "latest"],
     queryFn: async () => {
-      const { data } = await api.get("/settings/currencies/rates/latest");
+      const { data } = await api.get<any[]>(
+        "/settings/currencies/rates/latest",
+      );
       return data;
     },
   });

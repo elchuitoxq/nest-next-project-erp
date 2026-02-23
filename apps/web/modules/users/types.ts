@@ -1,12 +1,12 @@
+import { CreateUserDto, UpdateUserDto, User as ApiUser } from "@/types/api";
+
 export interface Role {
   id: string;
   name: string;
   description?: string;
 }
 
-export interface User {
-  id: string;
-  name: string;
+export interface User extends Omit<ApiUser, "email"> {
   email: string;
   roles: string[];
   roleIds?: string[];
@@ -14,14 +14,6 @@ export interface User {
   createdAt: string;
 }
 
-export interface CreateUserValues {
-  name: string;
-  email: string;
-  password?: string;
-  roleIds: string[];
-  branchIds?: string[];
-}
+export type CreateUserValues = CreateUserDto;
 
-export interface UpdateUserValues extends Partial<CreateUserValues> {
-  id: string;
-}
+export type UpdateUserValues = UpdateUserDto & { id: string };

@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
-import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Plus, Trash } from "lucide-react";
 
@@ -41,7 +41,7 @@ import {
 import { useAuthStore } from "@/stores/use-auth-store";
 import { ProductCombobox } from "./product-combobox";
 import { GuideCard } from "@/components/guide/guide-card";
-import { GuideHint } from "@/components/guide/guide-hint";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MoveDialogProps {
   open: boolean;
@@ -55,6 +55,7 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
 
   // Fetch Currencies for display
   const { data: currencies } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["currencies"],
     queryFn: async () => {
       const { data } = await api.get<any[]>("/settings/currencies");
@@ -79,10 +80,21 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
 
   const type = form.watch("type");
   const fromWarehouseId = form.watch("fromWarehouseId");
+  const toWarehouseId = form.watch("toWarehouseId");
 
   const { user } = useAuthStore();
 
-  // handleProductChange removed, logic moved to onSelectObject
+  // Clear residual warehouse fields when type changes to avoid sending hidden field data
+  useEffect(() => {
+    if (type === "IN") {
+      // IN only needs toWarehouseId — clear from
+      form.setValue("fromWarehouseId", undefined);
+    } else if (type === "OUT" || type === "ADJUST") {
+      // OUT/ADJUST only need fromWarehouseId — clear to
+      form.setValue("toWarehouseId", undefined);
+    }
+    // TRANSFER keeps both — no clearing needed
+  }, [type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = async (data: InventoryMoveFormValues) => {
     // Inject userId from auth store if available
@@ -97,277 +109,298 @@ export function MoveDialog({ open, onOpenChange }: MoveDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Registrar Movimiento</DialogTitle>
-          <DialogDescription>
-            Entradas, Salidas, Transferencias y Ajustes de inventario.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-6xl max-h-[85vh] p-0">
+        <ScrollArea className="max-h-[85vh] w-full">
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle>Registrar Movimiento</DialogTitle>
+              <DialogDescription>
+                Entradas, Salidas, Transferencias y Ajustes de inventario.
+              </DialogDescription>
+            </DialogHeader>
 
-        <GuideCard
-          title="Tipos de Movimiento de Inventario"
-          variant="info"
-          className="mx-4 mt-2"
-        >
-          <ul className="list-disc pl-4 space-y-1">
-            <li>
-              <strong>Entrada (Compra):</strong> Aumenta stock y recalcula el
-              Costo Promedio Ponderado.
-            </li>
-            <li>
-              <strong>Ajuste (Entrada/Salida):</strong> Corrige diferencias de
-              stock sin afectar costos de compra (Gasto/Ingreso).
-            </li>
-            <li>
-              <strong>Transferencia:</strong> Mueve mercancía entre depósitos
-              sin impacto contable neto.
-            </li>
-          </ul>
-        </GuideCard>
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4 py-4"
-          >
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Movimiento</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
+            <GuideCard
+              title="Tipos de Movimiento de Inventario"
+              variant="info"
+              className="mx-4 mt-2"
+            >
+              <ul className="list-disc pl-4 space-y-1">
+                <li>
+                  <strong>Entrada (Compra):</strong> Aumenta stock y recalcula
+                  el Costo Promedio Ponderado.
+                </li>
+                <li>
+                  <strong>Ajuste (Entrada/Salida):</strong> Corrige diferencias
+                  de stock sin afectar costos de compra (Gasto/Ingreso).
+                </li>
+                <li>
+                  <strong>Transferencia:</strong> Mueve mercancía entre
+                  depósitos sin impacto contable neto.
+                </li>
+              </ul>
+            </GuideCard>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4 py-4"
+              >
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de Movimiento</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona..." />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="IN">
+                              Entrada (Compra/Prod)
+                            </SelectItem>
+                            <SelectItem value="OUT">
+                              Salida (Venta/Merma)
+                            </SelectItem>
+                            <SelectItem value="TRANSFER">
+                              Transferencia
+                            </SelectItem>
+                            <SelectItem value="ADJUST">
+                              Ajuste Manual
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {(type === "OUT" ||
+                    type === "TRANSFER" ||
+                    type === "ADJUST") && (
+                    <FormField
+                      control={form.control}
+                      name="fromWarehouseId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Desde Almacén</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Origen..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {warehouses
+                                ?.filter(
+                                  (w) => w.isActive && w.id !== toWarehouseId,
+                                )
+                                .map((w) => (
+                                  <SelectItem key={w.id} value={w.id}>
+                                    {w.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {(type === "IN" || type === "TRANSFER") && (
+                    <FormField
+                      control={form.control}
+                      name="toWarehouseId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Hacia Almacén</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Destino..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {warehouses
+                                ?.filter(
+                                  (w) => w.isActive && w.id !== fromWarehouseId,
+                                )
+                                .map((w) => (
+                                  <SelectItem key={w.id} value={w.id}>
+                                    {w.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="note"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Descripción / Motivo{" "}
+                        <span className="text-destructive">*</span>
+                      </FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona..." />
-                        </SelectTrigger>
+                        <Textarea
+                          placeholder="Ej. Ajuste por conteo físico de inventario - Diferencia detectada en almacén principal"
+                          className="min-h-[80px] resize-none"
+                          {...field}
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="IN">
-                          Entrada (Compra/Prod)
-                        </SelectItem>
-                        <SelectItem value="OUT">
-                          Salida (Venta/Merma)
-                        </SelectItem>
-                        <SelectItem value="TRANSFER">Transferencia</SelectItem>
-                        <SelectItem value="ADJUST">Ajuste Manual</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {(type === "OUT" || type === "TRANSFER" || type === "ADJUST") && (
-                <FormField
-                  control={form.control}
-                  name="fromWarehouseId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Desde Almacén</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Origen..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {warehouses
-                            ?.filter((w) => w.isActive)
-                            .map((w) => (
-                              <SelectItem key={w.id} value={w.id}>
-                                {w.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              )}
 
-              {(type === "IN" || type === "TRANSFER") && (
-                <FormField
-                  control={form.control}
-                  name="toWarehouseId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Hacia Almacén</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Destino..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {warehouses
-                            ?.filter((w) => w.isActive)
-                            .map((w) => (
-                              <SelectItem key={w.id} value={w.id}>
-                                {w.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-            </div>
-
-            <FormField
-              control={form.control}
-              name="note"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nota / Referencia</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ej. Factura compra #1234" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="space-y-4 border p-4 rounded-md">
-              <div className="flex justify-between items-center">
-                <h4 className="text-sm font-semibold">Productos</h4>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    append({ productId: "", quantity: 1, cost: 0 })
-                  }
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Agregar Ítem
-                </Button>
-              </div>
-
-              {fields.map((field, index) => {
-                return (
-                  <div
-                    key={field.id}
-                    className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end border p-4 sm:p-0 sm:border-0 rounded-md bg-muted/20 sm:bg-transparent"
-                  >
-                    <div className="col-span-1 sm:col-span-6">
-                      <FormField
-                        control={form.control}
-                        name={`lines.${index}.productId`}
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel
-                              className={index !== 0 ? "sm:sr-only" : ""}
-                            >
-                              Producto
-                            </FormLabel>
-                            <ProductCombobox
-                              value={field.value}
-                              onChange={field.onChange}
-                              mode={
-                                type === "OUT" || type === "TRANSFER"
-                                  ? "STOCK"
-                                  : "GLOBAL"
-                              }
-                              warehouseId={fromWarehouseId}
-                              onSelectObject={(item) => {
-                                const cost = Number(item.cost || 0);
-                                form.setValue(`lines.${index}.cost`, cost);
-                              }}
-                            />
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 col-span-1 sm:col-span-5">
-                      <FormField
-                        control={form.control}
-                        name={`lines.${index}.quantity`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel
-                              className={index !== 0 ? "sm:sr-only" : ""}
-                            >
-                              Cant.
-                            </FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`lines.${index}.cost`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel
-                              className={index !== 0 ? "sm:sr-only" : ""}
-                            >
-                              Costo
-                            </FormLabel>
-                            <FormControl>
-                              <Input type="number" step="0.01" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="col-span-1 flex justify-end">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:bg-red-50"
-                        onClick={() => remove(index)}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    </div>
+                <div className="space-y-4 border p-4 rounded-md">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-sm font-semibold">Productos</h4>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        append({ productId: "", quantity: 1, cost: 0 })
+                      }
+                    >
+                      <Plus className="mr-2 h-4 w-4" /> Agregar Ítem
+                    </Button>
                   </div>
-                );
-              })}
-            </div>
 
-            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="w-full sm:w-auto px-8"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={createMove.isPending}
-                className="w-full sm:w-auto px-8"
-              >
-                {createMove.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Registrar Movimiento
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                  {fields.map((field, index) => {
+                    return (
+                      <div
+                        key={field.id}
+                        className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end border p-4 sm:p-0 sm:border-0 rounded-md bg-muted/20 sm:bg-transparent"
+                      >
+                        <div className="col-span-1 sm:col-span-6">
+                          <FormField
+                            control={form.control}
+                            name={`lines.${index}.productId`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col">
+                                <FormLabel
+                                  className={index !== 0 ? "sm:sr-only" : ""}
+                                >
+                                  Producto
+                                </FormLabel>
+                                <ProductCombobox
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  mode={
+                                    type === "OUT" || type === "TRANSFER"
+                                      ? "STOCK"
+                                      : "GLOBAL"
+                                  }
+                                  warehouseId={fromWarehouseId}
+                                  onSelectObject={(item) => {
+                                    const cost = Number(item.cost || 0);
+                                    form.setValue(`lines.${index}.cost`, cost);
+                                  }}
+                                />
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 col-span-1 sm:col-span-5">
+                          <FormField
+                            control={form.control}
+                            name={`lines.${index}.quantity`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel
+                                  className={index !== 0 ? "sm:sr-only" : ""}
+                                >
+                                  Cant.
+                                </FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`lines.${index}.cost`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel
+                                  className={index !== 0 ? "sm:sr-only" : ""}
+                                >
+                                  Costo
+                                </FormLabel>
+                                <FormControl>
+                                  <Input type="number" step="0.01" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="col-span-1 flex justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:bg-red-50"
+                            onClick={() => remove(index)}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => onOpenChange(false)}
+                    className="w-full sm:w-auto px-8"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createMove.isPending}
+                    className="w-full sm:w-auto px-8"
+                  >
+                    {createMove.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Registrar Movimiento
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

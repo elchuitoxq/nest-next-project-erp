@@ -17,7 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { useWarehouseStock } from "@/modules/inventory/hooks/use-stock";
 
@@ -47,6 +47,7 @@ export function ProductCombobox({
 
   // 1. GLOBAL SEARCH (For Purchases)
   const { data: globalProducts, isLoading: isLoadingGlobal } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["products-combobox", search],
     queryFn: async () => {
       const { data } = await api.get<any[]>("/products", {

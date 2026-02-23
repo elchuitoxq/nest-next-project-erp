@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 
 export interface Warehouse {
@@ -11,6 +11,7 @@ export interface Warehouse {
 
 export const useWarehouses = () => {
   const { data: warehouses, isLoading } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["warehouses"],
     queryFn: async () => {
       const res = await api.get<Warehouse[]>("/inventory/warehouses");

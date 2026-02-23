@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Edit2, Search, BookOpen, Loader2 } from "lucide-react";
 import { BankAccountLedger } from "./bank-account-ledger";
 import { motion, AnimatePresence } from "framer-motion";
+import { PermissionsGate } from "@/components/auth/permissions-gate";
+import { PERMISSIONS } from "@/config/permissions";
 
 interface BankAccountsTableProps {
   accounts: any[];
@@ -130,17 +132,32 @@ export function BankAccountsTable({
                       >
                         <BookOpen className="h-4 w-4 text-blue-600" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEdit(acc)}
+                      <PermissionsGate
+                        permission={PERMISSIONS.FINANCE.TREASURY.EDIT_ACCOUNT}
                       >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Switch
-                        checked={acc.isActive}
-                        onCheckedChange={() => toggleActive(acc.id)}
-                      />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEdit(acc)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      </PermissionsGate>
+                      <PermissionsGate
+                        permission={PERMISSIONS.FINANCE.TREASURY.EDIT_ACCOUNT}
+                        fallback={
+                          <Switch
+                            checked={acc.isActive}
+                            disabled
+                            className="opacity-50"
+                          />
+                        }
+                      >
+                        <Switch
+                          checked={acc.isActive}
+                          onCheckedChange={() => toggleActive(acc.id)}
+                        />
+                      </PermissionsGate>
                     </div>
                   </TableCell>
                 </motion.tr>

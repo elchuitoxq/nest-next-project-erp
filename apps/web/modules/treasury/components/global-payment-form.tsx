@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { usePartners } from "@/modules/partners/hooks/use-partners";
 import { PartnerCombobox } from "@/modules/partners/components/partner-combobox";
 import { useInvoices } from "@/modules/billing/hooks/use-invoices";
 import {
@@ -18,33 +17,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Loader2, Calculator, List, Plus, ArrowLeftRight } from "lucide-react";
 import { toast } from "sonner";
 import { useBankAccounts } from "@/modules/treasury/hooks/use-bank-accounts";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { BalancePicker } from "./balance-picker";
 import { InvoiceDetailsDialog } from "@/modules/billing/components/invoice-details-dialog";
 import { Eye } from "lucide-react";
 import { GuideCard } from "@/components/guide/guide-card";
 import { GuideHint } from "@/components/guide/guide-hint";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-interface Currency {
-  id: string;
-  code: string;
-  symbol: string;
-  isBase: boolean;
-}
+import { Currency, ExchangeRate } from "@/types/api";
+import { Invoice } from "@/modules/billing/types";
+import { ApiError } from "@/lib/api";
 
 export function GlobalPaymentForm() {
   const [partnerId, setPartnerId] = useState("");
@@ -59,14 +49,13 @@ export function GlobalPaymentForm() {
     limit: 100,
   });
 
-  const allInvoices = invoicesResponse?.data || [];
-
   const { data: methods } = usePaymentMethods();
   const { data: bankAccounts } = useBankAccounts();
   const { mutate: registerPayment, isPending } = useRegisterPayment();
 
   // Fetch currencies and rates
   const { data: currencies } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["currencies"],
     queryFn: async () => {
       const { data } = await api.get<Currency[]>("/settings/currencies");
@@ -75,9 +64,10 @@ export function GlobalPaymentForm() {
   });
 
   const { data: latestRates } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["exchange-rates", "latest"],
     queryFn: async () => {
-      const { data } = await api.get<any[]>(
+      const { data } = await api.get<ExchangeRate[]>(
         "/settings/currencies/rates/latest",
       );
       return data;
@@ -99,7 +89,8 @@ export function GlobalPaymentForm() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const clientInvoices = useMemo(() => {
-    if (!partnerId || !allInvoices) return [];
+    const allInvoices = invoicesResponse?.data || [];
+    if (!partnerId || allInvoices.length === 0) return [];
     return allInvoices
       .filter(
         (inv) =>
@@ -110,7 +101,7 @@ export function GlobalPaymentForm() {
       .sort(
         (a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime(),
       );
-  }, [allInvoices, partnerId]);
+  }, [invoicesResponse?.data, partnerId]);
 
   const commonRate = useMemo(() => {
     if (clientInvoices.length === 0) return null;
@@ -146,7 +137,7 @@ export function GlobalPaymentForm() {
 
   const totalClientDebt = useMemo(() => {
     return clientInvoices.reduce((acc, inv) => {
-      const paid = Number((inv as any).paidAmount || 0);
+      const paid = Number(inv.paidAmount || 0);
       const pending = Number(inv.total) - paid;
 
       const invCurrencyCode = inv.currency?.code || "USD";
@@ -175,7 +166,7 @@ export function GlobalPaymentForm() {
     }
     if (selectedMethod?.allowedAccounts?.length) {
       const allowedIds = selectedMethod.allowedAccounts.map(
-        (a: any) => a.bankAccountId,
+        (a) => a.bankAccountId,
       );
       accs = accs.filter((acc) => allowedIds.includes(acc.id));
     }
@@ -184,21 +175,27 @@ export function GlobalPaymentForm() {
 
   useEffect(() => {
     if (selectedMethod?.currencyId) {
-      setCurrencyId(selectedMethod.currencyId);
+      setTimeout(() => {
+        setCurrencyId(selectedMethod.currencyId);
+      }, 0);
     }
   }, [selectedMethod]);
 
   useEffect(() => {
-    if (commonRate) {
-      setExchangeRateInput(commonRate.toString());
-      return;
-    }
-    if (latestRates && currencies && !exchangeRateInput) {
-      const vesCurrency = currencies.find((c) => c.code === "VES");
-      const rateObj = latestRates.find((r) => r.currencyId === vesCurrency?.id);
-      if (rateObj) setExchangeRateInput(rateObj.rate);
-    }
-  }, [latestRates, currencies, commonRate]);
+    setTimeout(() => {
+      if (commonRate) {
+        setExchangeRateInput(commonRate.toString());
+        return;
+      }
+      if (latestRates && currencies && !exchangeRateInput) {
+        const vesCurrency = currencies.find((c) => c.code === "VES");
+        const rateObj = latestRates.find(
+          (r) => r.currencyId === vesCurrency?.id,
+        );
+        if (rateObj) setExchangeRateInput(rateObj.rate.toString());
+      }
+    }, 0);
+  }, [latestRates, currencies, commonRate, exchangeRateInput]);
 
   const totalAllocated = Object.values(allocations).reduce((a, b) => a + b, 0);
   const totalAmountNum = Number(amount) || 0;
@@ -217,7 +214,7 @@ export function GlobalPaymentForm() {
       if (available <= 0.001) break;
 
       // Use the pre-calculated paidAmount from backend if available
-      const paidAlready = Number((inv as any).paidAmount || 0);
+      const paidAlready = Number(inv.paidAmount || 0);
       const pending = Number(inv.total) - paidAlready;
 
       let pendingInPaymentCurrency = pending;
@@ -298,7 +295,7 @@ export function GlobalPaymentForm() {
           setAmount("");
           setReference("");
         },
-        onError: (err: any) => {
+        onError: (err: ApiError) => {
           toast.error(err.response?.data?.message || "Error al registrar");
         },
       },
@@ -462,9 +459,7 @@ export function GlobalPaymentForm() {
                               // usually user wants to cover the debt or use all balance
                               const totalDebt = clientInvoices.reduce(
                                 (acc, inv) => {
-                                  const paid = Number(
-                                    (inv as any).paidAmount || 0,
-                                  );
+                                  const paid = Number(inv.paidAmount || 0);
                                   return acc + (Number(inv.total) - paid);
                                 },
                                 0,
@@ -751,7 +746,7 @@ export function GlobalPaymentForm() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-gray-200">
+            <ScrollArea className="flex-1">
               {clientInvoices.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">
                   <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
@@ -766,7 +761,7 @@ export function GlobalPaymentForm() {
               ) : (
                 <div className="divide-y divide-gray-100">
                   {clientInvoices.map((inv) => {
-                    const paidAlready = Number((inv as any).paidAmount || 0);
+                    const paidAlready = Number(inv.paidAmount || 0);
                     const pendingBase = Number(inv.total) - paidAlready;
                     const currentAlloc = allocations[inv.id] || 0;
 
@@ -907,7 +902,7 @@ export function GlobalPaymentForm() {
                   })}
                 </div>
               )}
-            </div>
+            </ScrollArea>
 
             <div className="p-4 bg-muted/40 border-t">
               <Button

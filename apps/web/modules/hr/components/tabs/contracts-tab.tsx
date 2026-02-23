@@ -3,13 +3,7 @@
 import { useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -26,39 +20,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
+import { Plus, AlertTriangle, Pencil } from "lucide-react";
+import { PermissionsGate } from "@/components/auth/permissions-gate";
+import { PERMISSIONS } from "@repo/db/permissions";
 import {
-  Plus,
-  FileText,
-  Calendar as CalendarIcon,
-  AlertTriangle,
-  Pencil,
-} from "lucide-react";
-import {
-  ContractType,
   useContracts,
   useContractMutations,
   Contract,
 } from "../../hooks/use-contracts";
 import { ContractDialog } from "../dialogs/contract-dialog";
-import { cn } from "@/lib/utils";
 
 interface ContractsTabProps {
   employeeId: string;
@@ -103,24 +76,26 @@ export function ContractsTab({ employeeId }: ContractsTabProps) {
             Gestión de relaciones laborales y vigencia.
           </p>
         </div>
-        {!activeContract && (
-          <div className="flex gap-2">
-            <Button
-              onClick={() => {
-                setContractToEdit(undefined);
-                setIsCreateOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" /> Nuevo Contrato
-            </Button>
-            <ContractDialog
-              open={isCreateOpen}
-              onOpenChange={setIsCreateOpen}
-              employeeId={employeeId}
-              contract={contractToEdit}
-            />
-          </div>
-        )}
+        <PermissionsGate permission={PERMISSIONS.HR.EMPLOYEES.EDIT}>
+          {!activeContract && (
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setContractToEdit(undefined);
+                  setIsCreateOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Nuevo Contrato
+              </Button>
+              <ContractDialog
+                open={isCreateOpen}
+                onOpenChange={setIsCreateOpen}
+                employeeId={employeeId}
+                contract={contractToEdit}
+              />
+            </div>
+          )}
+        </PermissionsGate>
       </div>
 
       <Card>
@@ -159,90 +134,94 @@ export function ContractsTab({ employeeId }: ContractsTabProps) {
                   </TableCell>
                   <TableCell className="text-right">
                     {contract.status === "ACTIVE" && (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => {
-                            setContractToEdit(contract);
-                            setIsCreateOpen(true);
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Dialog
-                          open={
-                            isTerminateOpen &&
-                            selectedContractId === contract.id
-                          }
-                          onOpenChange={(open) => {
-                            setIsTerminateOpen(open);
-                            if (!open) setSelectedContractId(null);
-                            else setSelectedContractId(contract.id);
-                          }}
-                        >
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              className="h-8"
-                            >
-                              Terminar
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Terminar Contrato</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                              <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-md border border-red-200">
-                                <AlertTriangle className="h-4 w-4" />
-                                <p className="text-sm">
-                                  Esta acción finalizará la relación laboral
-                                  activa.
-                                </p>
-                              </div>
-                              <form
-                                onSubmit={(e) => {
-                                  e.preventDefault();
-                                  const formData = new FormData(
-                                    e.currentTarget,
-                                  );
-                                  handleTerminate(
-                                    formData.get("endDate") as string,
-                                  );
-                                }}
-                                className="space-y-4"
+                      <PermissionsGate
+                        permission={PERMISSIONS.HR.EMPLOYEES.EDIT}
+                      >
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              setContractToEdit(contract);
+                              setIsCreateOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Dialog
+                            open={
+                              isTerminateOpen &&
+                              selectedContractId === contract.id
+                            }
+                            onOpenChange={(open) => {
+                              setIsTerminateOpen(open);
+                              if (!open) setSelectedContractId(null);
+                              else setSelectedContractId(contract.id);
+                            }}
+                          >
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="h-8"
                               >
-                                <div className="space-y-2">
-                                  <label className="text-sm font-medium">
-                                    Fecha de terminación
-                                  </label>
-                                  <Input
-                                    name="endDate"
-                                    type="date"
-                                    required
-                                    defaultValue={
-                                      new Date().toISOString().split("T")[0]
-                                    }
-                                  />
+                                Terminar
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Terminar Contrato</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-md border border-red-200">
+                                  <AlertTriangle className="h-4 w-4" />
+                                  <p className="text-sm">
+                                    Esta acción finalizará la relación laboral
+                                    activa.
+                                  </p>
                                 </div>
-                                <Button
-                                  type="submit"
-                                  variant="destructive"
-                                  className="w-full"
-                                  disabled={terminateContract.isPending}
+                                <form
+                                  onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(
+                                      e.currentTarget,
+                                    );
+                                    handleTerminate(
+                                      formData.get("endDate") as string,
+                                    );
+                                  }}
+                                  className="space-y-4"
                                 >
-                                  {terminateContract.isPending
-                                    ? "Procesando..."
-                                    : "Confirmar Terminación"}
-                                </Button>
-                              </form>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
+                                  <div className="space-y-2">
+                                    <label className="text-sm font-medium">
+                                      Fecha de terminación
+                                    </label>
+                                    <Input
+                                      name="endDate"
+                                      type="date"
+                                      required
+                                      defaultValue={
+                                        new Date().toISOString().split("T")[0]
+                                      }
+                                    />
+                                  </div>
+                                  <Button
+                                    type="submit"
+                                    variant="destructive"
+                                    className="w-full"
+                                    disabled={terminateContract.isPending}
+                                  >
+                                    {terminateContract.isPending
+                                      ? "Procesando..."
+                                      : "Confirmar Terminación"}
+                                  </Button>
+                                </form>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      </PermissionsGate>
                     )}
                   </TableCell>
                 </TableRow>

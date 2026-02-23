@@ -10,12 +10,17 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./permissions": {
+      "types": "./dist/permissions.d.ts",
+      "import": "./dist/permissions.mjs",
+      "require": "./dist/permissions.js"
     }
   },
   "scripts": {
     "dev": "npm run watch",
-    "build": "tsup src/index.ts --format cjs,esm --dts",
-    "watch": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "build": "tsup src/index.ts src/permissions.ts --format cjs,esm --dts",
+    "watch": "tsup src/index.ts src/permissions.ts --format cjs,esm --dts --watch",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:generate": "drizzle-kit generate",

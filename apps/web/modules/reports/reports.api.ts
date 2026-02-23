@@ -7,7 +7,7 @@ export const fiscalReportsApi = {
     branchId?: string,
     fortnight?: string,
   ) => {
-    const { data } = await api.get("/reports/fiscal/libro-ventas", {
+    const { data } = await api.get<any>("/reports/fiscal/libro-ventas", {
       params: { month, year, branchId, fortnight },
     });
     return data;
@@ -19,7 +19,7 @@ export const fiscalReportsApi = {
     branchId?: string,
     fortnight?: string,
   ) => {
-    const { data } = await api.get("/reports/fiscal/libro-compras", {
+    const { data } = await api.get<any>("/reports/fiscal/libro-compras", {
       params: { month, year, branchId, fortnight },
     });
     return data;
@@ -30,7 +30,7 @@ export const fiscalReportsApi = {
     branchId?: string,
     fortnight?: string,
   ) => {
-    const { data } = await api.get("/reports/fiscal/summary", {
+    const { data } = await api.get<any>("/reports/fiscal/summary", {
       params: { month, year, branchId, fortnight },
     });
     return data;
@@ -43,7 +43,7 @@ export const fiscalReportsApi = {
     fortnight?: string,
     direction?: string,
   ) => {
-    const { data } = await api.get("/reports/fiscal/retenciones-txt", {
+    const { data } = await api.get<Blob>("/reports/fiscal/retenciones-txt", {
       params: { month, year, branchId, fortnight, direction },
       responseType: "blob", // Important: Receive as Blob
     });
@@ -56,18 +56,18 @@ export const fiscalReportsApi = {
     branchId?: string,
     fortnight?: string,
   ) => {
-    const { data } = await api.get("/reports/fiscal/retenciones-xml", {
+    const { data } = await api.get<Blob>("/reports/fiscal/retenciones-xml", {
       params: { month, year, branchId, fortnight },
       responseType: "blob",
     });
     return data;
   },
   getInvoice: async (id: string) => {
-    const { data } = await api.get(`/billing/invoices/${id}`);
+    const { data } = await api.get<any>(`/billing/invoices/${id}`);
     return data;
   },
   getCreditNote: async (id: string) => {
-    const { data } = await api.get(`/credit-notes/${id}`);
+    const { data } = await api.get<any>(`/credit-notes/${id}`);
     return data;
   },
   getFiscalBookExcel: async (
@@ -77,10 +77,13 @@ export const fiscalReportsApi = {
     branchId?: string,
     fortnight?: string,
   ) => {
-    const { data } = await api.get(`/reports/fiscal/${type}/export/excel`, {
-      params: { month, year, branchId, fortnight },
-      responseType: "blob",
-    });
+    const { data } = await api.get<Blob>(
+      `/reports/fiscal/${type}/export/excel`,
+      {
+        params: { month, year, branchId, fortnight },
+        responseType: "blob",
+      },
+    );
     return data;
   },
 };

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 
 export interface DocumentNode {
@@ -23,6 +23,7 @@ export interface FlowData {
 
 export const useDocumentFlow = (documentId: string) => {
   return useQuery<FlowData>({
+    placeholderData: keepPreviousData,
     queryKey: ["document-flow", documentId],
     queryFn: async () => {
       if (!documentId) return { nodes: [], links: [] };

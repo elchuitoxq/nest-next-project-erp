@@ -24,6 +24,7 @@ import { useIncidentMutations } from "../hooks/use-incidents";
 import { useEmployees } from "../../hooks/use-employees";
 import { usePayrollConcepts } from "../../concepts/hooks/use-payroll-concepts";
 import { EmployeeCombobox } from "../../components/shared/employee-combobox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface IncidentDialogProps {
   open: boolean;
@@ -60,81 +61,88 @@ export function IncidentDialog({ open, onOpenChange }: IncidentDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Registrar Novedad</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Empleado</Label>
-            <EmployeeCombobox value={employeeId} onChange={setEmployeeId} />
-          </div>
+      <DialogContent className="sm:max-w-xl max-h-[85vh] p-0">
+        <ScrollArea className="max-h-[85vh] w-full">
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle>Registrar Novedad</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Empleado</Label>
+                <EmployeeCombobox value={employeeId} onChange={setEmployeeId} />
+              </div>
 
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              Concepto
-              <GuideHint text="Seleccione el tipo de incidencia (Ej. Bono de Productividad, Descuento por Préstamo)." />
-            </Label>
-            <Select value={conceptId} onValueChange={setConceptId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar..." />
-              </SelectTrigger>
-              <SelectContent>
-                {concepts?.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name} ({c.category === "INCOME" ? "+" : "-"})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  Concepto
+                  <GuideHint text="Seleccione el tipo de incidencia (Ej. Bono de Productividad, Descuento por Préstamo)." />
+                </Label>
+                <Select value={conceptId} onValueChange={setConceptId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {concepts?.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} ({c.category === "INCOME" ? "+" : "-"})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                Fecha
-                <GuideHint text="Día en que ocurrió la novedad. Debe estar dentro del periodo de nómina." />
-              </Label>
-              <DatePicker
-                value={date}
-                onChange={(v) => setDate(v)}
-                placeholder="Seleccionar fecha"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Monto / Valor Total</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-              />
-            </div>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    Fecha
+                    <GuideHint text="Día en que ocurrió la novedad. Debe estar dentro del periodo de nómina." />
+                  </Label>
+                  <DatePicker
+                    value={date}
+                    onChange={(v) => setDate(v)}
+                    placeholder="Seleccionar fecha"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Monto / Valor Total</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              Nota
-              <GuideHint text="Detalle justificativo (Ej. 'Aprobado por Gerencia'). Visible en el recibo de pago." />
-            </Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  Nota
+                  <GuideHint text="Detalle justificativo (Ej. 'Aprobado por Gerencia'). Visible en el recibo de pago." />
+                </Label>
+                <Input
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+              </div>
 
-          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="w-full sm:w-auto px-8"
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" className="w-full sm:w-auto px-8">
-              Guardar Novedad
-            </Button>
-          </DialogFooter>
-        </form>
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  className="w-full sm:w-auto px-8"
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" className="w-full sm:w-auto px-8">
+                  Guardar Novedad
+                </Button>
+              </DialogFooter>
+            </form>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

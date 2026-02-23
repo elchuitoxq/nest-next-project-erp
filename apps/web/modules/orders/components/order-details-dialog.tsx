@@ -38,6 +38,9 @@ import { Order } from "../types";
 import { formatCurrency } from "@/lib/utils";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { OrderPdf } from "@/modules/common/components/pdf/order-pdf";
+import { PermissionsGate } from "@/components/auth/permissions-gate";
+import { PERMISSIONS } from "@/config/permissions";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface OrderDetailsDialogProps {
   open: boolean;
@@ -100,258 +103,307 @@ export function OrderDetailsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                <ShoppingCart className="size-5" />
+      <DialogContent className="sm:max-w-6xl max-h-[85vh] p-0">
+        <ScrollArea className="max-h-[85vh] w-full">
+          <div className="p-6">
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <DialogTitle className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                    <ShoppingCart className="size-5" />
+                  </div>
+                  Pedido {order.code}
+                </DialogTitle>
+                <div className="flex gap-2">{getStatusBadge(order.status)}</div>
               </div>
-              Pedido {order.code}
-            </DialogTitle>
-            <div className="flex gap-2">{getStatusBadge(order.status)}</div>
-          </div>
-          <DialogDescription>
-            Información detallada del pedido y sus renglones.
-          </DialogDescription>
-        </DialogHeader>
+              <DialogDescription>
+                Información detallada del pedido y sus renglones.
+              </DialogDescription>
+            </DialogHeader>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-6 px-4 bg-muted/30 rounded-xl border border-dashed mb-4 mt-2">
-          <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
-            <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
-              <Calendar className="size-4" />
-              <p className="text-[10px] font-bold uppercase tracking-wider">
-                Fecha
-              </p>
-            </div>
-            <p className="text-sm font-semibold">
-              {order.date
-                ? format(new Date(order.date), "dd 'de' MMMM, yyyy", {
-                    locale: es,
-                  })
-                : "-"}
-            </p>
-          </div>
-
-          <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
-            <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
-              <User className="size-4" />
-              <p className="text-[10px] font-bold uppercase tracking-wider">
-                Tercero
-              </p>
-            </div>
-            <p
-              className="text-sm font-semibold truncate"
-              title={order.partner?.name || "N/A"}
-            >
-              {order.partner?.name || "N/A"}
-            </p>
-          </div>
-
-          <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
-            <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
-              <Store className="size-4" />
-              <p className="text-[10px] font-bold uppercase tracking-wider">
-                Sucursal
-              </p>
-            </div>
-            <p className="text-sm font-semibold truncate">
-              {order.branch?.name || "N/A"}
-            </p>
-          </div>
-
-          <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group border-emerald-100 dark:border-emerald-900/30">
-            <div className="flex items-center gap-2 text-emerald-600 group-hover:text-emerald-700 transition-colors">
-              <User className="size-4" />
-              <p className="text-[10px] font-bold uppercase tracking-wider">
-                Operador
-              </p>
-            </div>
-            <p
-              className="text-sm font-semibold truncate"
-              title={order.user?.name || "Sistema"}
-            >
-              {order.user?.name || "Sistema"}
-            </p>
-          </div>
-
-          {order.exchangeRate && Number(order.exchangeRate) > 1 && (
-            <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group col-span-1 sm:col-span-2 lg:col-span-4">
-              <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
-                <Globe className="size-4" />
-                <p className="text-[10px] font-bold uppercase tracking-wider">
-                  Tasa de Cambio
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-6 px-4 bg-muted/30 rounded-xl border border-dashed mb-4 mt-2">
+              <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
+                <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+                  <Calendar className="size-4" />
+                  <p className="text-[10px] font-bold uppercase tracking-wider">
+                    Fecha
+                  </p>
+                </div>
+                <p className="text-sm font-semibold">
+                  {order.date
+                    ? format(new Date(order.date), "dd 'de' MMMM, yyyy", {
+                        locale: es,
+                      })
+                    : "-"}
                 </p>
               </div>
-              <p className="text-sm font-semibold">
-                1 USD = {Number(order.exchangeRate).toFixed(4)} VES
-              </p>
+
+              <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
+                <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+                  <User className="size-4" />
+                  <p className="text-[10px] font-bold uppercase tracking-wider">
+                    Tercero
+                  </p>
+                </div>
+                <p
+                  className="text-sm font-semibold truncate"
+                  title={order.partner?.name || "N/A"}
+                >
+                  {order.partner?.name || "N/A"}
+                </p>
+              </div>
+
+              <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group">
+                <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+                  <Store className="size-4" />
+                  <p className="text-[10px] font-bold uppercase tracking-wider">
+                    Sucursal
+                  </p>
+                </div>
+                <p className="text-sm font-semibold truncate">
+                  {order.branch?.name || "N/A"}
+                </p>
+              </div>
+
+              <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group border-emerald-100 dark:border-emerald-900/30">
+                <div className="flex items-center gap-2 text-emerald-600 group-hover:text-emerald-700 transition-colors">
+                  <User className="size-4" />
+                  <p className="text-[10px] font-bold uppercase tracking-wider">
+                    Operador
+                  </p>
+                </div>
+                <p
+                  className="text-sm font-semibold truncate"
+                  title={order.user?.name || "Sistema"}
+                >
+                  {order.user?.name || "Sistema"}
+                </p>
+              </div>
+
+              {order.exchangeRate && Number(order.exchangeRate) > 1 && (
+                <div className="space-y-1.5 p-3 rounded-lg bg-background border shadow-sm transition-all hover:shadow-md group col-span-1 sm:col-span-2 lg:col-span-4">
+                  <div className="flex items-center gap-2 text-muted-foreground group-hover:text-primary transition-colors">
+                    <Globe className="size-4" />
+                    <p className="text-[10px] font-bold uppercase tracking-wider">
+                      Tasa de Cambio
+                    </p>
+                  </div>
+                  <p className="text-sm font-semibold">
+                    1 USD = {Number(order.exchangeRate).toFixed(4)} VES
+                  </p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <Tabs defaultValue="items" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="items" className="flex items-center gap-2">
-              <Box className="h-4 w-4" />
-              Renglones del Pedido
-            </TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center gap-2">
-              <HistoryIcon className="h-4 w-4" />
-              Historial y Proceso
-            </TabsTrigger>
-          </TabsList>
+            <Tabs defaultValue="items" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="items" className="flex items-center gap-2">
+                  <Box className="h-4 w-4" />
+                  Renglones del Pedido
+                </TabsTrigger>
+                <TabsTrigger
+                  value="history"
+                  className="flex items-center gap-2"
+                >
+                  <HistoryIcon className="h-4 w-4" />
+                  Historial y Proceso
+                </TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="items" className="space-y-4">
-            <div className="rounded-md border w-full min-w-0 block overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="hidden sm:table-cell">SKU</TableHead>
-                    <TableHead>Producto</TableHead>
-                    <TableHead className="text-right">Cant.</TableHead>
-                    <TableHead className="text-right hidden sm:table-cell">
-                      Precio
-                    </TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {order.items?.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-mono text-xs hidden sm:table-cell">
-                        {item.product?.sku || "-"}
-                      </TableCell>
-                      <TableCell>
-                        {item.product?.name || "Producto desconocido"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {item.quantity}
-                      </TableCell>
-                      <TableCell className="text-right hidden sm:table-cell">
-                        {formatCurrency(
-                          parseFloat(item.price.toString()).toFixed(2),
-                          currencyCode,
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(
-                          (
-                            parseFloat(item.quantity.toString()) *
-                            parseFloat(item.price.toString())
-                          ).toFixed(2),
-                          currencyCode,
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-right font-bold">
-                      Total General
-                    </TableCell>
-                    <TableCell className="text-right font-bold">
-                      {formatCurrency(
-                        parseFloat(order.total.toString()).toFixed(2),
-                        currencyCode,
-                      )}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
+              <TabsContent value="items" className="space-y-4">
+                <div className="rounded-md border w-full min-w-0 block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="hidden sm:table-cell">
+                          SKU
+                        </TableHead>
+                        <TableHead>Producto</TableHead>
+                        <TableHead className="text-right">Cant.</TableHead>
+                        <TableHead className="text-right hidden sm:table-cell">
+                          Precio
+                        </TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {order.items?.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-mono text-xs hidden sm:table-cell">
+                            {item.product?.sku || "-"}
+                          </TableCell>
+                          <TableCell>
+                            {item.product?.name || "Producto desconocido"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {item.quantity}
+                          </TableCell>
+                          <TableCell className="text-right hidden sm:table-cell">
+                            {formatCurrency(
+                              parseFloat(item.price.toString()).toFixed(2),
+                              currencyCode,
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(
+                              (
+                                parseFloat(item.quantity.toString()) *
+                                parseFloat(item.price.toString())
+                              ).toFixed(2),
+                              currencyCode,
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-right font-bold">
+                          Total General
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {formatCurrency(
+                            parseFloat(order.total.toString()).toFixed(2),
+                            currencyCode,
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
 
-          <TabsContent
-            value="history"
-            className="border rounded-xl p-4 bg-muted/20"
-          >
-            <div className="mb-4">
-              <h4 className="text-sm font-semibold flex items-center gap-2 mb-1">
-                <HistoryIcon className="h-4 w-4 text-primary" />
-                Trazabilidad del Documento
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                Línea de tiempo de acciones, cambios y documentos relacionados.
-              </p>
-            </div>
-            <DocumentHistory entityTable="orders" entityId={order.id} />
-          </TabsContent>
-        </Tabs>
+              <TabsContent
+                value="history"
+                className="border rounded-xl p-4 bg-muted/20"
+              >
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold flex items-center gap-2 mb-1">
+                    <HistoryIcon className="h-4 w-4 text-primary" />
+                    Trazabilidad del Documento
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Línea de tiempo de acciones, cambios y documentos
+                    relacionados.
+                  </p>
+                </div>
+                <DocumentHistory entityTable="orders" entityId={order.id} />
+              </TabsContent>
+            </Tabs>
 
-        <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 mt-6 border-t pt-6">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="w-full sm:w-auto px-8"
-          >
-            Cerrar
-          </Button>
-
-          {/* Print Button */}
-          <PDFDownloadLink
-            document={<OrderPdf order={order} type={type} />}
-            fileName={`Pedido-${order.code}.pdf`}
-            className="w-full sm:w-auto"
-          >
-            {/* @ts-ignore */}
-            {({ loading }) => (
+            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 mt-6 border-t pt-6">
               <Button
                 variant="outline"
-                disabled={loading}
+                onClick={() => onOpenChange(false)}
                 className="w-full sm:w-auto px-8"
               >
-                <Printer className="mr-2 h-4 w-4" />
-                {loading ? "Generando..." : "Imprimir"}
+                Cerrar
               </Button>
-            )}
-          </PDFDownloadLink>
 
-          {(order.status === "PENDING" || order.status === "CONFIRMED") &&
-            onRecalculate && (
-              <Button
-                variant="secondary"
-                onClick={handleRecalculate}
-                className="w-full sm:w-auto px-8"
+              {/* Print Button */}
+              <PDFDownloadLink
+                document={<OrderPdf order={order} type={type} />}
+                fileName={`Pedido-${order.code}.pdf`}
+                className="w-full sm:w-auto"
               >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Recalcular
-              </Button>
-            )}
-          {(order.status === "PENDING" || order.status === "CONFIRMED") &&
-            onCancel && (
-              <Button
-                variant="destructive"
-                onClick={handleCancel}
-                className="w-full sm:w-auto px-8"
-              >
-                <XCircle className="mr-2 h-4 w-4" />
-                Cancelar Pedido
-              </Button>
-            )}
-          {order.status === "CONFIRMED" && onGenerateInvoice && (
-            <div className="flex flex-col items-stretch sm:items-end gap-1 w-full sm:w-auto">
-              <Button
-                className="bg-indigo-600 hover:bg-indigo-700 w-full sm:w-auto px-8"
-                onClick={handleGenerateInvoice}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                Generar Factura Fiscal
-              </Button>
-              <span className="text-[10px] text-muted-foreground text-center sm:text-right">
-                Se emitirá en {order.currency?.code || "Bolívares (VES)"}
-              </span>
-            </div>
-          )}
-          {order.status === "PENDING" && onConfirm && (
-            <Button
-              className="bg-primary w-full sm:w-auto px-8"
-              onClick={handleConfirm}
-            >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Confirmar Pedido
-            </Button>
-          )}
-        </DialogFooter>
+                {({ loading }) => (
+                  <Button
+                    variant="outline"
+                    disabled={loading}
+                    className="w-full sm:w-auto px-8"
+                  >
+                    <Printer className="mr-2 h-4 w-4" />
+                    {loading ? "Generando..." : "Imprimir"}
+                  </Button>
+                )}
+              </PDFDownloadLink>
+
+              {/* Recalculate Button */}
+              {(order.status === "PENDING" || order.status === "CONFIRMED") &&
+                onRecalculate && (
+                  <PermissionsGate
+                    permission={
+                      type === "PURCHASE"
+                        ? PERMISSIONS.OPERATIONS.PURCHASES.CREATE
+                        : PERMISSIONS.OPERATIONS.SALES.CREATE
+                    }
+                  >
+                    <Button
+                      variant="secondary"
+                      onClick={handleRecalculate}
+                      className="w-full sm:w-auto px-8"
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Recalcular
+                    </Button>
+                  </PermissionsGate>
+                )}
+
+              {/* Cancel Button */}
+              {(order.status === "PENDING" || order.status === "CONFIRMED") &&
+                onCancel && (
+                  <PermissionsGate
+                    permission={
+                      type === "PURCHASE"
+                        ? PERMISSIONS.OPERATIONS.PURCHASES.CANCEL
+                        : PERMISSIONS.OPERATIONS.SALES.CANCEL
+                    }
+                  >
+                    <Button
+                      variant="destructive"
+                      onClick={handleCancel}
+                      className="w-full sm:w-auto px-8"
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Cancelar Pedido
+                    </Button>
+                  </PermissionsGate>
+                )}
+
+              {/* Generate Invoice Button */}
+              {order.status === "CONFIRMED" && onGenerateInvoice && (
+                <PermissionsGate
+                  anyPermission={[
+                    PERMISSIONS.FINANCE.INVOICES.CREATE,
+                    type === "PURCHASE"
+                      ? PERMISSIONS.OPERATIONS.PURCHASES.APPROVE
+                      : PERMISSIONS.OPERATIONS.SALES.APPROVE,
+                  ]}
+                >
+                  <div className="flex flex-col items-stretch sm:items-end gap-1 w-full sm:w-auto">
+                    <Button
+                      className="bg-indigo-600 hover:bg-indigo-700 w-full sm:w-auto px-8"
+                      onClick={handleGenerateInvoice}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      Generar Factura Fiscal
+                    </Button>
+                    <span className="text-[10px] text-muted-foreground text-center sm:text-right">
+                      Se emitirá en {order.currency?.code || "Bolívares (VES)"}
+                    </span>
+                  </div>
+                </PermissionsGate>
+              )}
+
+              {/* Confirm Button */}
+              {order.status === "PENDING" && onConfirm && (
+                <PermissionsGate
+                  permission={
+                    type === "PURCHASE"
+                      ? PERMISSIONS.OPERATIONS.PURCHASES.APPROVE
+                      : PERMISSIONS.OPERATIONS.SALES.APPROVE
+                  }
+                >
+                  <Button
+                    className="bg-primary hover:bg-primary/90 text-white w-full sm:w-auto px-8 transition-all"
+                    onClick={handleConfirm}
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Confirmar Pedido
+                  </Button>
+                </PermissionsGate>
+              )}
+            </DialogFooter>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

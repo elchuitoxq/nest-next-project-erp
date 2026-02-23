@@ -4,7 +4,6 @@ import {
   Package,
   ShoppingCart,
   Users,
-  TrendingUp,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { KpiData, ChartData } from "../types";

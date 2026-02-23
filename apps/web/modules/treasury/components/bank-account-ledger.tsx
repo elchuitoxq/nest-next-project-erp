@@ -1,4 +1,3 @@
-
 import {
   Dialog,
   DialogContent,
@@ -16,6 +15,7 @@ import {
 import { usePayments } from "../hooks/use-treasury";
 import { formatCurrency } from "@/lib/utils";
 import { Loader2, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface BankAccountLedgerProps {
   isOpen: boolean;
@@ -41,7 +41,7 @@ export function BankAccountLedger({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto border rounded-md">
+        <ScrollArea className="flex-1 border rounded-md">
           {isLoading ? (
             <div className="flex justify-center p-8">
               <Loader2 className="h-8 w-8 animate-spin" />
@@ -73,9 +73,7 @@ export function BankAccountLedger({
                         {payment.reference || "-"}
                       </TableCell>
                       <TableCell className="text-sm">
-                        <div className="font-medium">
-                          {payment.partnerName}
-                        </div>
+                        <div className="font-medium">{payment.partnerName}</div>
                         <div className="text-xs text-muted-foreground">
                           {payment.methodName}
                         </div>
@@ -116,7 +114,7 @@ export function BankAccountLedger({
               </TableBody>
             </Table>
           )}
-        </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

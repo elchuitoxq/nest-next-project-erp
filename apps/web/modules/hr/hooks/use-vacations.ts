@@ -1,7 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
+import { ApiError } from "@/lib/api";
 
 export interface Vacation {
   id: string;
@@ -32,9 +33,12 @@ export interface CreateVacationDto {
 
 export function useVacations(employeeId: string) {
   return useQuery<Vacation[]>({
+    placeholderData: keepPreviousData,
     queryKey: ["vacations", employeeId],
     queryFn: async () => {
-      const { data } = await api.get(`/hr/vacations/employee/${employeeId}`);
+      const { data } = await api.get<Vacation[]>(
+        `/hr/vacations/employee/${employeeId}`,
+      );
       return data;
     },
     enabled: !!employeeId,
@@ -54,7 +58,7 @@ export function useVacationMutations() {
       toast.success("Vacaciones registradas correctamente");
       queryClient.invalidateQueries({ queryKey: ["vacations", employeeId] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
         error.response?.data?.message || "Error al registrar vacaciones",
       );
@@ -76,7 +80,7 @@ export function useVacationMutations() {
       toast.success("Vacaciones actualizadas correctamente");
       queryClient.invalidateQueries({ queryKey: ["vacations", employeeId] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
         error.response?.data?.message || "Error al actualizar vacaciones",
       );
@@ -92,7 +96,7 @@ export function useVacationMutations() {
       toast.success("Vacaciones eliminadas correctamente");
       queryClient.invalidateQueries({ queryKey: ["vacations", employeeId] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
         error.response?.data?.message || "Error al eliminar vacaciones",
       );

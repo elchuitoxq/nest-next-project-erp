@@ -668,13 +668,11 @@ async function main() {
 
         // Stock Movement (IN)
         const existingStock = await db.query.stock.findFirst({
-          where: (stock, { and, eq }) =>
+          where: (stock, { and, eq, isNull }) =>
             and(
               eq(stock.warehouseId, wh.id),
               eq(stock.productId, prod.id),
-              batchId
-                ? eq(stock.batchId, batchId)
-                : sql`${stock.batchId} IS NULL`,
+              batchId ? eq(stock.batchId, batchId) : isNull(stock.batchId),
             ),
         });
         if (existingStock) {

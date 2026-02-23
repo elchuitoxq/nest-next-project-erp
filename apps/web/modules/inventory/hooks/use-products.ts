@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Product, CreateProductValues, UpdateProductValues } from "../types";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ export function useProducts(search?: string) {
   const currentBranch = useAuthStore((state) => state.currentBranch);
 
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["products", search, currentBranch?.id],
     queryFn: async () => {
       const { data } = await api.get<Product[]>("/products", {

@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useStock } from "../hooks/use-inventory";
 import { Warehouse } from "../types";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ interface WarehouseStockDialogProps {
 
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function WarehouseStockDialog({
   warehouse,
@@ -40,74 +41,77 @@ export function WarehouseStockDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Inventario: {warehouse?.name}</DialogTitle>
-          <DialogDescription>
-            Existencias actuales en este almacén.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-6xl max-h-[85vh] p-0">
+        <ScrollArea className="max-h-[85vh] w-full">
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle>Inventario: {warehouse?.name}</DialogTitle>
+              <DialogDescription>
+                Existencias actuales en este almacén.
+              </DialogDescription>
+            </DialogHeader>
 
-        <div className="flex items-center py-4">
-          <Input
-            placeholder="Buscar por nombre o SKU..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="max-w-sm"
-          />
-        </div>
+            <div className="flex items-center py-4">
+              <Input
+                placeholder="Buscar por nombre o SKU..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="max-w-sm"
+              />
+            </div>
 
-        {isLoading ? (
-          <div className="flex justify-center p-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
+            {isLoading ? (
+              <div className="flex justify-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Producto</TableHead>
+                      <TableHead className="text-right">Cantidad</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stock?.map((item: any) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">
+                          {item.product?.sku}
+                        </TableCell>
+                        <TableCell>{item.product?.name}</TableCell>
+                        <TableCell className="text-right font-bold">
+                          {Number(item.quantity)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+
+                    {!stock?.length && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={3}
+                          className="text-center text-muted-foreground p-4"
+                        >
+                          No hay productos en este almacén.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            <DialogFooter className="mt-6">
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto px-8"
+              >
+                Cerrar
+              </Button>
+            </DialogFooter>
           </div>
-        ) : (
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Producto</TableHead>
-                  <TableHead className="text-right">Cantidad</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {/* @ts-ignore */}
-                {stock?.map((item: any) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">
-                      {item.product?.sku}
-                    </TableCell>
-                    <TableCell>{item.product?.name}</TableCell>
-                    <TableCell className="text-right font-bold">
-                      {Number(item.quantity)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {/* @ts-ignore */}
-                {!stock?.length && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={3}
-                      className="text-center text-muted-foreground p-4"
-                    >
-                      No hay productos en este almacén.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-        <DialogFooter className="mt-6">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="w-full sm:w-auto px-8"
-          >
-            Cerrar
-          </Button>
-        </DialogFooter>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

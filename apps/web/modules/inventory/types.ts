@@ -69,6 +69,11 @@ export interface Move {
   id: string;
   code: string;
   type: string;
+  status: "DRAFT" | "APPROVED" | "REJECTED";
+  source: "MANUAL" | "SYSTEM";
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  rejectionReason?: string | null;
   date: string;
   fromWarehouse?: { name: string };
   toWarehouse?: { name: string };
@@ -77,6 +82,8 @@ export interface Move {
   lines?: {
     id: string;
     quantity: number;
-    product: { name: string };
+    cost?: string | null;
+    batchId?: string | null;
+    product: { name: string; sku: string; currencyId?: string | null };
   }[];
 }

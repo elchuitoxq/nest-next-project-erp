@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api";
 import { JobPosition } from "./use-positions";
 
 export interface Employee {
@@ -53,6 +54,7 @@ export interface CreateEmployeeValues {
 
 export function useEmployees(status?: string) {
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["hr-employees", status],
     queryFn: async () => {
       const { data } = await api.get<Employee[]>("/hr/employees", {
@@ -74,7 +76,11 @@ export function useEmployeeMutations() {
       queryClient.invalidateQueries({ queryKey: ["hr-employees"] });
       toast.success("Empleado registrado exitosamente");
     },
-    onError: () => toast.error("Error al registrar empleado"),
+    onError: (error: ApiError) => {
+      toast.error(
+        error.response?.data?.message || "Error al registrar empleado",
+      );
+    },
   });
 
   const updateEmployee = useMutation({
@@ -91,7 +97,11 @@ export function useEmployeeMutations() {
       queryClient.invalidateQueries({ queryKey: ["hr-employees"] });
       toast.success("Empleado actualizado exitosamente");
     },
-    onError: () => toast.error("Error al actualizar empleado"),
+    onError: (error: ApiError) => {
+      toast.error(
+        error.response?.data?.message || "Error al actualizar empleado",
+      );
+    },
   });
 
   return { createEmployee, updateEmployee };

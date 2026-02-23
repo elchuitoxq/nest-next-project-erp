@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Order, CreateOrderValues } from "../types";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ export function useOrders(params: FindOrdersParams = {}) {
   };
 
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["orders", serializedParams],
     queryFn: async () => {
       const { data } = await api.get<{
@@ -37,6 +38,7 @@ export function useOrders(params: FindOrdersParams = {}) {
 
 export const useOrderStats = (type: "SALE" | "PURCHASE") => {
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["orders", "stats", type],
     queryFn: async () => {
       const { data } = await api.get<{ status: string; count: number }[]>(
@@ -58,8 +60,8 @@ export function useOrderMutations() {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       toast.success("Pedido creado exitosamente");
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Error al crear pedido");
+    onError: (error: Error) => {
+      toast.error("Error al crear pedido");
     },
   });
 
@@ -74,8 +76,8 @@ export function useOrderMutations() {
       queryClient.invalidateQueries({ queryKey: ["products"] }); // Update product lists
       toast.success("Pedido confirmado. Inventario descontado.");
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Error al confirmar pedido");
+    onError: (error: Error) => {
+      toast.error("Error al confirmar pedido");
     },
   });
 
@@ -90,8 +92,8 @@ export function useOrderMutations() {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       toast.success("Pedido cancelado exitosamente");
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Error al cancelar pedido");
+    onError: (error: Error) => {
+      toast.error("Error al cancelar pedido");
     },
   });
 
@@ -104,8 +106,8 @@ export function useOrderMutations() {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       toast.success("Factura generada y pedido completado.");
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Error al generar factura");
+    onError: (error: Error) => {
+      toast.error("Error al generar factura");
     },
   });
 
@@ -117,10 +119,8 @@ export function useOrderMutations() {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       toast.success("Pedido recalculado con la tasa actual.");
     },
-    onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || "Error al recalcular pedido",
-      );
+    onError: (error: Error) => {
+      toast.error("Error al recalcular pedido");
     },
   });
 

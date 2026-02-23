@@ -5,6 +5,7 @@ import {
   ValidateNested,
   IsNumber,
   IsEnum,
+  IsNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -35,8 +36,10 @@ export class CreateInventoryMoveDto {
   toWarehouseId?: string;
 
   @IsString()
-  @IsOptional()
-  note?: string;
+  @IsNotEmpty({
+    message: 'La descripción / motivo del movimiento es requerida',
+  })
+  note: string;
 
   @IsString()
   @IsOptional()

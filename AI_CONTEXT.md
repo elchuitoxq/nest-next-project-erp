@@ -4,7 +4,12 @@ Este documento es la fuente de verdad para el contexto del negocio, reglas fisca
 
 ## 📚 Base de Conocimiento Modular (Skills)
 
-Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas complejas, **consulta siempre la Skill específica** antes de escribir código.
+Este proyecto utiliza una arquitectura de conocimiento modular almacenada en los directorios `.agent/skills` y `.agents/skills`.
+
+> [!CAUTION]
+> **REGLA CERO PARA AGENTES AI:** Antes de comenzar CUALQUIER tarea, DEBES listar y explorar los directorios `.agent/skills` y `.agents/skills` para encontrar guías que apliquen a tu objetivo actual. ¡Nunca actúes por suposición si existe un archivo `SKILL.md` con instrucciones precisas!
+
+Para tareas complejas, **consulta siempre la Skill específica** usando `view_file` en su archivo `SKILL.md` correspondiente antes de escribir código.
 
 ### 🧠 Workflows de Agente (Core Agent Skills)
 
@@ -67,6 +72,27 @@ Este proyecto utiliza una arquitectura de conocimiento modular. Para tareas comp
 - **`apps/api` (NestJS):** Lógica de negocio modular, REST API, Auth JWT.
 - **`apps/web` (Next.js 15):** Frontend con App Router, React Query, Tailwind y Shadcn UI.
 - **`packages/db` (Drizzle):** Esquema centralizado y cliente de base de datos.
+
+## 🔐 Seguridad y Control de Acceso (RBAC/PBAC)
+
+El sistema utiliza un modelo híbrido de **Control de Acceso Basado en Permisos (PBAC)**:
+
+1.  **Permisos Granulares:**
+    - Definidos en `packages/db/src/permissions.ts`.
+    - Estructura jerárquica: `MODULE.ENTITY.ACTION` (ej. `finance.invoices.void`).
+    - **Fuente de Verdad:** Base de datos (tablas `permissions`, `roles`, `roles_permissions`).
+2.  **Roles:**
+    - Agrupadores lógicos de permisos (ej. `ADMIN`, `SELLER`, `ACCOUNTANT`).
+    - Los usuarios tienen roles, pero el código **NUNCA** verifica roles (`@Roles` está deprecado). **SIEMPRE** verifica permisos.
+3.  **Implementación Backend:**
+    - **Guard Global:** `PermissionsGuard` (debe estar en `@UseGuards`).
+    - **Decorador:** `@RequirePermission(PERMISSIONS.MODULE.ACTION)`.
+    - **Lógica OR:** `@RequirePermission([PERM_A, PERM_B])` permite acceso si el usuario tiene A **O** B.
+4.  **Implementación Frontend:**
+    - **Hook:** `usePermission()` (Logica: `hasPermission`, `hasAnyPermission`, `hasAllPermissions`).
+    - **Componente:** `<PermissionsGate permission={...} />` (Soporta `anyPermission` y `allPermissions`).
+    - **Navegación:** `navigation.ts` filtra ítems según permisos del usuario.
+    - **Handling 403:** Redirigir a `/forbidden` o mostrar UI alternativa.
 
 ## 🏢 Estructura Organizacional y Multisede
 

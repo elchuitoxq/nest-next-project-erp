@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import {
   Card,
@@ -20,7 +20,6 @@ import { Invoice } from "@/modules/billing/types";
 import { PaginationState } from "@tanstack/react-table";
 import { PageHeader } from "@/components/layout/page-header";
 import { GuideCard } from "@/components/guide/guide-card";
-import { GuideHint } from "@/components/guide/guide-hint";
 import { DocumentFlow } from "@/modules/common/components/document-flow";
 import {
   Dialog,
@@ -157,12 +156,13 @@ export function InvoicesView() {
           </p>
           <ul className="list-disc pl-4 space-y-1">
             <li>
-              <strong>Estatus "Publicada":</strong> El documento ya tiene número
-              de control y es definitivo. Anularlo requiere nota de crédito.
+              <strong>Estatus &quot;Publicada&quot;:</strong> El documento ya
+              tiene número de control y es definitivo. Anularlo requiere nota de
+              crédito.
             </li>
             <li>
-              <strong>Estatus "Borrador":</strong> No tiene validez fiscal aún.
-              Puede ser editado o eliminado sin rastro.
+              <strong>Estatus &quot;Borrador&quot;:</strong> No tiene validez
+              fiscal aún. Puede ser editado o eliminado sin rastro.
             </li>
           </ul>
         </GuideCard>

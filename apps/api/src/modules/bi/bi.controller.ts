@@ -12,10 +12,15 @@ import { BiService } from './bi.service';
 import { JwtAuthGuard } from '../../modules/auth/jwt-auth.guard';
 import { BranchInterceptor } from '../../common/interceptors/branch.interceptor';
 import { GetBiStatsDto } from './dto/get-bi-stats.dto';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '@repo/db';
+
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 
 @Controller('bi')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @UseInterceptors(BranchInterceptor)
+@RequirePermission(PERMISSIONS.DASHBOARD.VIEW)
 export class BiController {
   constructor(private readonly biService: BiService) {}
 

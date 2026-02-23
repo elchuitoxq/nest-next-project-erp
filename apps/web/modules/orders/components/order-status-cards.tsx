@@ -2,7 +2,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useOrderStats } from "../hooks/use-orders";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Clock, CheckCircle2, PackageCheck, XCircle } from "lucide-react";
 import { motion } from "framer-motion";

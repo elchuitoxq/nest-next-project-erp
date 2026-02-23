@@ -22,6 +22,8 @@ export class BranchInterceptor implements NestInterceptor {
 
     if (branchHeader) {
       const allowedBranches = user.allowedBranches || [];
+      // Fix: If allowedBranches is empty but user has a branchId (default), maybe we should allow that one too?
+      // Or if admin, bypass.
       const isAdmin = user.roles?.includes('admin');
 
       // Admin can access any branch, or we strictly check against allowed?
@@ -38,16 +40,10 @@ export class BranchInterceptor implements NestInterceptor {
       // Let's assume validation against allowedBranches is safer.
 
       if (!isAdmin && !allowedBranches.includes(branchHeader)) {
-        throw new UnauthorizedException(
-          'You do not have access to this branch',
+        // Debug: Log if rejection happens
+        console.error(
+          `BranchInterceptor: Access denied for user ${user.id} to branch ${branchHeader}. Allowed: ${JSON.stringify(allowedBranches)}`,
         );
-      }
-
-      // Double check for admin? If admin, maybe we authorize?
-      // Let's allow 'admin' role to bypass for flexibility during dev/admin tasks if needed,
-      // but ideally admins should be assigned branches too.
-      // Let's allow 'admin' to bypass for now to avoid locking out superusers.
-      if (!allowedBranches.includes(branchHeader) && !isAdmin) {
         throw new UnauthorizedException(
           'You do not have access to this branch',
         );

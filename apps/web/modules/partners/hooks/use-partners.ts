@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Partner } from "../types";
 import { PartnerFormValues } from "../schemas/partner.schema";
@@ -19,6 +19,7 @@ export const usePartners = (params: FindPartnersParams = {}) => {
   };
 
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["partners", serializedParams],
     queryFn: async () => {
       const { data } = await api.get<{
@@ -34,6 +35,7 @@ export const usePartners = (params: FindPartnersParams = {}) => {
 
 export const usePartner = (id: string) => {
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["partners", id],
     queryFn: async () => {
       const { data } = await api.get<Partner>(`/partners/${id}`);
@@ -55,8 +57,8 @@ export const usePartnerMutations = () => {
       queryClient.invalidateQueries({ queryKey: ["partners"] });
       toast.success("Socio creado exitosamente");
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Error al crear socio");
+    onError: (error: Error) => {
+      toast.error("Error al crear socio");
     },
   });
 
@@ -75,8 +77,8 @@ export const usePartnerMutations = () => {
       queryClient.invalidateQueries({ queryKey: ["partners"] });
       toast.success("Socio actualizado exitosamente");
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Error al actualizar socio");
+    onError: (error: Error) => {
+      toast.error("Error al actualizar socio");
     },
   });
 
@@ -89,8 +91,8 @@ export const usePartnerMutations = () => {
       queryClient.invalidateQueries({ queryKey: ["partners"] });
       toast.success("Socio eliminado exitosamente");
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Error al eliminar socio");
+    onError: (error: Error) => {
+      toast.error("Error al eliminar socio");
     },
   });
 

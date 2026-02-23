@@ -14,51 +14,81 @@ export enum IncidentStatus {
 }
 
 export class CreateIncidentDto {
-  @ApiProperty()
+  @ApiProperty({
+    description: 'ID del empleado al que se le registra la incidencia',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
   @IsString()
   employeeId: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'ID del concepto de nómina (Bono, Deducción, etc.)',
+    example: 'uuid',
+  })
   @IsString()
-  conceptId: string; // Creates link to payroll_concept_types
+  conceptId: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Fecha en que ocurrió o se registra la incidencia',
+    example: '2024-08-10',
+  })
   @IsDateString()
   date: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Cantidad vinculada a la incidencia (horas, días)',
+    example: 4,
+  })
   @IsNumber()
   @IsOptional()
-  quantity?: number; // e.g., 2 hours, 1 day
+  quantity?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Monto monetario de la incidencia (sobrescribe cálculo automático si aplica)',
+    example: 25.5,
+  })
   @IsNumber()
   @IsOptional()
-  amount?: number; // Override amount directly if needed
+  amount?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Detalles o justificación de la incidencia',
+    example: 'Horas extras por cierre de proyecto.',
+  })
   @IsString()
   @IsOptional()
   notes?: string;
 }
 
 export class UpdateIncidentDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Cantidad vinculada (ajuste)',
+    example: 5,
+  })
   @IsNumber()
   @IsOptional()
   quantity?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Monto monetario (ajuste)',
+    example: 30.0,
+  })
   @IsNumber()
   @IsOptional()
   amount?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Notas adicionales',
+  })
   @IsString()
   @IsOptional()
   notes?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Estado de procesamiento de la incidencia',
+    enum: IncidentStatus,
+  })
   @IsEnum(IncidentStatus)
   @IsOptional()
   status?: IncidentStatus;

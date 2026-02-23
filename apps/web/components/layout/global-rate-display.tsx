@@ -2,7 +2,6 @@
 
 import { useExchangeRate } from "@/modules/settings/hooks/use-exchange-rate";
 import { Loader2, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export function GlobalRateDisplay() {
   const { data: rates, isLoading } = useExchangeRate();

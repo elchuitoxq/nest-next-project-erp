@@ -5,7 +5,7 @@ import {
   usePayments,
   usePaymentMethods,
 } from "@/modules/treasury/hooks/use-treasury";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { usePartners } from "@/modules/partners/hooks/use-partners";
 import {
@@ -27,7 +27,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { MoreHorizontal, AlertCircle } from "lucide-react";
+import { useVoidPayment } from "@/modules/treasury/hooks/use-void-payment";
+import { PermissionsGate } from "@/components/auth/permissions-gate";
+import { PERMISSIONS } from "@/config/permissions";
 
 import { Payment, PaymentMethod } from "@/modules/treasury/types";
 
@@ -57,9 +80,13 @@ export function GlobalPaymentsTable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [methodFilter, setMethodFilter] = useState("ALL");
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
+
+  const voidPaymentMutation = useVoidPayment();
 
   // Fetch currencies
   const { data: currencies, isLoading: isLoadingCurrencies } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["currencies"],
     queryFn: async () => {
       const { data } = await api.get<Currency[]>("/settings/currencies");
@@ -120,6 +147,57 @@ export function GlobalPaymentsTable() {
         open={!!selectedPayment}
         onOpenChange={(open) => !open && setSelectedPayment(null)}
       />
+
+      <AlertDialog
+        open={!!paymentToVoid}
+        onOpenChange={(open: boolean) => !open && setPaymentToVoid(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              ¿Anular Pago?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción es irreversible de forma directa y anulará los efectos
+              del pago en las cuentas de banco, facturas relacionadas,
+              retenciones y saldos cruzados, marcando este registro con estatus
+              de Anulado (VOID).
+              <br />
+              <br />
+              Confirme que desea anular el pago{" "}
+              <strong>{paymentToVoid?.reference || "S/R"}</strong> por{" "}
+              {paymentToVoid &&
+                formatCurrency(
+                  Number(paymentToVoid.amount),
+                  currencyMap.get(paymentToVoid.currencyId)?.code || "VES",
+                )}
+              .
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={voidPaymentMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={voidPaymentMutation.isPending}
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                if (paymentToVoid) {
+                  voidPaymentMutation.mutate(paymentToVoid.id, {
+                    onSuccess: () => setPaymentToVoid(null),
+                  });
+                }
+              }}
+            >
+              {voidPaymentMutation.isPending
+                ? "Anulando..."
+                : "Sí, Anular Pago"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
@@ -188,6 +266,7 @@ export function GlobalPaymentsTable() {
               <TableHead>Facturas</TableHead>
               <TableHead>Responsable</TableHead>
               <TableHead className="text-right">Monto</TableHead>
+              <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -238,13 +317,29 @@ export function GlobalPaymentsTable() {
                         transition: { delay: index * 0.05 },
                       }}
                       exit={{ opacity: 0, transition: { duration: 0.2 } }}
-                      className="border-b transition-colors hover:bg-muted/50 cursor-pointer"
+                      className={`border-b transition-colors hover:bg-muted/50 ${
+                        payment.status === "VOID"
+                          ? "opacity-60 bg-muted/30"
+                          : "cursor-pointer"
+                      }`}
                       onClick={() => setSelectedPayment(payment)}
                     >
                       <TableCell>
-                        {new Date(payment.date).toLocaleDateString()}
+                        <div className="flex flex-col gap-1">
+                          {new Date(payment.date).toLocaleDateString()}
+                          {payment.status === "VOID" && (
+                            <Badge
+                              variant="destructive"
+                              className="w-fit text-[10px] h-4"
+                            >
+                              Anulado
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">
+                      <TableCell
+                        className={`font-mono text-xs ${payment.status === "VOID" ? "line-through" : ""}`}
+                      >
                         {payment.reference || "-"}
                       </TableCell>
                       <TableCell>{partner?.name || "Desconocido"}</TableCell>
@@ -302,6 +397,40 @@ export function GlobalPaymentsTable() {
                             </>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell
+                        className="text-right"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Abrir menú</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem
+                              onClick={() => setSelectedPayment(payment)}
+                            >
+                              Ver detalles completos
+                            </DropdownMenuItem>
+                            {payment.status !== "VOID" && (
+                              <PermissionsGate
+                                permission={PERMISSIONS.FINANCE.PAYMENTS.VOID}
+                              >
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:bg-destructive/10 cursor-pointer"
+                                  onClick={() => setPaymentToVoid(payment)}
+                                >
+                                  Anular Pago
+                                </DropdownMenuItem>
+                              </PermissionsGate>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </motion.tr>
                   );

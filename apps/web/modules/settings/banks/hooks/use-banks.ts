@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
@@ -11,9 +11,10 @@ export interface Bank {
 
 export function useBanks() {
   return useQuery<Bank[]>({
+    placeholderData: keepPreviousData,
     queryKey: ["banks"],
     queryFn: async () => {
-      const { data } = await api.get("/settings/banks");
+      const { data } = await api.get<Bank[]>("/settings/banks");
       return data;
     },
   });

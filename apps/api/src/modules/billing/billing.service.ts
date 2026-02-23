@@ -585,7 +585,8 @@ export class BillingService {
     const { page = 1, limit = 10, search, type, status, partnerId } = query;
     const offset = (page - 1) * limit;
 
-    const conditions = [eq(invoices.branchId, branchId)];
+    const conditions = [];
+    if (branchId) conditions.push(eq(invoices.branchId, branchId));
 
     if (type && type.length > 0) {
       const validTypes = Array.isArray(type)

@@ -1,26 +1,29 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { loginSchema, LoginFormValues } from "@/modules/auth/schemas/login.schema"
-import { useAuthStore } from "@/stores/use-auth-store"
-import api from "@/lib/api"
-import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  loginSchema,
+  LoginFormValues,
+} from "@/modules/auth/schemas/login.schema";
+import { useAuthStore } from "@/stores/use-auth-store";
+import api from "@/lib/api";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"form">) {
-  const router = useRouter()
-  const login = useAuthStore((state) => state.login)
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const login = useAuthStore((state) => state.login);
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -28,21 +31,24 @@ export function LoginForm({
       email: "",
       password: "",
     },
-  })
+  });
 
   async function onSubmit(data: LoginFormValues) {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const response = await api.post("/auth/login", data)
-      login(response.data.access_token, response.data.user)
+      const response = await api.post<{ access_token: string; user: any }>(
+        "/auth/login",
+        data,
+      );
+      login(response.data.access_token, response.data.user);
 
-      toast.success("Inicio de sesión exitoso")
-      router.push("/dashboard")
+      toast.success("Inicio de sesión exitoso");
+      router.push("/dashboard");
     } catch (error: any) {
-      console.error(error)
-      toast.error(error.response?.data?.message || "Error al iniciar sesión")
+      console.error(error);
+      toast.error(error.response?.data?.message || "Error al iniciar sesión");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -83,11 +89,7 @@ export function LoginForm({
               ¿Olvidaste tu contraseña?
             </a>
           </div>
-          <Input
-            id="password"
-            type="password"
-            {...form.register("password")}
-          />
+          <Input id="password" type="password" {...form.register("password")} />
           {form.formState.errors.password && (
             <p className="text-sm text-red-500">
               {form.formState.errors.password.message}
@@ -111,6 +113,5 @@ export function LoginForm({
         </a>
       </div>
     </form>
-  )
+  );
 }
-

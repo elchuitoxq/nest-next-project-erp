@@ -15,8 +15,12 @@ import { BranchInterceptor } from '../../common/interceptors/branch.interceptor'
 
 import { RetentionsService } from '../accounting/retentions.service';
 
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '@repo/db';
+
 @Controller('reports/fiscal')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @UseInterceptors(BranchInterceptor)
 export class FiscalReportsController {
   constructor(
@@ -25,6 +29,7 @@ export class FiscalReportsController {
   ) {}
 
   @Get('retenciones-txt')
+  @RequirePermission(PERMISSIONS.FINANCE.REPORTS.VIEW)
   async getRetencionesTxt(
     @Query('month') month: string,
     @Query('year') year: string,
@@ -76,6 +81,7 @@ export class FiscalReportsController {
   }
 
   @Get('retenciones-xml')
+  @RequirePermission(PERMISSIONS.FINANCE.REPORTS.VIEW)
   async getRetencionesXml(
     @Query('month') month: string,
     @Query('year') year: string,
@@ -121,6 +127,7 @@ export class FiscalReportsController {
   }
 
   @Get('summary')
+  @RequirePermission(PERMISSIONS.FINANCE.REPORTS.VIEW)
   async getFiscalSummary(
     @Query('month') month: string,
     @Query('year') year: string,
@@ -136,6 +143,7 @@ export class FiscalReportsController {
   }
 
   @Get('libro-ventas')
+  @RequirePermission(PERMISSIONS.FINANCE.REPORTS.VIEW)
   async getLibroVentas(
     @Query('month') month: string,
     @Query('year') year: string,
@@ -151,6 +159,7 @@ export class FiscalReportsController {
   }
 
   @Get('libro-compras')
+  @RequirePermission(PERMISSIONS.FINANCE.REPORTS.VIEW)
   async getLibroCompras(
     @Query('month') month: string,
     @Query('year') year: string,
@@ -166,6 +175,7 @@ export class FiscalReportsController {
   }
 
   @Get(':type/export/excel')
+  @RequirePermission(PERMISSIONS.FINANCE.REPORTS.VIEW)
   async downloadFiscalBookExcel(
     @Param('type') type: 'ventas' | 'compras',
     @Query('month') month: string,

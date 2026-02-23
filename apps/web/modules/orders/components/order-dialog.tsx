@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   useForm,
   useFieldArray,
@@ -39,11 +38,13 @@ import { PartnerCombobox } from "@/modules/partners/components/partner-combobox"
 import { ProductCombobox } from "@/modules/inventory/components/product-combobox";
 import { useWarehouses } from "@/modules/inventory/hooks/use-inventory";
 import { formatCurrency } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { Currency, ExchangeRate, Warehouse } from "@/types/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { GuideCard } from "@/components/guide/guide-card";
 import { GuideHint } from "@/components/guide/guide-hint";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const orderSchema = z.object({
   partnerId: z.string().min(1, "Seleccione un cliente"),
@@ -116,9 +117,10 @@ export function OrderDialog({
   // ... (Queries remain same) ...
   // Fetch Exchange Rates
   const { data: rates } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["exchange-rates", "latest"],
     queryFn: async () => {
-      const { data } = await api.get<any[]>(
+      const { data } = await api.get<ExchangeRate[]>(
         "/settings/currencies/rates/latest",
       );
       return data;
@@ -127,9 +129,10 @@ export function OrderDialog({
 
   // Fetch Currencies
   const { data: currencies } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["currencies"],
     queryFn: async () => {
-      const { data } = await api.get<any[]>("/settings/currencies");
+      const { data } = await api.get<Currency[]>("/settings/currencies");
       return data;
     },
   });
@@ -147,19 +150,19 @@ export function OrderDialog({
       // Currency Conversion Logic (Fixed)
       // Determine Target Currency based on USER SELECTION, fallback to Base
       let targetCurrency = currencies?.find(
-        (c: any) => c.id === processedData.currencyId,
+        (c) => c.id === processedData.currencyId,
       );
 
       if (!targetCurrency) {
         targetCurrency =
-          currencies?.find((c: any) => c.isBase) ||
-          currencies?.find((c: any) => c.code === "VES");
+          currencies?.find((c) => c.isBase) ||
+          currencies?.find((c) => c.code === "VES");
       }
 
       processedData.items = processedData.items.map((item: any) => {
         if (!item.currencyId) return item;
         const productCurrency = currencies?.find(
-          (c: any) => c.id === item.currencyId,
+          (c) => c.id === item.currencyId,
         );
 
         // Conversion Logic:
@@ -174,14 +177,14 @@ export function OrderDialog({
           // Case 1: Product is Base (USD) -> Order is Foreign (Multiply)
           if (productCurrency.isBase || productCurrency.code === "USD") {
             const rateEntry = rates.find(
-              (r: any) => r.currencyId === targetCurrency.id,
+              (r) => r.currencyId === targetCurrency!.id,
             );
             if (rateEntry) exchangeRate = Number(rateEntry.rate);
           }
           // Case 2: Order is Base (USD) -> Product is Foreign (Divide)
           else if (targetCurrency.isBase || targetCurrency.code === "USD") {
             const rateEntry = rates.find(
-              (r: any) => r.currencyId === productCurrency.id,
+              (r) => r.currencyId === productCurrency!.id,
             );
             if (rateEntry) exchangeRate = 1 / Number(rateEntry.rate);
           }
@@ -198,14 +201,12 @@ export function OrderDialog({
       // Store the VES rate for accounting purposes (always relative to USD)
       let globalExchangeRate = 1;
 
-      const vesCurrency = currencies?.find((c: any) => c.code === "VES");
+      const vesCurrency = currencies?.find((c) => c.code === "VES");
 
       if (targetCurrency && rates) {
         if (targetCurrency.isBase || targetCurrency.code === "USD") {
           // USD -> Store VES Rate (e.g. 45.00)
-          const rateEntry = rates.find(
-            (r: any) => r.currencyId === vesCurrency?.id,
-          );
+          const rateEntry = rates.find((r) => r.currencyId === vesCurrency?.id);
           if (rateEntry) globalExchangeRate = Number(rateEntry.rate);
         } else if (targetCurrency.code === "VES") {
           // VES -> Store 1 (1 Bs = 1 Bs)
@@ -213,7 +214,7 @@ export function OrderDialog({
         } else {
           // Other currencies -> Store their rate relative to base
           const rateEntry = rates.find(
-            (r: any) => r.currencyId === targetCurrency.id,
+            (r) => r.currencyId === targetCurrency!.id,
           );
           if (rateEntry) globalExchangeRate = Number(rateEntry.rate);
         }
@@ -234,22 +235,18 @@ export function OrderDialog({
     const selectedCurrencyId = form.watch("currencyId");
 
     // Determine Target Currency based on USER SELECTION
-    let targetCurrency = currencies?.find(
-      (c: any) => c.id === selectedCurrencyId,
-    );
+    let targetCurrency = currencies?.find((c) => c.id === selectedCurrencyId);
     if (!targetCurrency) {
       targetCurrency =
-        currencies?.find((c: any) => c.isBase) ||
-        currencies?.find((c: any) => c.code === "VES");
+        currencies?.find((c) => c.isBase) ||
+        currencies?.find((c) => c.code === "VES");
     }
 
     return items.reduce((sum, item) => {
       if (!item.quantity || !item.price) return sum;
       let itemPrice = item.price;
 
-      const productCurrency = currencies?.find(
-        (c: any) => c.id === item.currencyId,
-      );
+      const productCurrency = currencies?.find((c) => c.id === item.currencyId);
 
       // Conversion Logic (Visual)
       if (
@@ -262,14 +259,14 @@ export function OrderDialog({
         // Case 1: Product Base -> Order Foreign (Multiply)
         if (productCurrency.isBase || productCurrency.code === "USD") {
           const rateEntry = rates.find(
-            (r: any) => r.currencyId === targetCurrency.id,
+            (r) => r.currencyId === targetCurrency!.id,
           );
           if (rateEntry) exchangeRate = Number(rateEntry.rate);
         }
         // Case 2: Order Base -> Product Foreign (Divide)
         else if (targetCurrency.isBase || targetCurrency.code === "USD") {
           const rateEntry = rates.find(
-            (r: any) => r.currencyId === productCurrency.id,
+            (r) => r.currencyId === productCurrency!.id,
           );
           if (rateEntry) exchangeRate = 1 / Number(rateEntry.rate);
         }
@@ -288,336 +285,361 @@ export function OrderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {isPurchase ? "Nueva Orden de Compra" : "Solicitar Pedido"}
-          </DialogTitle>
-          <DialogDescription>
-            {isPurchase
-              ? "Registra una orden de compra a proveedor."
-              : "Crea un nuevo pedido de venta para un cliente."}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-6xl max-h-[85vh] p-0">
+        <ScrollArea className="max-h-[85vh] w-full">
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle>
+                {isPurchase ? "Nueva Orden de Compra" : "Solicitar Pedido"}
+              </DialogTitle>
+              <DialogDescription>
+                {isPurchase
+                  ? "Registra una orden de compra a proveedor."
+                  : "Crea un nuevo pedido de venta para un cliente."}
+              </DialogDescription>
+            </DialogHeader>
 
-        <GuideCard
-          title="Ciclo del Pedido"
-          variant="info"
-          className="mx-4 mt-2"
-        >
-          <ul className="list-disc pl-4 space-y-1">
-            <li>
-              <strong>Reserva de Stock:</strong> Al crear el pedido, el
-              inventario se "compromete" pero no se descuenta hasta facturar.
-            </li>
-            <li>
-              <strong>Multimoneda:</strong> Si selecciona USD, los precios en Bs
-              se recalcularán al momento de la factura según la tasa del día.
-            </li>
-          </ul>
-        </GuideCard>
+            <GuideCard
+              title="Ciclo del Pedido"
+              variant="info"
+              className="mx-4 mt-2"
+            >
+              <ul className="list-disc pl-4 space-y-1">
+                <li>
+                  <strong>Reserva de Stock:</strong> Al crear el pedido, el
+                  inventario se &quot;compromete&quot; pero no se descuenta
+                  hasta facturar.
+                </li>
+                <li>
+                  <strong>Multimoneda:</strong> Si selecciona USD, los precios
+                  en Bs se recalcularán al momento de la factura según la tasa
+                  del día.
+                </li>
+              </ul>
+            </GuideCard>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="partnerId"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>
-                      {isPurchase ? "Proveedor" : "Cliente"}
-                    </FormLabel>
-                    <PartnerCombobox
-                      value={field.value}
-                      onChange={field.onChange}
-                      type={isPurchase ? "SUPPLIER" : "CUSTOMER"}
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="warehouseId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {isPurchase ? "Almacén de Destino" : "Almacén de Origen"}
-                    </FormLabel>
-                    <Select
-                      onValueChange={(val) => {
-                        field.onChange(val);
-                        form.setValue("items", [
-                          { productId: "", quantity: 1, price: 0 },
-                        ]);
-                      }}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar almacén" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {warehouses?.map((warehouse: any) => (
-                          <SelectItem key={warehouse.id} value={warehouse.id}>
-                            {warehouse.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="currencyId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center">
-                      Moneda de Transacción
-                      <GuideHint text="Esta será la moneda base del documento. Si es diferente a la del producto, se hará conversión automática." />
-                    </FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Moneda" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {currencies?.map((currency: any) => (
-                          <SelectItem key={currency.id} value={currency.id}>
-                            {currency.code} ({currency.symbol})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-medium">Productos</h4>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    append({ productId: "", quantity: 1, price: 0 })
-                  }
-                  disabled={!warehouseId}
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Agregar Producto
-                </Button>
-              </div>
-
-              {!warehouseId && (
-                <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
-                  Selecciona un almacén para ver los productos disponibles.
-                </div>
-              )}
-
-              <AnimatePresence mode="popLayout">
-                {fields.map((field, index) => (
-                  <motion.div
-                    key={field.id}
-                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{
-                      opacity: 0,
-                      scale: 0.95,
-                      transition: { duration: 0.2 },
-                    }}
-                    layout
-                    className="grid grid-cols-12 gap-2 items-end border p-4 rounded-md premium-shadow bg-card/50"
-                  >
-                    <div className="col-span-12 md:col-span-5">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.productId`}
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel className={index !== 0 ? "sr-only" : ""}>
-                              Producto
-                            </FormLabel>
-                            <ProductCombobox
-                              value={field.value}
-                              onChange={field.onChange}
-                              mode="STOCK"
-                              warehouseId={warehouseId}
-                              onSelectObject={(item) => {
-                                const priceToUse = isPurchase
-                                  ? parseFloat(item.cost || "0")
-                                  : parseFloat(item.price || "0");
-
-                                form.setValue(
-                                  `items.${index}.price`,
-                                  priceToUse,
-                                );
-                                form.setValue(
-                                  `items.${index}.currencyId`,
-                                  item.currencyId,
-                                );
-                                form.setValue(
-                                  `items.${index}.maxQuantity`,
-                                  item.quantity,
-                                );
-                                if (isPurchase) {
-                                  form.setValue(
-                                    `items.${index}.maxQuantity`,
-                                    999999,
-                                  );
-                                }
-                                // Trigger validation for quantity immediately
-                                setTimeout(() => {
-                                  form.trigger(`items.${index}.quantity`);
-                                }, 0);
-                              }}
-                            />
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="col-span-6 md:col-span-3">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.quantity`}
-                        rules={{
-                          required: "Requerido",
-                          validate: (value) => {
-                            const productId = form.getValues(
-                              `items.${index}.productId`,
-                            );
-                            if (!productId) return true;
-                            const max = getMaxQuantity(index);
-                            if (!isPurchase && value > max)
-                              return `Máximo: ${max}`;
-                            return true;
-                          },
-                        }}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className={index !== 0 ? "sr-only" : ""}>
-                              Cantidad
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="1"
-                                {...field}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                            {!isPurchase && (
-                              <ItemStock control={form.control} index={index} />
-                            )}
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="col-span-6 md:col-span-3">
-                      <FormField
-                        control={form.control}
-                        name={`items.${index}.price`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className={index !== 0 ? "sr-only" : ""}>
-                              {isPurchase ? "Costo Unit." : "Precio Unit."}
-                              {(() => {
-                                const currencyId = form.watch(
-                                  `items.${index}.currencyId`,
-                                );
-                                const currency = currencies?.find(
-                                  (c: any) => c.id === currencyId,
-                                );
-                                return currency ? ` (${currency.symbol})` : "";
-                              })()}
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="col-span-12 md:col-span-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-                        onClick={() => remove(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-
-            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end items-center gap-4 pt-4 border-t mt-6">
-              <motion.div
-                key={calculateTotal()}
-                initial={{ scale: 0.95, opacity: 0.5 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-2xl font-bold font-mono-data text-primary w-full sm:w-auto text-center sm:text-right"
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-6"
               >
-                <span className="text-sm font-medium text-muted-foreground mr-2">
-                  Total Estimado:
-                </span>
-                {(() => {
-                  const selectedId = form.watch("currencyId");
-                  const currency =
-                    currencies?.find((c: any) => c.id === selectedId) ||
-                    currencies?.find((c: any) => c.isBase);
-                  return formatCurrency(
-                    calculateTotal().toFixed(2),
-                    currency?.code,
-                  );
-                })()}
-              </motion.div>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => onOpenChange(false)}
-                  className="flex-1 sm:flex-none px-8"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={createOrder.isPending}
-                  className="flex-1 sm:flex-none px-8"
-                >
-                  {createOrder.isPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="partnerId"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>
+                          {isPurchase ? "Proveedor" : "Cliente"}
+                        </FormLabel>
+                        <PartnerCombobox
+                          value={field.value}
+                          onChange={field.onChange}
+                          type={isPurchase ? "SUPPLIER" : "CUSTOMER"}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="warehouseId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          {isPurchase
+                            ? "Almacén de Destino"
+                            : "Almacén de Origen"}
+                        </FormLabel>
+                        <Select
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            form.setValue("items", [
+                              { productId: "", quantity: 1, price: 0 },
+                            ]);
+                          }}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar almacén" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {warehouses?.map((warehouse) => (
+                              <SelectItem
+                                key={warehouse.id}
+                                value={warehouse.id}
+                              >
+                                {warehouse.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="currencyId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center">
+                          Moneda de Transacción
+                          <GuideHint text="Esta será la moneda base del documento. Si es diferente a la del producto, se hará conversión automática." />
+                        </FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Moneda" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {currencies?.map((currency) => (
+                              <SelectItem key={currency.id} value={currency.id}>
+                                {currency.code} ({currency.symbol})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Productos</h4>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        append({ productId: "", quantity: 1, price: 0 })
+                      }
+                      disabled={!warehouseId}
+                    >
+                      <Plus className="mr-2 h-4 w-4" /> Agregar Producto
+                    </Button>
+                  </div>
+
+                  {!warehouseId && (
+                    <div className="text-sm text-yellow-600 bg-yellow-50 p-2 rounded">
+                      Selecciona un almacén para ver los productos disponibles.
+                    </div>
                   )}
-                  {isPurchase ? "Registrar Orden" : "Solicitar Pedido"}
-                </Button>
-              </div>
-            </DialogFooter>
-          </form>
-        </Form>
+
+                  <AnimatePresence mode="popLayout">
+                    {fields.map((field, index) => (
+                      <motion.div
+                        key={field.id}
+                        initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{
+                          opacity: 0,
+                          scale: 0.95,
+                          transition: { duration: 0.2 },
+                        }}
+                        layout
+                        className="grid grid-cols-12 gap-2 items-end border p-4 rounded-md premium-shadow bg-card/50"
+                      >
+                        <div className="col-span-12 md:col-span-5">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.productId`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col">
+                                <FormLabel
+                                  className={index !== 0 ? "sr-only" : ""}
+                                >
+                                  Producto
+                                </FormLabel>
+                                <ProductCombobox
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                  mode="STOCK"
+                                  warehouseId={warehouseId}
+                                  onSelectObject={(item) => {
+                                    const priceToUse = isPurchase
+                                      ? parseFloat(item.cost || "0")
+                                      : parseFloat(item.price || "0");
+
+                                    form.setValue(
+                                      `items.${index}.price`,
+                                      priceToUse,
+                                    );
+                                    form.setValue(
+                                      `items.${index}.currencyId`,
+                                      item.currencyId,
+                                    );
+                                    form.setValue(
+                                      `items.${index}.maxQuantity`,
+                                      item.quantity,
+                                    );
+                                    if (isPurchase) {
+                                      form.setValue(
+                                        `items.${index}.maxQuantity`,
+                                        999999,
+                                      );
+                                    }
+                                    // Trigger validation for quantity immediately
+                                    setTimeout(() => {
+                                      form.trigger(`items.${index}.quantity`);
+                                    }, 0);
+                                  }}
+                                />
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="col-span-6 md:col-span-3">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.quantity`}
+                            rules={{
+                              required: "Requerido",
+                              validate: (value) => {
+                                const productId = form.getValues(
+                                  `items.${index}.productId`,
+                                );
+                                if (!productId) return true;
+                                const max = getMaxQuantity(index);
+                                if (!isPurchase && value > max)
+                                  return `Máximo: ${max}`;
+                                return true;
+                              },
+                            }}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel
+                                  className={index !== 0 ? "sr-only" : ""}
+                                >
+                                  Cantidad
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    {...field}
+                                    onChange={field.onChange}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                                {!isPurchase && (
+                                  <ItemStock
+                                    control={form.control}
+                                    index={index}
+                                  />
+                                )}
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="col-span-6 md:col-span-3">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.price`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel
+                                  className={index !== 0 ? "sr-only" : ""}
+                                >
+                                  {isPurchase ? "Costo Unit." : "Precio Unit."}
+                                  {(() => {
+                                    const currencyId = form.watch(
+                                      `items.${index}.currencyId`,
+                                    );
+                                    const currency = currencies?.find(
+                                      (c) => c.id === currencyId,
+                                    );
+                                    return currency
+                                      ? ` (${currency.symbol})`
+                                      : "";
+                                  })()}
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="col-span-12 md:col-span-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            onClick={() => remove(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+
+                <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end items-center gap-4 pt-4 border-t mt-6">
+                  <motion.div
+                    key={calculateTotal()}
+                    initial={{ scale: 0.95, opacity: 0.5 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="text-2xl font-bold font-mono-data text-primary w-full sm:w-auto text-center sm:text-right"
+                  >
+                    <span className="text-sm font-medium text-muted-foreground mr-2">
+                      Total Estimado:
+                    </span>
+                    {(() => {
+                      const selectedId = form.watch("currencyId");
+                      const currency =
+                        currencies?.find((c) => c.id === selectedId) ||
+                        currencies?.find((c) => c.isBase);
+                      return formatCurrency(
+                        calculateTotal().toFixed(2),
+                        currency?.code,
+                      );
+                    })()}
+                  </motion.div>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={() => onOpenChange(false)}
+                      className="flex-1 sm:flex-none px-8"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={createOrder.isPending}
+                      className="flex-1 sm:flex-none px-8"
+                    >
+                      {createOrder.isPending && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      {isPurchase ? "Registrar Orden" : "Solicitar Pedido"}
+                    </Button>
+                  </div>
+                </DialogFooter>
+              </form>
+            </Form>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

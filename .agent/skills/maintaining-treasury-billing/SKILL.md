@@ -148,3 +148,18 @@ const where = and(
   - **General Settings**: Currencies and Exchange Rates are managed in `/dashboard/settings/currencies`.
   - **Operations**: Daily tasks like Payments and Daily Close live in `/dashboard/treasury/`.
 - **Navigation**: Always update `app-sidebar.tsx` when moving modules to preserve menu integrity.
+
+## 14. Payment Annulment (Logical Deletion & Rollback)
+
+Due to ledger security and accounting strictness, Payments are **NEVER physically deleted**. They are **Voided** (`status = 'VOID'`) through a strict transactional 8-step rollback process inside `voidPayment(id)`:
+
+1.  **Child Credit Note Validation:** If the payment generated surplus (Advance Payment Credit Notes), ensure those credit notes have NOT been spent. If spent, the void is blocked.
+2.  **Ledger Reversal:** The connected `bankAccount.currentBalance` is subtracted (if INCOME) or added (if EXPENSE).
+3.  **Parent Usage Release:** If the payment itself used an existing Credit Note balance, the `creditNoteUsages` are returned.
+4.  **Credit Note Deletion:** The surplus Child Credit notes are deleted.
+5.  **Tax Cleanup:** The junction `taxRetentionLines` are deleted. If the parent `taxRetention` becomes empty, it is deleted; otherwise, its totals are recalculated.
+6.  **Allocations Breakup:** The `paymentAllocations` that linked the payment cash to the `invoices` are deleted.
+7.  **Document Link Cleanup:** Links in `documentLinks` are wiped.
+8.  **Invoice Re-Opening:** Any `invoices` touched by this payment are dynamically recalculated. If their unpaid balance rises above 0, their status reverts from `PAID` back to `PARTIALLY_PAID` or `POSTED`.
+
+Always verify `PERMISSIONS.FINANCE.PAYMENTS.VOID` before exposing this feature to frontend users.

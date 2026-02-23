@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 
 export interface BankAccount {
@@ -17,6 +17,7 @@ export interface BankAccount {
 
 export function useBankAccounts() {
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["bank-accounts"],
     queryFn: async () => {
       const { data } = await api.get<BankAccount[]>("/treasury/bank-accounts");

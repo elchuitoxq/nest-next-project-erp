@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -26,7 +26,6 @@ import {
   usePayrollSettingsMutation,
 } from "../../hooks/use-payroll-settings";
 import { Loader2, Save } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
 
 const settingsSchema = z.object({
   UNIT_TAX_VALUE: z.coerce.number().min(0),

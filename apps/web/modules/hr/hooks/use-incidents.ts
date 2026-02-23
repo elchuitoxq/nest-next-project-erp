@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api";
 import { PayrollConceptType } from "./use-payroll-settings";
 
 export interface Incident {
@@ -18,9 +19,10 @@ export interface Incident {
 
 export function useIncidents(employeeId?: string) {
   return useQuery<Incident[]>({
+    placeholderData: keepPreviousData,
     queryKey: ["incidents", employeeId],
     queryFn: async () => {
-      const { data } = await api.get("/hr/incidents", {
+      const { data } = await api.get<Incident[]>("/hr/incidents", {
         params: { employeeId },
       });
       return data;
@@ -32,7 +34,7 @@ export function useIncidentsMutation(employeeId?: string) {
   const queryClient = useQueryClient();
 
   const createIncident = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: unknown) => {
       const { data: res } = await api.post("/hr/incidents", data);
       return res;
     },
@@ -40,7 +42,7 @@ export function useIncidentsMutation(employeeId?: string) {
       toast.success("Incidencia registrada");
       queryClient.invalidateQueries({ queryKey: ["incidents"] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
         error.response?.data?.message || "Error al registrar incidencia",
       );

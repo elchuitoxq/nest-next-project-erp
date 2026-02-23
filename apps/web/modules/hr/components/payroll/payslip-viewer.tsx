@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import {
   Dialog,
@@ -58,9 +58,12 @@ export function PayslipViewer({
   itemId: string;
 }) {
   const { data, isLoading } = useQuery<PayslipData>({
+    placeholderData: keepPreviousData,
     queryKey: ["payslip", runId, itemId],
     queryFn: async () => {
-      const { data } = await api.get(`/hr/payroll/${runId}/payslip/${itemId}`);
+      const { data } = await api.get<PayslipData>(
+        `/hr/payroll/${runId}/payslip/${itemId}`,
+      );
       return data;
     },
     enabled: !!runId && !!itemId,
@@ -124,7 +127,7 @@ export function PayslipViewer({
           <FileText className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Recibo de Pago</DialogTitle>
         </DialogHeader>
@@ -204,7 +207,7 @@ export function PayslipViewer({
             </thead>
             <tbody className="divide-y">
               {/* Income */}
-              {data.incomeLines.map((line, i) => (
+              {data.incomeLines?.map((line: LineItem, i: number) => (
                 <tr key={`inc-${i}`}>
                   <td className="py-1">
                     {line.concept}
@@ -221,7 +224,7 @@ export function PayslipViewer({
                 </tr>
               ))}
               {/* Deductions */}
-              {data.deductionLines.map((line, i) => (
+              {data.deductionLines?.map((line: LineItem, i: number) => (
                 <tr key={`ded-${i}`}>
                   <td className="py-1">
                     {line.concept}

@@ -1,26 +1,27 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { CreateUserValues, UpdateUserValues } from "../types";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api";
 
 export function useUserMutations() {
   const queryClient = useQueryClient();
 
   const createUser = useMutation({
-    mutationFn: async (data: CreateUserValues) => {
+    mutationFn: async (data: any) => {
       return await api.post("/users", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success("Usuario creado exitosamente");
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(error.response?.data?.message || "Error al crear usuario");
     },
   });
 
   const updateUser = useMutation({
-    mutationFn: async (data: UpdateUserValues) => {
+    mutationFn: async (data: any) => {
       const { id, ...rest } = data;
       return await api.patch(`/users/${id}`, rest);
     },
@@ -28,9 +29,9 @@ export function useUserMutations() {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success("Usuario actualizado exitosamente");
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
-        error.response?.data?.message || "Error al actualizar usuario"
+        error.response?.data?.message || "Error al actualizar usuario",
       );
     },
   });
@@ -43,7 +44,7 @@ export function useUserMutations() {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success("Usuario eliminado exitosamente");
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(error.response?.data?.message || "Error al eliminar usuario");
     },
   });

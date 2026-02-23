@@ -36,9 +36,12 @@ export class PayrollService {
     private readonly accountingService: AccountingService,
   ) {}
 
-  async findAll(branchId: string) {
+  async findAll(branchId?: string) {
+    const whereClause = branchId
+      ? eq(payrollRuns.branchId, branchId)
+      : undefined;
     return await db.query.payrollRuns.findMany({
-      where: eq(payrollRuns.branchId, branchId),
+      where: whereClause,
       orderBy: [desc(payrollRuns.startDate)],
       with: {
         currency: true,

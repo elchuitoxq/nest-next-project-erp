@@ -1,4 +1,10 @@
-import { Partner } from "@/modules/partners/types";
+import {
+  Partner,
+  Currency,
+  Branch,
+  User,
+  Product as ApiProduct,
+} from "@/types/api";
 
 export interface InvoiceItem {
   id: string;
@@ -6,11 +12,7 @@ export interface InvoiceItem {
   quantity: string | number;
   price: string | number;
   total: string | number;
-  product?: {
-    id: string;
-    name: string;
-    sku: string;
-  };
+  product?: ApiProduct;
 }
 
 export interface Invoice {
@@ -27,20 +29,13 @@ export interface Invoice {
   totalIgtf: string | number;
   total: string | number;
   date: string;
+  paidAmount?: string | number;
 
   partner?: Partner;
-  branch?: any;
-  user?: {
-    id: string;
-    name: string;
-    email: string;
-  };
+  branch?: Branch;
+  user?: User;
   exchangeRate?: string | number;
-  currency?: {
-    id: string;
-    code: string;
-    symbol: string;
-  };
+  currency?: Currency;
   items: InvoiceItem[];
   payments?: {
     id: string;

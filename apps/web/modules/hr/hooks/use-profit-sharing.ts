@@ -1,7 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
+import { ApiError } from "@/lib/api";
 
 export interface ProfitSharing {
   id: string;
@@ -27,9 +28,10 @@ export interface CreateProfitSharingDto {
 
 export function useProfitSharing(employeeId: string) {
   return useQuery<ProfitSharing[]>({
+    placeholderData: keepPreviousData,
     queryKey: ["profit-sharing", employeeId],
     queryFn: async () => {
-      const { data } = await api.get(
+      const { data } = await api.get<ProfitSharing[]>(
         `/hr/profit-sharing/employee/${employeeId}`,
       );
       return data;
@@ -53,7 +55,7 @@ export function useProfitSharingMutations() {
         queryKey: ["profit-sharing", employeeId],
       });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
         error.response?.data?.message || "Error al registrar utilidades",
       );

@@ -67,7 +67,8 @@ const ALL_TYPES = [
 import { useDebounce } from "@/hooks/use-debounce";
 import { useState, useEffect } from "react";
 
-// ... existing imports
+import { usePermission } from "@/hooks/use-permission";
+import { PERMISSIONS } from "@/config/permissions";
 
 export function PartnersTable({
   data,
@@ -101,7 +102,9 @@ export function PartnersTable({
     }
   }, [search]);
 
-  // ...
+  // Hook for row actions
+  const { hasPermission } = usePermission();
+
   const columns = useMemo<ColumnDef<Partner>[]>(
     () => [
       {
@@ -146,49 +149,68 @@ export function PartnersTable({
       },
       {
         id: "actions",
-        cell: ({ row }) => (
-          <div className="text-right">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Abrir menú</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                <DropdownMenuItem
-                  onClick={() => onViewStatement?.(row.original)}
-                >
-                  <FileText className="mr-2 h-4 w-4" /> Estado de Cuenta
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onEdit(row.original)}>
-                  <Pencil className="mr-2 h-4 w-4" /> Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => onDelete(row.original)}
-                  className="text-red-600 focus:text-red-600"
-                >
-                  <Trash className="mr-2 h-4 w-4" /> Eliminar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const canViewStatement = hasPermission(
+            PERMISSIONS.OPERATIONS.PARTNERS.STATEMENT,
+          );
+          const canEdit = hasPermission(PERMISSIONS.OPERATIONS.PARTNERS.EDIT);
+          const canDelete = hasPermission(
+            PERMISSIONS.OPERATIONS.PARTNERS.DELETE,
+          );
+
+          if (!canViewStatement && !canEdit && !canDelete) return null;
+
+          return (
+            <div className="text-right">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Abrir menú</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                  {canViewStatement && (
+                    <DropdownMenuItem
+                      onClick={() => onViewStatement?.(row.original)}
+                    >
+                      <FileText className="mr-2 h-4 w-4" /> Estado de Cuenta
+                    </DropdownMenuItem>
+                  )}
+                  {canEdit && (
+                    <DropdownMenuItem onClick={() => onEdit(row.original)}>
+                      <Pencil className="mr-2 h-4 w-4" /> Editar
+                    </DropdownMenuItem>
+                  )}
+                  {canDelete && (
+                    <DropdownMenuItem
+                      onClick={() => onDelete(row.original)}
+                      className="text-red-600 focus:text-red-600"
+                    >
+                      <Trash className="mr-2 h-4 w-4" /> Eliminar
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        },
       },
     ],
-    [onEdit, onDelete, onViewStatement],
+    [onEdit, onDelete, onViewStatement, hasPermission],
   );
+
+  const tableState = useMemo(() => ({ pagination }), [pagination]);
 
   const table = useReactTable({
     data,
     columns,
     pageCount,
-    state: {
-      pagination,
-    },
+    state: tableState,
     onPaginationChange,
     manualPagination: true,
+    getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
   });
 

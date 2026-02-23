@@ -7,7 +7,7 @@ export const inventoryMoveSchema = z
     type: moveTypeEnum,
     fromWarehouseId: z.string().optional(),
     toWarehouseId: z.string().optional(),
-    note: z.string(),
+    note: z.string().min(5, "La descripción debe tener al menos 5 caracteres"),
     lines: z
       .array(
         z.object({

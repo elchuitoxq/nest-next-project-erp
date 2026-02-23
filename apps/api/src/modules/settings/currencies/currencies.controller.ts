@@ -10,9 +10,12 @@ import {
 import { CurrenciesService } from './currencies.service';
 import { JwtAuthGuard } from '../../../modules/auth/jwt-auth.guard';
 import { BranchInterceptor } from '../../../common/interceptors/branch.interceptor';
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RequirePermission } from '../../../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '@repo/db';
 
 @Controller('settings/currencies')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 @UseInterceptors(BranchInterceptor)
 export class CurrenciesController {
   constructor(private readonly currenciesService: CurrenciesService) {}
@@ -23,6 +26,7 @@ export class CurrenciesController {
   }
 
   @Post()
+  @RequirePermission(PERMISSIONS.SETTINGS.CURRENCIES.MANAGE)
   create(@Body() body: any) {
     // Remove branchId from creation
     const { branchId, ...data } = body;
@@ -35,6 +39,7 @@ export class CurrenciesController {
   }
 
   @Post('rates')
+  @RequirePermission(PERMISSIONS.SETTINGS.CURRENCIES.MANAGE)
   addRate(
     @Body() body: { currencyId: string; rate: string; source?: string },
     @Req() req: any,

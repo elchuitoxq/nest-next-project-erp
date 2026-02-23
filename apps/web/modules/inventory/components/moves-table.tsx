@@ -112,6 +112,19 @@ export function MovesTable({
     }
   };
 
+  const getStatusBadge = (status?: string) => {
+    switch (status) {
+      case "DRAFT":
+        return <Badge variant="warning">Borrador</Badge>;
+      case "APPROVED":
+        return <Badge variant="success">Aprobado</Badge>;
+      case "REJECTED":
+        return <Badge variant="destructive">Rechazado</Badge>;
+      default:
+        return <Badge variant="outline">{status ?? "—"}</Badge>;
+    }
+  };
+
   const columns = useMemo<ColumnDef<Move>[]>(
     () => [
       {
@@ -160,6 +173,11 @@ export function MovesTable({
           </div>
         ),
       },
+      {
+        accessorKey: "status",
+        header: "Estado",
+        cell: ({ row }) => getStatusBadge(row.original.status),
+      },
     ],
     [],
   );
@@ -173,6 +191,7 @@ export function MovesTable({
     },
     onPaginationChange,
     manualPagination: true,
+    getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
   });
 

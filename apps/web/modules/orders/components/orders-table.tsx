@@ -17,13 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Order } from "../types";
@@ -212,15 +206,16 @@ export function OrdersTable({
     [onViewDetails],
   );
 
+  const tableState = useMemo(() => ({ pagination }), [pagination]);
+
   const table = useReactTable({
     data,
     columns,
     pageCount,
-    state: {
-      pagination,
-    },
+    state: tableState,
     onPaginationChange,
     manualPagination: true,
+    getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
   });
 

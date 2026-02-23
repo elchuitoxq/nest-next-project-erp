@@ -29,11 +29,18 @@ export class OrdersService {
     private readonly billingService: BillingService,
     private readonly currenciesService: CurrenciesService,
   ) {}
-  async findAll(branchId: string, query: FindOrdersDto) {
+  async findAll(branchId: string, query: FindOrdersDto, user?: any) {
     const { page = 1, limit = 10, search, type, status, partnerId } = query;
     const offset = (page - 1) * limit;
 
-    const conditions = [eq(orders.branchId, branchId)];
+    const conditions = [];
+
+    // Filter by branch ONLY if set.
+    // If not set, we assume the user (Admin) wants to see ALL branches
+    // (access control is handled by Guard/Decorators).
+    if (branchId) {
+      conditions.push(eq(orders.branchId, branchId));
+    }
 
     if (type && type.length > 0) {
       if (Array.isArray(type)) {
@@ -144,13 +151,16 @@ export class OrdersService {
   }
 
   async getStats(branchId: string, type: string) {
+    const conditions = [eq(orders.type, type)];
+    if (branchId) conditions.push(eq(orders.branchId, branchId));
+
     const stats = await db
       .select({
         status: orders.status,
         count: sql<number>`count(*)`,
       })
       .from(orders)
-      .where(and(eq(orders.branchId, branchId), eq(orders.type, type)))
+      .where(and(...conditions))
       .groupBy(orders.status);
 
     return stats;

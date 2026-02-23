@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import {
   Dialog,
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -48,6 +49,7 @@ export function PaymentDialog({
 
   // Fetch currencies to identify Foreign vs Base (VES)
   const { data: currencies } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["currencies"],
     queryFn: async () => {
       const { data } = await api.get("/settings/currencies");
@@ -81,92 +83,98 @@ export function PaymentDialog({
 
   useEffect(() => {
     if (isOpen) {
-      setAmount(remaining.toFixed(2));
-      setReference("");
-      setVoucherDate(new Date().toISOString().split("T")[0]);
-      setTaxBase(invoice.totalBase.toString());
-      setIgtfAmount(0);
+      setTimeout(() => {
+        setAmount(remaining.toFixed(2));
+        setReference("");
+        setVoucherDate(new Date().toISOString().split("T")[0]);
+        setTaxBase(invoice.totalBase.toString());
+        setIgtfAmount(0);
 
-      // Smart Logic: Auto-select Retention based on Client Profile
-      // ... (existing retention logic)
-      if (
-        invoice.payments?.length === 0 &&
-        Number(invoice.totalTax) > 0 &&
-        methods
-      ) {
-        let targetCode = "";
-        if (invoice.partner?.retentionRate) {
-          const rate = Number(invoice.partner.retentionRate);
-          if (rate === 75) targetCode = "RET_IVA_75";
-          if (rate === 100) targetCode = "RET_IVA_100";
-        }
-        if (!targetCode && invoice.partner?.isSpecialTaxpayer) {
-          targetCode = "RET_IVA_75";
-        }
-        if (targetCode) {
-          const retMethod = methods.find((m) => m.code === targetCode);
-          if (retMethod) {
-            setMethodId(retMethod.id);
-            return;
+        // Smart Logic: Auto-select Retention based on Client Profile
+        // ... (existing retention logic)
+        if (
+          invoice.payments?.length === 0 &&
+          Number(invoice.totalTax) > 0 &&
+          methods
+        ) {
+          let targetCode = "";
+          if (invoice.partner?.retentionRate) {
+            const rate = Number(invoice.partner.retentionRate);
+            if (rate === 75) targetCode = "RET_IVA_75";
+            if (rate === 100) targetCode = "RET_IVA_100";
+          }
+          if (!targetCode && invoice.partner?.isSpecialTaxpayer) {
+            targetCode = "RET_IVA_75";
+          }
+          if (targetCode) {
+            const retMethod = methods.find((m) => m.code === targetCode);
+            if (retMethod) {
+              setMethodId(retMethod.id);
+              return;
+            }
           }
         }
-      }
 
-      setMethodId("");
+        setMethodId("");
+      }, 0);
     }
   }, [isOpen, remaining, invoice, methods]);
 
   // IGTF Calculation Logic
   useEffect(() => {
-    if (!selectedMethod || !currencies || !amount) {
-      setIgtfAmount(0);
-      return;
-    }
+    setTimeout(() => {
+      if (!selectedMethod || !currencies || !amount) {
+        setIgtfAmount(0);
+        return;
+      }
 
-    // Find the currency of the selected method
-    const methodCurrency = currencies.find(
-      (c) => c.id === selectedMethod.currencyId,
-    );
+      // Find the currency of the selected method
+      const methodCurrency = currencies.find(
+        (c) => c.id === selectedMethod.currencyId,
+      );
 
-    // IGTF applies if the Payment Method Currency is NOT the Base Currency (Foreign)
-    // Assuming `isBase` is true for VES.
-    if (methodCurrency && methodCurrency.code !== "VES") {
-      // Calculate 3%
-      const val = parseFloat(amount);
-      if (!isNaN(val)) {
-        setIgtfAmount(val * 0.03);
+      // IGTF applies if the Payment Method Currency is NOT the Base Currency (Foreign)
+      // Assuming `isBase` is true for VES.
+      if (methodCurrency && methodCurrency.code !== "VES") {
+        // Calculate 3%
+        const val = parseFloat(amount);
+        if (!isNaN(val)) {
+          setIgtfAmount(val * 0.03);
+        } else {
+          setIgtfAmount(0);
+        }
       } else {
         setIgtfAmount(0);
       }
-    } else {
-      setIgtfAmount(0);
-    }
+    }, 0);
   }, [selectedMethod, currencies, amount]);
 
   // Auto-calculate retention amount when method changes
   useEffect(() => {
     if (!selectedMethod) return;
 
-    // Reset Bank Account if switching to Retention or Balance
-    if (
-      selectedMethod.code?.startsWith("RET_") ||
-      selectedMethod.code?.startsWith("BALANCE")
-    ) {
-      setBankAccountId("");
-    }
+    setTimeout(() => {
+      // Reset Bank Account if switching to Retention or Balance
+      if (
+        selectedMethod.code?.startsWith("RET_") ||
+        selectedMethod.code?.startsWith("BALANCE")
+      ) {
+        setBankAccountId("");
+      }
 
-    if (selectedMethod.code === "RET_IVA_75") {
-      const retAmount = Number(invoice.totalTax) * 0.75;
-      setAmount(retAmount.toFixed(2));
-    } else if (selectedMethod.code === "RET_IVA_100") {
-      const retAmount = Number(invoice.totalTax) * 1.0;
-      setAmount(retAmount.toFixed(2));
-    } else if (selectedMethod.code === "RET_ISLR") {
-      setAmount("");
-    } else if (!isRetention) {
-      // Reset to remaining if switching back to normal payment
-      setAmount(remaining.toFixed(2));
-    }
+      if (selectedMethod.code === "RET_IVA_75") {
+        const retAmount = Number(invoice.totalTax) * 0.75;
+        setAmount(retAmount.toFixed(2));
+      } else if (selectedMethod.code === "RET_IVA_100") {
+        const retAmount = Number(invoice.totalTax) * 1.0;
+        setAmount(retAmount.toFixed(2));
+      } else if (selectedMethod.code === "RET_ISLR") {
+        setAmount("");
+      } else if (!isRetention) {
+        // Reset to remaining if switching back to normal payment
+        setAmount(remaining.toFixed(2));
+      }
+    }, 0);
   }, [selectedMethod, invoice, isRetention, remaining]);
 
   const { data: statement } = useAccountStatement(invoice.partnerId);
@@ -198,7 +206,9 @@ export function PaymentDialog({
 
   useEffect(() => {
     if (isBalancePayment) {
-      setReference("Cruce de Saldo");
+      setTimeout(() => {
+        setReference("Cruce de Saldo");
+      }, 0);
     }
   }, [isBalancePayment]);
 
@@ -206,14 +216,16 @@ export function PaymentDialog({
   const isCash = selectedMethod?.code?.startsWith("CASH");
   useEffect(() => {
     if (isCash && bankAccounts && !bankAccountId) {
-      const cashAccount = bankAccounts.find(
-        (acc) => acc.type === "CASH" && acc.currencyId === invoice.currencyId,
-      );
-      if (cashAccount) {
-        setBankAccountId(cashAccount.id);
-      }
+      setTimeout(() => {
+        const cashAccount = bankAccounts.find(
+          (acc) => acc.type === "CASH" && acc.currencyId === invoice.currencyId,
+        );
+        if (cashAccount) {
+          setBankAccountId(cashAccount.id);
+        }
+      }, 0);
     }
-  }, [isCash, bankAccounts, invoice.currencyId]);
+  }, [isCash, bankAccounts, invoice.currencyId, bankAccountId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -350,184 +362,195 @@ export function PaymentDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
-        {/* ... existing header ... */}
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-              <Wallet className="size-5" />
-            </div>
-            Registrar Pago - {invoice.code}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] p-0">
+        <ScrollArea className="max-h-[85vh] w-full">
+          <div className="p-6">
+            {/* ... existing header ... */}
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Wallet className="size-5" />
+                </div>
+                Registrar Pago - {invoice.code}
+              </DialogTitle>
+            </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-primary/5 border border-primary/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
-              <Receipt className="size-12" />
-            </div>
-            <div className="space-y-1 relative">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground flex items-center gap-1">
-                <CircleDollarSign className="size-3" /> Total Factura
-              </span>
-              <div className="font-black text-xl font-mono-data">
-                {formatCurrency(
-                  Number(invoice.total),
-                  invoice.currency?.symbol || "$",
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-primary/5 border border-primary/10 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none">
+                  <Receipt className="size-12" />
+                </div>
+                <div className="space-y-1 relative">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground flex items-center gap-1">
+                    <CircleDollarSign className="size-3" /> Total Factura
+                  </span>
+                  <div className="font-black text-xl font-mono-data">
+                    {formatCurrency(
+                      Number(invoice.total),
+                      invoice.currency?.symbol || "$",
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1 relative">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-primary flex items-center gap-1">
+                    <div className="size-1.5 rounded-full bg-primary animate-pulse" />{" "}
+                    Saldo Pendiente
+                  </span>
+                  <div className="font-black text-xl font-mono-data text-primary">
+                    {formatCurrency(remaining, invoice.currency?.symbol || "$")}
+                  </div>
+                </div>
+                {isRetention && (
+                  <div className="col-span-2 mt-2 pt-2 border-t border-dashed border-primary/20">
+                    <div className="flex justify-between text-[10px] font-medium text-muted-foreground uppercase tracking-tight">
+                      <span>
+                        Base Imponible: {formatCurrency(invoice.totalBase)}
+                      </span>
+                      <span>Total IVA: {formatCurrency(invoice.totalTax)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {igtfAmount > 0 && (
+                  <div className="col-span-2 mt-2 pt-2 border-t border-dashed border-yellow-200/50 bg-yellow-500/5 -mx-4 px-4 pb-2">
+                    <div className="flex justify-between items-center text-yellow-700 dark:text-yellow-500 font-bold text-xs uppercase tracking-wider">
+                      <span>IGTF (3%):</span>
+                      <span>
+                        +{formatCurrency(igtfAmount, invoice.currency?.symbol)}
+                      </span>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground mt-1 italic">
+                      Aplica por pago en Divisas ({selectedMethod?.name})
+                    </p>
+                  </div>
                 )}
               </div>
-            </div>
-            <div className="space-y-1 relative">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-primary flex items-center gap-1">
-                <div className="size-1.5 rounded-full bg-primary animate-pulse" />{" "}
-                Saldo Pendiente
-              </span>
-              <div className="font-black text-xl font-mono-data text-primary">
-                {formatCurrency(remaining, invoice.currency?.symbol || "$")}
-              </div>
-            </div>
-            {isRetention && (
-              <div className="col-span-2 mt-2 pt-2 border-t border-dashed border-primary/20">
-                <div className="flex justify-between text-[10px] font-medium text-muted-foreground uppercase tracking-tight">
-                  <span>
-                    Base Imponible: {formatCurrency(invoice.totalBase)}
-                  </span>
-                  <span>Total IVA: {formatCurrency(invoice.totalTax)}</span>
-                </div>
-              </div>
-            )}
 
-            {igtfAmount > 0 && (
-              <div className="col-span-2 mt-2 pt-2 border-t border-dashed border-yellow-200/50 bg-yellow-500/5 -mx-4 px-4 pb-2">
-                <div className="flex justify-between items-center text-yellow-700 dark:text-yellow-500 font-bold text-xs uppercase tracking-wider">
-                  <span>IGTF (3%):</span>
-                  <span>
-                    +{formatCurrency(igtfAmount, invoice.currency?.symbol)}
-                  </span>
-                </div>
-                <p className="text-[9px] text-muted-foreground mt-1 italic">
-                  Aplica por pago en Divisas ({selectedMethod?.name})
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Método de Pago</Label>
-            <Select value={methodId} onValueChange={setMethodId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccione método" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableMethods?.map((method) => (
-                  <SelectItem key={method.id} value={method.id}>
-                    {method.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {!isRetention && !isBalancePayment && (
-            <div className="space-y-2">
-              <Label>
-                Cuenta Destino
-                {selectedMethod?.allowedAccounts &&
-                  selectedMethod.allowedAccounts.length > 0 && (
-                    <span className="text-xs text-blue-500 ml-2">
-                      (Restringida por Configuración)
-                    </span>
-                  )}
-              </Label>
-              <Select value={bankAccountId} onValueChange={setBankAccountId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione Cuenta Bancaria" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredAccounts?.length === 0 ? (
-                    <div className="p-2 text-xs text-muted-foreground text-center">
-                      No hay cuentas habilitadas para este método en{" "}
-                      {invoice.currency?.code}
-                    </div>
-                  ) : (
-                    filteredAccounts?.map((acc) => (
-                      <SelectItem key={acc.id} value={acc.id}>
-                        {acc.name}
+              <div className="space-y-2">
+                <Label>Método de Pago</Label>
+                <Select value={methodId} onValueChange={setMethodId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccione método" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableMethods?.map((method) => (
+                      <SelectItem key={method.id} value={method.id}>
+                        {method.name}
                       </SelectItem>
-                    ))
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {!isRetention && !isBalancePayment && (
+                <div className="space-y-2">
+                  <Label>
+                    Cuenta Destino
+                    {selectedMethod?.allowedAccounts &&
+                      selectedMethod.allowedAccounts.length > 0 && (
+                        <span className="text-xs text-blue-500 ml-2">
+                          (Restringida por Configuración)
+                        </span>
+                      )}
+                  </Label>
+                  <Select
+                    value={bankAccountId}
+                    onValueChange={setBankAccountId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione Cuenta Bancaria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredAccounts?.length === 0 ? (
+                        <div className="p-2 text-xs text-muted-foreground text-center">
+                          No hay cuentas habilitadas para este método en{" "}
+                          {invoice.currency?.code}
+                        </div>
+                      ) : (
+                        filteredAccounts?.map((acc) => (
+                          <SelectItem key={acc.id} value={acc.id}>
+                            {acc.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {isRetention && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Fecha Comprobante</Label>
+                    <DatePicker
+                      value={voucherDate}
+                      onChange={(v) => setVoucherDate(v)}
+                      placeholder="Fecha comprobante"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Base Imponible Doc.</Label>
+                    <Input
+                      type="number"
+                      value={taxBase}
+                      onChange={(e) => setTaxBase(e.target.value)}
+                      disabled // Auto-filled from invoice usually
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Monto {isRetention ? "Retenido" : "a Pagar"}</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>
+                    {isRetention ? "Nro. Comprobante" : "Referencia"}
+                  </Label>
+                  <Input
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    placeholder={isRetention ? "20240001..." : "Op #123456"}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className="w-full sm:w-auto px-8"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isPending}
+                  className="w-full sm:w-auto px-8"
+                >
+                  {isPending && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {isRetention && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Fecha Comprobante</Label>
-                <DatePicker
-                  value={voucherDate}
-                  onChange={(v) => setVoucherDate(v)}
-                  placeholder="Fecha comprobante"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Base Imponible Doc.</Label>
-                <Input
-                  type="number"
-                  value={taxBase}
-                  onChange={(e) => setTaxBase(e.target.value)}
-                  disabled // Auto-filled from invoice usually
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Monto {isRetention ? "Retenido" : "a Pagar"}</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>{isRetention ? "Nro. Comprobante" : "Referencia"}</Label>
-              <Input
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder={isRetention ? "20240001..." : "Op #123456"}
-              />
-            </div>
+                  {igtfAmount > 0
+                    ? `Pagar ${formatCurrency(
+                        Number(amount) + igtfAmount,
+                        invoice.currency?.symbol,
+                      )}`
+                    : "Registrar Pago"}
+                </Button>
+              </DialogFooter>
+            </form>
           </div>
-
-          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="w-full sm:w-auto px-8"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={isPending}
-              className="w-full sm:w-auto px-8"
-            >
-              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {igtfAmount > 0
-                ? `Pagar ${formatCurrency(
-                    Number(amount) + igtfAmount,
-                    invoice.currency?.symbol,
-                  )}`
-                : "Registrar Pago"}
-            </Button>
-          </DialogFooter>
-        </form>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

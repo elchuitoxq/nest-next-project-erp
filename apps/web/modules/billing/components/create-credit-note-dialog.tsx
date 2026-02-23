@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -39,11 +39,9 @@ import {
 } from "@/components/ui/table";
 import { Invoice } from "../types";
 import { useCreditNotes } from "../hooks/use-credit-notes";
-import {
-  useWarehouses,
-  Warehouse,
-} from "@/modules/inventory/hooks/use-warehouses";
+import { useWarehouses } from "@/modules/inventory/hooks/use-warehouses";
 import { formatCurrency } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CreateCreditNoteDialogProps {
   invoice: Invoice;
@@ -160,144 +158,154 @@ export function CreateCreditNoteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Crear Nota de Crédito (Devolución)</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[700px] max-h-[85vh] p-0">
+        <ScrollArea className="max-h-[85vh] w-full">
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle>Crear Nota de Crédito (Devolución)</DialogTitle>
+            </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="border rounded-md p-4 bg-muted/20">
-              <h3 className="font-medium mb-2">
-                1. Seleccionar Almacén de Retorno (Opcional)
-              </h3>
-              <FormField
-                control={form.control}
-                name="warehouseId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Almacén</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="No retornar inventario" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="no_return">
-                          No retornar inventario (Solo administrativo)
-                        </SelectItem>
-                        {warehouses?.map((w) => (
-                          <SelectItem key={w.id} value={w.id}>
-                            {w.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-6"
+              >
+                <div className="border rounded-md p-4 bg-muted/20">
+                  <h3 className="font-medium mb-2">
+                    1. Seleccionar Almacén de Retorno (Opcional)
+                  </h3>
+                  <FormField
+                    control={form.control}
+                    name="warehouseId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Almacén</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="No retornar inventario" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="no_return">
+                              No retornar inventario (Solo administrativo)
+                            </SelectItem>
+                            {warehouses?.map((w) => (
+                              <SelectItem key={w.id} value={w.id}>
+                                {w.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            <div className="border rounded-md overflow-x-auto">
-              <h3 className="font-medium p-4 border-b">
-                2. Seleccionar Productos
-              </h3>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]"></TableHead>
-                    <TableHead>Producto</TableHead>
-                    <TableHead className="text-right">Precio</TableHead>
-                    <TableHead className="text-right">Cant. Orig.</TableHead>
-                    <TableHead className="w-[120px]">A Devolver</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoice.items.map((item) => {
-                    const isSelected = selectedProductIds.includes(
-                      item.productId,
-                    );
-                    const formItem = form
-                      .getValues("items")
-                      .find((i) => i.productId === item.productId);
-                    const currentQty = formItem?.quantity || 0;
-
-                    return (
-                      <TableRow
-                        key={item.id}
-                        data-state={isSelected ? "selected" : undefined}
-                      >
-                        <TableCell>
-                          <Checkbox
-                            checked={isSelected}
-                            onCheckedChange={() =>
-                              toggleSelect(
-                                item.productId,
-                                Number(item.quantity),
-                              )
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>{item.product?.name || "???"}</TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(
-                            Number(item.price),
-                            invoice.currency?.code,
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {item.quantity}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            disabled={!isSelected}
-                            value={isSelected ? currentQty : ""}
-                            onChange={(e) =>
-                              updateQuantity(
-                                item.productId,
-                                Number(e.target.value),
-                              )
-                            }
-                            max={Number(item.quantity)}
-                            min={0}
-                            className="h-8 w-24 ml-auto"
-                          />
-                        </TableCell>
+                <div className="border rounded-md overflow-x-auto">
+                  <h3 className="font-medium p-4 border-b">
+                    2. Seleccionar Productos
+                  </h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead>Producto</TableHead>
+                        <TableHead className="text-right">Precio</TableHead>
+                        <TableHead className="text-right">
+                          Cant. Orig.
+                        </TableHead>
+                        <TableHead className="w-[120px]">A Devolver</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {invoice.items.map((item) => {
+                        const isSelected = selectedProductIds.includes(
+                          item.productId,
+                        );
+                        const formItem = form
+                          .getValues("items")
+                          .find((i) => i.productId === item.productId);
+                        const currentQty = formItem?.quantity || 0;
 
-            <DialogFooter>
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => onOpenChange(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  createCreditNote.isPending || selectedProductIds.length === 0
-                }
-              >
-                {createCreditNote.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Generar Devolución
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                        return (
+                          <TableRow
+                            key={item.id}
+                            data-state={isSelected ? "selected" : undefined}
+                          >
+                            <TableCell>
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() =>
+                                  toggleSelect(
+                                    item.productId,
+                                    Number(item.quantity),
+                                  )
+                                }
+                              />
+                            </TableCell>
+                            <TableCell>{item.product?.name || "???"}</TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(
+                                Number(item.price),
+                                invoice.currency?.code,
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {item.quantity}
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                disabled={!isSelected}
+                                value={isSelected ? currentQty : ""}
+                                onChange={(e) =>
+                                  updateQuantity(
+                                    item.productId,
+                                    Number(e.target.value),
+                                  )
+                                }
+                                max={Number(item.quantity)}
+                                min={0}
+                                className="h-8 w-24 ml-auto"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      createCreditNote.isPending ||
+                      selectedProductIds.length === 0
+                    }
+                  >
+                    {createCreditNote.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Generar Devolución
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import {
   Warehouse,
@@ -9,13 +9,15 @@ import {
 import { toast } from "sonner";
 
 // --- WAREHOUSES ---
-export function useWarehouses() {
+export function useWarehouses(options?: { enabled?: boolean }) {
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["warehouses"],
     queryFn: async () => {
       const { data } = await api.get<Warehouse[]>("/inventory/warehouses");
       return data;
     },
+    ...options,
   });
 }
 
@@ -30,8 +32,8 @@ export function useWarehouseMutations() {
       queryClient.invalidateQueries({ queryKey: ["warehouses"] });
       toast.success("Almacén creado exitosamente");
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Error al crear almacén");
+    onError: (error: Error) => {
+      toast.error("Error al crear almacén");
     },
   });
 
@@ -49,10 +51,8 @@ export function useWarehouseMutations() {
       queryClient.invalidateQueries({ queryKey: ["warehouses"] });
       toast.success("Almacén actualizado exitosamente");
     },
-    onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || "Error al actualizar almacén",
-      );
+    onError: (error: Error) => {
+      toast.error("Error al actualizar almacén");
     },
   });
 
@@ -76,6 +76,7 @@ export function useInventoryMoves(params: FindMovesParams = {}) {
   };
 
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["inventory-moves", serializedParams],
     queryFn: async () => {
       const { data } = await api.get<{
@@ -98,27 +99,53 @@ export function useInventoryMutations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-moves"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] }); // Stock might change
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["stock"] });
       toast.success("Movimiento registrado exitosamente");
     },
-    onError: (error: any) => {
-      toast.error(
-        error.response?.data?.message || "Error al registrar movimiento",
-      );
+    onError: (error: Error) => {
+      toast.error("Error al registrar movimiento");
     },
   });
 
-  return { createMove };
+  const approveMove = useMutation({
+    mutationFn: async (id: string) => {
+      return await api.patch(`/inventory/moves/${id}/approve`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-moves"] });
+      queryClient.invalidateQueries({ queryKey: ["stock"] });
+      toast.success("Movimiento aprobado exitosamente");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Error al aprobar el movimiento");
+    },
+  });
+
+  const rejectMove = useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      return await api.patch(`/inventory/moves/${id}/reject`, { reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-moves"] });
+      toast.success("Movimiento rechazado");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Error al rechazar el movimiento");
+    },
+  });
+
+  return { createMove, approveMove, rejectMove };
 }
 
 // --- STOCK ---
 export function useStock(warehouseId?: string, search?: string) {
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["stock", warehouseId, search],
     queryFn: async () => {
       if (!warehouseId) return [];
-      const { data } = await api.get(`/inventory/stock/${warehouseId}`, {
+      const { data } = await api.get<any[]>(`/inventory/stock/${warehouseId}`, {
         params: { search },
       });
       return data;

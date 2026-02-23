@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { StyleSheet, Font } from "@react-pdf/renderer";
+ 
+import { StyleSheet } from "@react-pdf/renderer";
 
 // Register fonts if needed. For now, we use standard Helvetica.
 // Font.register({

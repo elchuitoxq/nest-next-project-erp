@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useState } from "react";
 import { fiscalReportsApi } from "../reports.api";
 import { format } from "date-fns";
@@ -33,18 +33,14 @@ import {
 import { Loader2, Download } from "lucide-react";
 import { saveAs } from "file-saver";
 import { formatCurrency, cn } from "@/lib/utils";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { Badge } from "@/components/ui/badge";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Info, HelpCircle, FileText, CheckCircle2 } from "lucide-react";
+
+
+import { FileText, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { DocumentDetailModal } from "./document-detail-modal";
 
@@ -66,6 +62,7 @@ export function ReportsView() {
   } | null>(null);
 
   const { data, isLoading } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["fiscal-report", type, month, year, fortnight],
     queryFn: async () => {
       const fortnightParam = fortnight === "full" ? undefined : fortnight;
@@ -407,8 +404,9 @@ export function ReportsView() {
                         Total de IVA retenido a terceros en el periodo.
                       </p>
                       <div className="mt-8 p-3 rounded-lg bg-yellow-100/50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-xs text-yellow-900 dark:text-yellow-400 italic">
-                        "Este monto debe ser declarado y pagado íntegramente
-                        según el calendario de sujetos pasivos."
+                        &quot;Este monto debe ser declarado y pagado
+                        íntegramente según el calendario de sujetos
+                        pasivos.&quot;
                       </div>
                     </CardContent>
                   </Card>

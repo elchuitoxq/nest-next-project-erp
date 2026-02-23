@@ -1,5 +1,5 @@
 import { formatCurrency } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 
 interface DualCurrencyDisplayProps {
@@ -14,6 +14,7 @@ export function DualCurrencyDisplay({
 }: DualCurrencyDisplayProps) {
   // Fetch Rates (Global)
   const { data: latestRates } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["exchange-rates", "latest"],
     queryFn: async () => {
       const { data } = await api.get<any[]>("/settings/currencies/rates/latest");
@@ -24,6 +25,7 @@ export function DualCurrencyDisplay({
 
   // Fetch Currencies (Global)
   const { data: currencies } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["currencies"],
     queryFn: async () => {
       const { data } = await api.get<any[]>("/settings/currencies");

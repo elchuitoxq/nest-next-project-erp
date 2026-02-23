@@ -17,33 +17,55 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
-@ApiTags('HR - Payroll Incidents (Novedades)')
+import { PermissionsGuard } from '../../../common/guards/permissions.guard';
+import { RequirePermission } from '../../../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '@repo/db';
+
+@ApiTags('Recursos Humanos - Incidencias de Nómina')
 @Controller('hr/incidents')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PayrollIncidentsController {
   constructor(private readonly incidentsService: PayrollIncidentsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List incidents, optionally filtered by employee' })
+  @ApiOperation({
+    summary: 'Listar incidencias',
+    description:
+      'Retorna las novedades de nómina, opcionalmente filtradas por empleado.',
+  })
   @ApiQuery({ name: 'employeeId', required: false })
+  @RequirePermission(PERMISSIONS.HR.INCIDENTS.VIEW)
   async findAll(@Query('employeeId') employeeId?: string) {
     return this.incidentsService.findAll(employeeId);
   }
 
   @Post()
-  @ApiOperation({ summary: 'Register a new incident' })
+  @ApiOperation({
+    summary: 'Registrar nueva incidencia',
+    description:
+      'Crea un nuevo registro de novedad (bono, falta, etc.) para un empleado.',
+  })
+  @RequirePermission(PERMISSIONS.HR.INCIDENTS.CREATE)
   async create(@Body() createDto: CreateIncidentDto) {
     return this.incidentsService.create(createDto);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update incident' })
+  @ApiOperation({
+    summary: 'Actualizar incidencia',
+    description: 'Modifica los datos o el estado de una incidencia existente.',
+  })
+  @RequirePermission(PERMISSIONS.HR.INCIDENTS.APPROVE)
   async update(@Param('id') id: string, @Body() updateDto: UpdateIncidentDto) {
     return this.incidentsService.update(id, updateDto);
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete incident' })
+  @ApiOperation({
+    summary: 'Eliminar incidencia',
+    description: 'Elimina el registro de la incidencia especificada.',
+  })
+  @RequirePermission(PERMISSIONS.HR.INCIDENTS.APPROVE)
   async delete(@Param('id') id: string) {
     return this.incidentsService.delete(id);
   }

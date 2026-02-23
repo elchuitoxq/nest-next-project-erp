@@ -1,16 +1,17 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { BCVScraperService } from './bcv-scraper.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../../common/decorators/access-control.decorators';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
+import { PERMISSIONS } from '@repo/db';
 
 @Controller('cron')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CronController {
   constructor(private readonly bcvService: BCVScraperService) {}
 
   @Get('trigger-bcv')
-  @Roles('admin', 'manager')
+  @RequirePermission(PERMISSIONS.SETTINGS.VIEW)
   async triggerBCV() {
     const result = await this.bcvService.scrapeRates();
     return {

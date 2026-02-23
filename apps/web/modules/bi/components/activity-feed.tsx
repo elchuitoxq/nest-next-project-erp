@@ -12,9 +12,6 @@ import {
   FileText,
   CreditCard,
   Package,
-  ArrowUpRight,
-  ArrowDownLeft,
-  ArrowRight,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";

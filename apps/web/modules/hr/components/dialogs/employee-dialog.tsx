@@ -34,6 +34,7 @@ import { useCurrencies } from "@/modules/settings/currencies/hooks/use-currencie
 import { usePositions } from "../../hooks/use-positions";
 import { useDepartments } from "../../hooks/use-departments";
 import { useBanks } from "@/modules/settings/banks/hooks/use-banks";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface EmployeeDialogProps {
   open: boolean;
@@ -147,274 +148,98 @@ export function EmployeeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {employee ? "Editar Empleado" : "Nuevo Empleado"}
-          </DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="firstName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombres</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="lastName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Apellidos</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="identityCard"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cédula / Documento</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Teléfono</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="positionId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Cargo</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {positions?.map((pos) => (
-                          <SelectItem key={pos.id} value={pos.id}>
-                            {pos.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="departmentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Departamento</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar..." />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {departments?.map((dept) => (
-                          <SelectItem key={dept.id} value={dept.id}>
-                            {dept.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="payFrequency"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Frecuencia de Pago</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="BIWEEKLY">Quincenal</SelectItem>
-                        <SelectItem value="MONTHLY">Mensual</SelectItem>
-                        <SelectItem value="WEEKLY">Semanal</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="p-4 border rounded-md bg-muted/20">
-              <h3 className="text-sm font-medium mb-4">
-                Configuración Salarial
-              </h3>
-
-              <GuideCard
-                title="Anclaje de Salario"
-                variant="tip"
-                className="mb-4"
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] p-0">
+        <ScrollArea className="max-h-[85vh] w-full">
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle>
+                {employee ? "Editar Empleado" : "Nuevo Empleado"}
+              </DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
               >
-                <p>
-                  Seleccionar una <strong>Moneda Fuerte (USD/EUR)</strong>{" "}
-                  protege el valor del salario. El sistema calculará el pago en
-                  Bolívares a la tasa del día de pago.
-                </p>
-              </GuideCard>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="salaryCurrencyId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Moneda del Salario</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccionar..." />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {currencies?.map((curr) => (
-                            <SelectItem key={curr.id} value={curr.id}>
-                              {curr.code} ({curr.symbol})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="baseSalary"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Salario Base</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            <div className="p-4 border rounded-md bg-muted/20">
-              <h3 className="text-sm font-medium mb-4">Información de Pago</h3>
-
-              <FormField
-                control={form.control}
-                name="paymentMethod"
-                render={({ field }) => (
-                  <FormItem className="mb-4">
-                    <FormLabel>Método de Pago</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="BANK_TRANSFER">
-                          Transferencia Bancaria
-                        </SelectItem>
-                        <SelectItem value="CASH">Efectivo</SelectItem>
-                        <SelectItem value="MOBILE_PAYMENT">
-                          Pago Móvil
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {selectedPaymentMethod === "BANK_TRANSFER" && (
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="bankId"
+                    name="firstName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Banco</FormLabel>
+                        <FormLabel>Nombres</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Apellidos</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="identityCard"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cédula / Documento</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Teléfono</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="positionId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cargo</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           defaultValue={field.value}
@@ -426,9 +251,9 @@ export function EmployeeDialog({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {banks?.map((bank) => (
-                              <SelectItem key={bank.id} value={bank.id}>
-                                {bank.name} ({bank.code})
+                            {positions?.map((pos) => (
+                              <SelectItem key={pos.id} value={pos.id}>
+                                {pos.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -439,10 +264,38 @@ export function EmployeeDialog({
                   />
                   <FormField
                     control={form.control}
-                    name="accountType"
+                    name="departmentId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tipo de Cuenta</FormLabel>
+                        <FormLabel>Departamento</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar..." />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {departments?.map((dept) => (
+                              <SelectItem key={dept.id} value={dept.id}>
+                                {dept.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="payFrequency"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Frecuencia de Pago</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           defaultValue={field.value}
@@ -454,27 +307,70 @@ export function EmployeeDialog({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="CHECKING">Corriente</SelectItem>
-                            <SelectItem value="SAVINGS">Ahorro</SelectItem>
+                            <SelectItem value="BIWEEKLY">Quincenal</SelectItem>
+                            <SelectItem value="MONTHLY">Mensual</SelectItem>
+                            <SelectItem value="WEEKLY">Semanal</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <div className="col-span-2 mt-2">
+                </div>
+
+                <div className="p-4 border rounded-md bg-muted/20">
+                  <h3 className="text-sm font-medium mb-4">
+                    Configuración Salarial
+                  </h3>
+
+                  <GuideCard
+                    title="Anclaje de Salario"
+                    variant="tip"
+                    className="mb-4"
+                  >
+                    <p>
+                      Seleccionar una <strong>Moneda Fuerte (USD/EUR)</strong>{" "}
+                      protege el valor del salario. El sistema calculará el pago
+                      en Bolívares a la tasa del día de pago.
+                    </p>
+                  </GuideCard>
+                  <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="accountNumber"
+                      name="salaryCurrencyId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Número de Cuenta (20 dígitos)</FormLabel>
+                          <FormLabel>Moneda del Salario</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar..." />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {currencies?.map((curr) => (
+                                <SelectItem key={curr.id} value={curr.id}>
+                                  {curr.code} ({curr.symbol})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="baseSalary"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Salario Base</FormLabel>
                           <FormControl>
-                            <Input
-                              placeholder="0134..."
-                              maxLength={20}
-                              {...field}
-                            />
+                            <Input type="number" step="0.01" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -482,24 +378,142 @@ export function EmployeeDialog({
                     />
                   </div>
                 </div>
-              )}
-            </div>
 
-            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="w-full sm:w-auto px-8"
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" className="w-full sm:w-auto px-8">
-                {employee ? "Actualizar Empleado" : "Guardar Empleado"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                <div className="p-4 border rounded-md bg-muted/20">
+                  <h3 className="text-sm font-medium mb-4">
+                    Información de Pago
+                  </h3>
+
+                  <FormField
+                    control={form.control}
+                    name="paymentMethod"
+                    render={({ field }) => (
+                      <FormItem className="mb-4">
+                        <FormLabel>Método de Pago</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="BANK_TRANSFER">
+                              Transferencia Bancaria
+                            </SelectItem>
+                            <SelectItem value="CASH">Efectivo</SelectItem>
+                            <SelectItem value="MOBILE_PAYMENT">
+                              Pago Móvil
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {selectedPaymentMethod === "BANK_TRANSFER" && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="bankId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Banco</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccionar..." />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {banks?.map((bank) => (
+                                  <SelectItem key={bank.id} value={bank.id}>
+                                    {bank.name} ({bank.code})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="accountType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tipo de Cuenta</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="CHECKING">
+                                  Corriente
+                                </SelectItem>
+                                <SelectItem value="SAVINGS">Ahorro</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <div className="col-span-2 mt-2">
+                        <FormField
+                          control={form.control}
+                          name="accountNumber"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                Número de Cuenta (20 dígitos)
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="0134..."
+                                  maxLength={20}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    className="w-full sm:w-auto px-8"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" className="w-full sm:w-auto px-8">
+                    {employee ? "Actualizar Empleado" : "Guardar Empleado"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

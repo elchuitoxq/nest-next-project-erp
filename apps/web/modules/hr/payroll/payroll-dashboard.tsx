@@ -21,15 +21,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Eye, FileSpreadsheet, Loader2, Building2 } from "lucide-react";
+import { Plus, Eye, FileSpreadsheet, Loader2 } from "lucide-react";
 import { usePayrollRuns } from "../hooks/use-payroll";
 import { PayrollGeneratorDialog } from "../components/payroll/generator-dialog";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageHeader } from "@/components/layout/page-header";
 import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
+import { PermissionsGate } from "@/components/auth/permissions-gate";
+import { PERMISSIONS } from "@/config/permissions";
 
 export function PayrollDashboard() {
   const router = useRouter();
@@ -56,12 +58,14 @@ export function PayrollDashboard() {
           title="Nómina"
           description="Gestión de pagos, recibos y liquidaciones."
         >
-          <Button
-            onClick={() => setIsGeneratorOpen(true)}
-            className="premium-shadow"
-          >
-            <Plus className="mr-2 h-4 w-4" /> Generar Nómina
-          </Button>
+          <PermissionsGate permission={PERMISSIONS.HR.PAYROLL.PROCESS}>
+            <Button
+              onClick={() => setIsGeneratorOpen(true)}
+              className="premium-shadow"
+            >
+              <Plus className="mr-2 h-4 w-4" /> Generar Nómina
+            </Button>
+          </PermissionsGate>
         </PageHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

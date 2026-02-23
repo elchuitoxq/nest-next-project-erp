@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2, Search } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { toast } from "sonner";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 

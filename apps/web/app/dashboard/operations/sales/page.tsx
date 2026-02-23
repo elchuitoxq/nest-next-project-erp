@@ -1,192 +1,22 @@
-"use client";
+import { Suspense } from "react";
+import { SalesView } from "@/modules/orders/components/sales-view";
+import { Loader2 } from "lucide-react";
 
-import { useEffect, useState } from "react";
-import { Plus, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { SidebarInset } from "@/components/ui/sidebar";
-import { AppHeader } from "@/components/layout/app-header";
-import {
-  useOrders,
-  useOrderMutations,
-} from "@/modules/orders/hooks/use-orders";
-import { OrdersTable } from "@/modules/orders/components/orders-table";
-import { OrderDialog } from "@/modules/orders/components/order-dialog";
-import { OrderDetailsDialog } from "@/modules/orders/components/order-details-dialog";
-import { OrderStatusCards } from "@/modules/orders/components/order-status-cards";
-import { Order } from "@/modules/orders/types";
-import { PaginationState } from "@tanstack/react-table";
-import { PageHeader } from "@/components/layout/page-header";
+export const metadata = {
+  title: "Pedidos de Venta | ERP",
+  description: "Gestión y seguimiento de pedidos de clientes.",
+};
 
-import { motion } from "framer-motion";
-
-export default function OrdersPage() {
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 25,
-  });
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
-
-  // Reset to first page when filters change
-  useEffect(() => {
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-  }, [search, statusFilter]);
-
-  const {
-    data: ordersResponse,
-    isLoading,
-    isError,
-  } = useOrders({
-    type: "SALE",
-    page: pagination.pageIndex + 1,
-    limit: pagination.pageSize,
-    search: search,
-    status: statusFilter.length > 0 ? statusFilter : undefined,
-  });
-
-  const { confirmOrder, cancelOrder, generateInvoice, recalculateOrder } =
-    useOrderMutations();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const selectedOrder = ordersResponse?.data?.find(
-    (order) => order.id === selectedId,
-  );
-
-  const executeConfirm = async (order: Order) => {
-    if (
-      confirm(
-        "¿Estás seguro de confirmar el pedido? Esto descontará el inventario.",
-      )
-    ) {
-      try {
-        await confirmOrder.mutateAsync(order.id);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  };
-
-  const executeRecalculate = async (order: Order) => {
-    if (
-      confirm("¿Recalcular pedido con la tasa actual? El total se actualizará.")
-    ) {
-      try {
-        await recalculateOrder.mutateAsync(order.id);
-        setIsDetailsOpen(false);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  };
-
-  const executeCancel = async (order: Order) => {
-    if (
-      confirm(
-        "¿Estás seguro de cancelar el pedido?" +
-          (order.status === "CONFIRMED"
-            ? " El stock será devuelto al almacén."
-            : ""),
-      )
-    ) {
-      try {
-        await cancelOrder.mutateAsync(order.id);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  };
-
-  const executeGenerateInvoice = async (order: Order) => {
-    if (confirm("¿Generar factura para este pedido?")) {
-      try {
-        await generateInvoice.mutateAsync(order.id);
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  };
-
-  const handleViewDetails = (order: Order) => {
-    setSelectedId(order.id);
-    setIsDetailsOpen(true);
-  };
-
+export default function SalesPage() {
   return (
-    <SidebarInset>
-      <AppHeader />
-
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-1 flex-col gap-4 p-4 pt-0"
-      >
-        <PageHeader
-          title="Pedidos de Venta"
-          description="Gestión y seguimiento de pedidos de clientes"
-        >
-          <Button
-            onClick={() => setIsDialogOpen(true)}
-            className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
-          >
-            <Plus className="mr-2 h-4 w-4" /> Nuevo Pedido
-          </Button>
-        </PageHeader>
-
-        <OrderStatusCards type="SALE" />
-
-        <Card className="border premium-shadow">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-semibold">
-              Historial de Pedidos
-            </CardTitle>
-            <CardDescription>
-              Visualiza y administra todos los pedidos de venta registrados en
-              el sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isError ? (
-              <div className="text-red-500 py-12 text-center border-dashed border-2 rounded-xl border-red-200 bg-red-50/50">
-                <p className="font-semibold text-lg">Error al cargar pedidos</p>
-              </div>
-            ) : (
-              <OrdersTable
-                data={ordersResponse?.data || []}
-                pageCount={ordersResponse?.meta.lastPage || 1}
-                pagination={pagination}
-                onPaginationChange={setPagination}
-                onViewDetails={handleViewDetails}
-                isLoading={isLoading}
-                search={search}
-                onSearchChange={setSearch}
-                statusFilter={statusFilter}
-                onStatusChange={setStatusFilter}
-              />
-            )}
-          </CardContent>
-        </Card>
-
-        <OrderDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
-        <OrderDetailsDialog
-          open={isDetailsOpen}
-          onOpenChange={setIsDetailsOpen}
-          order={selectedOrder}
-          type="SALE"
-          onConfirm={executeConfirm}
-          onCancel={executeCancel}
-          onGenerateInvoice={executeGenerateInvoice}
-          onRecalculate={executeRecalculate}
-        />
-      </motion.div>
-    </SidebarInset>
+    <Suspense
+      fallback={
+        <div className="flex h-[50vh] w-full items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <SalesView />
+    </Suspense>
   );
 }

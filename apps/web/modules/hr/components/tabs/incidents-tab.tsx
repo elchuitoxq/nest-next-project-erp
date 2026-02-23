@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import {
   Card,
   CardContent,
@@ -47,8 +46,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Loader2, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PermissionsGate } from "@/components/auth/permissions-gate";
+import { PERMISSIONS } from "@repo/db/permissions";
 import { useIncidents, useIncidentsMutation } from "../../hooks/use-incidents";
 import { usePayrollConceptTypes } from "../../hooks/use-payroll-settings";
 
@@ -109,131 +110,133 @@ export function IncidentsTab({ employeeId }: { employeeId: string }) {
               Registro de horas extra, bonos, faltas y otras variaciones.
             </CardDescription>
           </div>
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Registrar Novedad
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Registrar Novedad</DialogTitle>
-                <DialogDescription>
-                  Agregue una incidencia puntual para la próxima nómina.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(onSubmit)}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={form.control}
-                    name="conceptId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Concepto</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Seleccione concepto" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {concepts?.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.name} (
-                                {c.category === "INCOME"
-                                  ? "Asignación"
-                                  : "Deducción"}
-                                )
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="date"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Fecha</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-2 gap-4">
+          <PermissionsGate permission={PERMISSIONS.HR.INCIDENTS.CREATE}>
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Registrar Novedad
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Registrar Novedad</DialogTitle>
+                  <DialogDescription>
+                    Agregue una incidencia puntual para la próxima nómina.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                  <form
+                    onSubmit={form.handleSubmit(onSubmit)}
+                    className="space-y-4"
+                  >
                     <FormField
                       control={form.control}
-                      name="quantity"
+                      name="conceptId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Cantidad (Horas/Días)</FormLabel>
+                          <FormLabel>Concepto</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccione concepto" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {concepts?.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.name} (
+                                  {c.category === "INCOME"
+                                    ? "Asignación"
+                                    : "Deducción"}
+                                  )
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="date"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Fecha</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.5" {...field} />
+                            <Input type="date" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="quantity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cantidad (Horas/Días)</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.5" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="amount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Monto Fijo (Opcional)</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="Auto"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
                     <FormField
                       control={form.control}
-                      name="amount"
+                      name="notes"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Monto Fijo (Opcional)</FormLabel>
+                          <FormLabel>Observaciones</FormLabel>
                           <FormControl>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="Auto"
-                              {...field}
-                            />
+                            <Textarea {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
 
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Observaciones</FormLabel>
-                        <FormControl>
-                          <Textarea {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="flex justify-end pt-4">
-                    <Button type="submit" disabled={createIncident.isPending}>
-                      {createIncident.isPending && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      )}
-                      Guardar
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+                    <div className="flex justify-end pt-4">
+                      <Button type="submit" disabled={createIncident.isPending}>
+                        {createIncident.isPending && (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        )}
+                        Guardar
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </PermissionsGate>
         </CardHeader>
         <CardContent>
           {!incidents?.length ? (
@@ -290,19 +293,23 @@ export function IncidentsTab({ employeeId }: { employeeId: string }) {
                       {incident.notes}
                     </TableCell>
                     <TableCell>
-                      {incident.status === "PENDING" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => {
-                            if (confirm("¿Eliminar esta novedad?"))
-                              deleteIncident.mutate(incident.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <PermissionsGate
+                        permission={PERMISSIONS.HR.INCIDENTS.APPROVE}
+                      >
+                        {incident.status === "PENDING" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => {
+                              if (confirm("¿Eliminar esta novedad?"))
+                                deleteIncident.mutate(incident.id);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </PermissionsGate>
                     </TableCell>
                   </TableRow>
                 ))}

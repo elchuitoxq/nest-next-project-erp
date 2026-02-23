@@ -228,7 +228,7 @@ export function InvoicesTable({
         ),
       },
     ],
-    [onViewDetails],
+    [onViewDetails, onViewFlow],
   );
 
   const table = useReactTable({
@@ -240,6 +240,7 @@ export function InvoicesTable({
     },
     onPaginationChange,
     manualPagination: true,
+    getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
   });
 

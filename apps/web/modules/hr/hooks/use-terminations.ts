@@ -1,6 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api";
 
 export interface CalculateTerminationParams {
   employeeId: string;
@@ -41,10 +42,13 @@ export function useTerminations() {
 
   const calculateTermination = useMutation({
     mutationFn: async (data: CalculateTerminationParams) => {
-      const { data: res } = await api.post("/hr/terminations/calculate", data);
-      return res as TerminationCalculation;
+      const { data: res } = await api.post<TerminationCalculation>(
+        "/hr/terminations/calculate",
+        data,
+      );
+      return res;
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
         error.response?.data?.message || "Error al calcular liquidación",
       );
@@ -61,7 +65,7 @@ export function useTerminations() {
       queryClient.invalidateQueries({ queryKey: ["employees"] });
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(error.response?.data?.message || "Error al procesar baja");
     },
   });

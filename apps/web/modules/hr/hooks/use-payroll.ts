@@ -1,7 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { ApiError } from "@/lib/api";
 
 export interface PayrollRun {
   id: string;
@@ -45,9 +46,10 @@ export interface PayrollItemLine {
 
 export function usePayrollRuns() {
   return useQuery<PayrollRun[]>({
+    placeholderData: keepPreviousData,
     queryKey: ["payroll-runs"],
     queryFn: async () => {
-      const { data } = await api.get("/hr/payroll");
+      const { data } = await api.get<PayrollRun[]>("/hr/payroll");
       return data;
     },
   });
@@ -55,9 +57,10 @@ export function usePayrollRuns() {
 
 export function usePayrollRun(id: string) {
   return useQuery<PayrollRun>({
+    placeholderData: keepPreviousData,
     queryKey: ["payroll-run", id],
     queryFn: async () => {
-      const { data } = await api.get(`/hr/payroll/${id}`);
+      const { data } = await api.get<PayrollRun>(`/hr/payroll/${id}`);
       return data;
     },
     enabled: !!id,
@@ -75,7 +78,10 @@ export function usePayrollMutations() {
       frequency: string;
       description?: string;
     }) => {
-      const { data: res } = await api.post("/hr/payroll/generate", data);
+      const { data: res } = await api.post<{ id: string }>(
+        "/hr/payroll/generate",
+        data,
+      );
       return res;
     },
     onSuccess: (data) => {
@@ -83,7 +89,7 @@ export function usePayrollMutations() {
       queryClient.invalidateQueries({ queryKey: ["payroll-runs"] });
       router.push(`/dashboard/hr/payroll/${data.id}`);
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(error.response?.data?.message || "Error al generar nómina");
     },
   });
@@ -106,7 +112,7 @@ export function usePayrollMutations() {
       queryClient.invalidateQueries({ queryKey: ["payroll-runs"] });
       queryClient.invalidateQueries({ queryKey: ["payroll-run"] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(error.response?.data?.message || "Error al procesar pago");
     },
   });

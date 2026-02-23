@@ -46,6 +46,30 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
 
 // --- AUTH & USERS SCHEMA ---
 
+export const permissions = pgTable("permissions", {
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
+  code: text("code").notNull().unique(), // e.g., 'treasury:create_account'
+  description: text("description"),
+  module: text("module").notNull(), // 'treasury', 'sales', 'settings'
+});
+
+export const rolesPermissions = pgTable(
+  "roles_permissions",
+  {
+    roleId: uuid("role_id")
+      .references(() => roles.id)
+      .notNull(),
+    permissionId: uuid("permission_id")
+      .references(() => permissions.id)
+      .notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.roleId, t.permissionId] }),
+  }),
+);
+
 export const users = pgTable("users", {
   id: uuid("id")
     .primaryKey()
@@ -290,6 +314,13 @@ export const inventoryMoves = pgTable("inventory_moves", {
     .$defaultFn(() => uuidv7()),
   code: text("code").notNull(), // IN-001, OUT-005, TR-003
   type: text("type").notNull(), // IN, OUT, TRANSFER, ADJUST
+
+  // Approval flow
+  status: text("status").notNull().default("APPROVED"), // DRAFT, APPROVED, REJECTED
+  source: text("source").notNull().default("SYSTEM"), // MANUAL (requires approval), SYSTEM (auto-approved, from orders/billing)
+  approvedBy: uuid("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
 
   fromWarehouseId: uuid("from_warehouse_id").references(() => warehouses.id),
   toWarehouseId: uuid("to_warehouse_id").references(() => warehouses.id),
@@ -565,6 +596,7 @@ export const payments = pgTable("payments", {
     .references(() => paymentMethods.id)
     .notNull(),
 
+  status: text("status").default("POSTED"), // POSTED, VOID
   type: text("type").default("INCOME"), // INCOME, EXPENSE
   amount: numeric("amount", { precision: 20, scale: 2 }).notNull(),
   currencyId: uuid("currency_id")

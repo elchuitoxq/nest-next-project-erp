@@ -29,9 +29,8 @@ import {
 import { usePartnerMutations } from "../hooks/use-partners";
 import { useEffect } from "react";
 import { Loader2, Users } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
-import { GuideCard } from "@/components/guide/guide-card";
 import { GuideHint } from "@/components/guide/guide-hint";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PartnerDialogProps {
   open: boolean;
@@ -126,120 +125,170 @@ export function PartnerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-              <Users className="size-5" />
-            </div>
-            {partnerToEdit ? "Editar Socio" : "Crear Nuevo Socio"}
-          </DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombre / Razón Social</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Nombre del socio" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="taxId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>RIF/CI</FormLabel>
-                    <FormControl>
-                      <Input placeholder="V-12345678" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] p-0">
+        <ScrollArea className="max-h-[85vh] w-full">
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Users className="size-5" />
+                </div>
+                {partnerToEdit ? "Editar Socio" : "Crear Nuevo Socio"}
+              </DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
+                <div className="grid md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nombre / Razón Social</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Nombre del socio" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="taxId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>RIF/CI</FormLabel>
+                        <FormControl>
+                          <Input placeholder="V-12345678" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-            <div className="grid md:grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center">
-                      Tipo Relación
-                      <GuideHint text="Si marcas 'Ambos', podrás usar estra entidad tanto para comprarle como para venderle." />
-                    </FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      value={field.value}
-                    >
+                <div className="grid md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center">
+                          Tipo Relación
+                          <GuideHint text="Si marcas 'Ambos', podrás usar estra entidad tanto para comprarle como para venderle." />
+                        </FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="CUSTOMER">Cliente</SelectItem>
+                            <SelectItem value="SUPPLIER">Proveedor</SelectItem>
+                            <SelectItem value="BOTH">Ambos</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="correo@ejemplo.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="p-4 bg-primary/5 dark:bg-primary/10 rounded-xl space-y-4 border border-primary/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="size-2 rounded-full bg-primary" />
+                    <h3 className="font-bold text-sm text-primary uppercase tracking-wider">
+                      Información Fiscal
+                    </h3>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="taxpayerType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Tipo de Contribuyente</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccione" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="ORDINARY">
+                                Ordinario
+                              </SelectItem>
+                              <SelectItem value="SPECIAL">Especial</SelectItem>
+                              <SelectItem value="FORMAL">Formal</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="retentionRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>% Retención IVA</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccione" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="0">0% (No aplica)</SelectItem>
+                              <SelectItem value="75">75%</SelectItem>
+                              <SelectItem value="100">100%</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dirección</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccione" />
-                        </SelectTrigger>
+                        <Input placeholder="Dirección completa" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="CUSTOMER">Cliente</SelectItem>
-                        <SelectItem value="SUPPLIER">Proveedor</SelectItem>
-                        <SelectItem value="BOTH">Ambos</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="correo@ejemplo.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="p-4 bg-primary/5 dark:bg-primary/10 rounded-xl space-y-4 border border-primary/10">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="size-2 rounded-full bg-primary" />
-                <h3 className="font-bold text-sm text-primary uppercase tracking-wider">
-                  Información Fiscal
-                </h3>
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="taxpayerType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tipo de Contribuyente</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccione" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="ORDINARY">Ordinario</SelectItem>
-                          <SelectItem value="SPECIAL">Especial</SelectItem>
-                          <SelectItem value="FORMAL">Formal</SelectItem>
-                        </SelectContent>
-                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -247,81 +296,42 @@ export function PartnerDialog({
 
                 <FormField
                   control={form.control}
-                  name="retentionRate"
+                  name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>% Retención IVA</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccione" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="0">0% (No aplica)</SelectItem>
-                          <SelectItem value="75">75%</SelectItem>
-                          <SelectItem value="100">100%</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Teléfono</FormLabel>
+                      <FormControl>
+                        <Input placeholder="0414-1234567" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
-            </div>
 
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Dirección</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Dirección completa" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Teléfono</FormLabel>
-                  <FormControl>
-                    <Input placeholder="0414-1234567" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="w-full sm:w-auto px-8"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={isPending}
-                className="w-full sm:w-auto px-8"
-              >
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {partnerToEdit ? "Actualizar" : "Crear"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => onOpenChange(false)}
+                    className="w-full sm:w-auto px-8"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isPending}
+                    className="w-full sm:w-auto px-8"
+                  >
+                    {isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {partnerToEdit ? "Actualizar" : "Crear"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

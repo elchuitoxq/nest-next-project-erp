@@ -11,9 +11,13 @@ import {
   usersBranches,
   exchangeRates,
   banks,
+  permissions,
+  rolesPermissions,
+  ALL_PERMISSIONS,
+  DEFAULT_ROLES,
   // paymentMethodAccounts, // Add if needed
 } from "../src";
-import { sql } from "drizzle-orm";
+import { sql, inArray, eq } from "drizzle-orm";
 import * as bcrypt from "bcrypt";
 import * as dotenv from "dotenv";
 
@@ -31,18 +35,76 @@ export async function seed(isClean = true) {
       );
     }
 
-    // 1. Seed Roles
-    console.log("👥 Seeding Roles...");
-    const [adminRole] = await db
-      .insert(roles)
-      .values([
-        { name: "admin", description: "Administrator with full access" },
-        { name: "manager", description: "Manager with access to operations" },
-        { name: "seller", description: "Seller with access to sales" },
-        { name: "warehouse", description: "Warehouse Keeper" },
-        { name: "accountant", description: "Accountant/Treasurer" },
-      ])
-      .returning();
+    // 1. Seed Permissions
+    console.log("🔐 Seeding Permissions...");
+    for (const perm of ALL_PERMISSIONS) {
+      await db
+        .insert(permissions)
+        .values({
+          code: perm.code,
+          description: perm.description,
+          module: perm.module,
+        })
+        .onConflictDoUpdate({
+          target: permissions.code,
+          set: {
+            description: perm.description,
+            module: perm.module,
+          },
+        });
+    }
+
+    // 2. Seed Roles & Assign Permissions
+    console.log("👥 Seeding Roles & Permissions...");
+    const createdRoles: Record<string, any> = {};
+
+    for (const [roleKey, roleDef] of Object.entries(DEFAULT_ROLES)) {
+      console.log(`   - Processing Role: ${roleDef.name}`);
+
+      // Upsert Role
+      const [role] = await db
+        .insert(roles)
+        .values({
+          name: roleDef.name,
+          description: roleDef.description,
+        })
+        .onConflictDoUpdate({
+          target: roles.name,
+          set: { description: roleDef.description },
+        })
+        .returning();
+
+      createdRoles[roleDef.name] = role;
+
+      // Assign Permissions
+      if (roleDef.permissions.length > 0) {
+        // Find IDs for these permission codes
+        const permsToAssign = await db
+          .select({ id: permissions.id })
+          .from(permissions)
+          .where(inArray(permissions.code, roleDef.permissions));
+
+        if (permsToAssign.length > 0) {
+          // Clear existing permissions for this role to ensure sync
+          await db
+            .delete(rolesPermissions)
+            .where(eq(rolesPermissions.roleId, role.id));
+
+          // Insert new links
+          await db
+            .insert(rolesPermissions)
+            .values(
+              permsToAssign.map((p) => ({
+                roleId: role.id,
+                permissionId: p.id,
+              })),
+            )
+            .onConflictDoNothing();
+        }
+      }
+    }
+
+    const adminRole = createdRoles["admin"]; // Grab admin role for user assignment
 
     // 2. Seed Admin User
     console.log("👤 Seeding Admin User...");
@@ -256,9 +318,7 @@ export async function seed(isClean = true) {
       currencies: { usd, ves },
       paymentMethods: seededMethods,
       bankAccounts: seededAccounts,
-      roles: {
-        admin: adminRole,
-      },
+      roles: createdRoles,
     };
   } catch (error) {
     console.error("❌ Seeding failed:", error);

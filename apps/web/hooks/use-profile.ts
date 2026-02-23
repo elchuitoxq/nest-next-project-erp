@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { useAuthStore } from "@/stores/use-auth-store";
 import { useEffect } from "react";
@@ -7,12 +7,13 @@ export function useProfile() {
   const { user, login, token } = useAuthStore();
 
   const { data, isLoading } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["profile"],
     queryFn: async () => {
       // Assuming GET /auth/profile or /users/me exists
       // If not, we might need to use GET /users/:id
       if (!user?.id) return null;
-      const { data } = await api.get(`/users/${user.id}`);
+      const { data } = await api.get<{ branches?: any[] }>(`/users/${user.id}`);
       return data;
     },
     enabled: !!user?.id && !!token,

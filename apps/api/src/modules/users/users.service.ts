@@ -11,6 +11,8 @@ import {
   roles,
   usersBranches,
   branches,
+  permissions,
+  rolesPermissions,
 } from '@repo/db';
 import { eq, inArray, sql } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
@@ -79,10 +81,13 @@ export class UsersService {
         branchId: branches.id,
         branchName: branches.name,
         isDefaultBranch: usersBranches.isDefault,
+        permissionCode: permissions.code,
       })
       .from(users)
       .leftJoin(usersRoles, eq(users.id, usersRoles.userId))
       .leftJoin(roles, eq(usersRoles.roleId, roles.id))
+      .leftJoin(rolesPermissions, eq(roles.id, rolesPermissions.roleId))
+      .leftJoin(permissions, eq(rolesPermissions.permissionId, permissions.id))
       .leftJoin(usersBranches, eq(users.id, usersBranches.userId))
       .leftJoin(branches, eq(usersBranches.branchId, branches.id))
       .where(eq(users.id, id));
@@ -95,6 +100,7 @@ export class UsersService {
       ...rows[0].user,
       roles: [] as string[],
       roleIds: [] as string[],
+      permissions: [] as string[], // Add permissions array
     };
     delete (user as any).password;
 
@@ -105,16 +111,11 @@ export class UsersService {
       if (row.roleName) {
         if (!user.roles.includes(row.roleName)) user.roles.push(row.roleName);
       }
-      if (row.branchId) {
-        if (!(user as any).branches) (user as any).branches = [];
-        if (!(user as any).branches.find((b: any) => b.id === row.branchId)) {
-          (user as any).branches.push({
-            id: row.branchId,
-            name: row.branchName,
-            isDefault: row.isDefaultBranch,
-          });
-        }
+      if (row.permissionCode) {
+        if (!user.permissions.includes(row.permissionCode))
+          user.permissions.push(row.permissionCode);
       }
+      // Add permissions logic (requires updated query first)
     }
 
     return user;

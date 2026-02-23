@@ -1,0 +1,143 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  usePartners,
+  usePartnerMutations,
+} from "@/modules/partners/hooks/use-partners";
+import { PartnersTable } from "@/modules/partners/components/partners-table";
+import { PartnerDialog } from "@/modules/partners/components/partner-dialog";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { Partner } from "@/modules/partners/types";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { SidebarInset } from "@/components/ui/sidebar";
+import { AppHeader } from "@/components/layout/app-header";
+import { PaginationState } from "@tanstack/react-table";
+import { motion } from "framer-motion";
+import { PageHeader } from "@/components/layout/page-header";
+import { PermissionsGate } from "@/components/auth/permissions-gate";
+import { PERMISSIONS } from "@/config/permissions";
+
+export function PartnersView() {
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 25,
+  });
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+    }, 0);
+  }, [search, typeFilter]);
+
+  const {
+    data: partnersResponse,
+    isLoading,
+    isError,
+  } = usePartners({
+    page: pagination.pageIndex + 1,
+    limit: pagination.pageSize,
+    search: search,
+    type: typeFilter.length > 0 ? typeFilter : undefined,
+  });
+
+  const { deletePartner } = usePartnerMutations();
+  const router = useRouter();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
+
+  const handleCreate = () => {
+    setEditingPartner(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (partner: Partner) => {
+    setEditingPartner(partner);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (partner: Partner) => {
+    if (confirm("¿Estás seguro de eliminar este socio?")) {
+      await deletePartner.mutateAsync(partner.id);
+    }
+  };
+
+  return (
+    <SidebarInset>
+      <AppHeader />
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-1 flex-col gap-4 p-4 pt-0"
+      >
+        <PageHeader
+          title="Clientes y Socios"
+          description="Gestiona clientes y proveedores de tu negocio"
+        >
+          <PermissionsGate permission={PERMISSIONS.OPERATIONS.PARTNERS.CREATE}>
+            <Button
+              onClick={handleCreate}
+              className="premium-shadow bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300"
+            >
+              <Plus className="mr-2 h-4 w-4" /> Nuevo Socio
+            </Button>
+          </PermissionsGate>
+        </PageHeader>
+
+        <Card className="border premium-shadow">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg font-semibold">
+              Listado de Clientes y Socios
+            </CardTitle>
+            <CardDescription>
+              Visualiza y administra tus socios comerciales
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isError ? (
+              <div className="text-red-500 py-12 text-center border-dashed border-2 rounded-xl border-red-200 bg-red-50/50">
+                <p className="font-semibold text-lg">Error al cargar socios</p>
+                <p className="text-sm">Por favor intente nuevamente.</p>
+              </div>
+            ) : (
+              <PartnersTable
+                data={partnersResponse?.data || []}
+                pageCount={partnersResponse?.meta.lastPage || 1}
+                pagination={pagination}
+                onPaginationChange={setPagination}
+                isLoading={isLoading}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onViewStatement={(p) =>
+                  router.push(`/dashboard/treasury/statements/${p.id}`)
+                }
+                search={search}
+                onSearchChange={setSearch}
+                typeFilter={typeFilter}
+                onTypeChange={setTypeFilter}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        <PartnerDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          partnerToEdit={editingPartner}
+        />
+      </motion.div>
+    </SidebarInset>
+  );
+}

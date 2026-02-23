@@ -6,7 +6,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { fiscalReportsApi } from "../reports.api";
 import {
   Loader2,
@@ -16,7 +16,6 @@ import {
   Wallet,
   ArrowRightLeft,
   CreditCard,
-  Banknote,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -31,7 +30,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
 
 interface DocumentDetailModalProps {
   open: boolean;
@@ -47,6 +45,7 @@ export function DocumentDetailModal({
   type,
 }: DocumentDetailModalProps) {
   const { data: document, isLoading } = useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["document-detail", type, documentId],
     queryFn: async () => {
       if (!documentId || !type) return null;
@@ -78,7 +77,7 @@ export function DocumentDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-6xl">
         <DialogHeader className="text-left">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

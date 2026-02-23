@@ -6,6 +6,7 @@ interface User {
   email: string;
   name?: string;
   roles: string[];
+  permissions: string[];
   branchId?: string; // Default branch from token
   branches?: { id: string; name: string; isDefault: boolean }[];
 }

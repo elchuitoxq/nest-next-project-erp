@@ -155,12 +155,14 @@ export function PayrollDetailView({ id }: PayrollDetailViewProps) {
             {run.status === "PAID" && (
               <Button
                 variant="outline"
-                onClick={() =>
+                onClick={() => {
+                  const API_URL =
+                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
                   window.open(
-                    `${api.defaults.baseURL}/hr/payroll/${id}/export/txt`,
+                    `${API_URL}/api/hr/payroll/${id}/export/txt`,
                     "_blank",
-                  )
-                }
+                  );
+                }}
               >
                 <Download className="mr-2 h-4 w-4" /> TXT Banco
               </Button>
@@ -172,7 +174,7 @@ export function PayrollDetailView({ id }: PayrollDetailViewProps) {
                 onClick={async () => {
                   try {
                     const blob = await payrollApi.getPayrollExcel(id);
-                    saveAs(blob, `nomina-${run.code}.xlsx`);
+                    saveAs(blob as Blob, `nomina-${run.code}.xlsx`);
                   } catch (error) {
                     toast.error("Error al descargar el archivo Excel");
                   }

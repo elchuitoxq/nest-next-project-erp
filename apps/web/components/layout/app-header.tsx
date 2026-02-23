@@ -1,6 +1,6 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb";
+import { DynamicBreadcrumb } from "@/components/navigation/dynamic-breadcrumb";
 import { cn } from "@/lib/utils";
 
 interface AppHeaderProps {

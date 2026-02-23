@@ -1,7 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
+import { ApiError } from "@/lib/api";
 
 export interface Benefit {
   id: string;
@@ -34,9 +35,12 @@ export interface CreateBenefitDto {
 
 export function useBenefits(employeeId: string) {
   return useQuery<Benefit[]>({
+    placeholderData: keepPreviousData,
     queryKey: ["benefits", employeeId],
     queryFn: async () => {
-      const { data } = await api.get(`/hr/benefits/employee/${employeeId}`);
+      const { data } = await api.get<Benefit[]>(
+        `/hr/benefits/employee/${employeeId}`,
+      );
       return data;
     },
     enabled: !!employeeId,
@@ -56,7 +60,7 @@ export function useBenefitMutations() {
       toast.success("Prestación registrada correctamente");
       queryClient.invalidateQueries({ queryKey: ["benefits", employeeId] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
         error.response?.data?.message || "Error al registrar prestación",
       );
@@ -78,7 +82,7 @@ export function useBenefitMutations() {
       toast.success("Prestación actualizada correctamente");
       queryClient.invalidateQueries({ queryKey: ["benefits", employeeId] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
         error.response?.data?.message || "Error al actualizar prestación",
       );
@@ -94,7 +98,7 @@ export function useBenefitMutations() {
       toast.success("Prestación eliminada correctamente");
       queryClient.invalidateQueries({ queryKey: ["benefits", employeeId] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
         error.response?.data?.message || "Error al eliminar prestación",
       );

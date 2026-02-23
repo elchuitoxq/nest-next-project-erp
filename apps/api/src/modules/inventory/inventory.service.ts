@@ -7,7 +7,7 @@ import {
   inventoryMoveLines,
   products,
 } from '@repo/db';
-import { eq, desc, and, sql, inArray, or, ilike, SQL } from 'drizzle-orm';
+import { eq, desc, and, sql, inArray, or, ilike, isNull } from 'drizzle-orm';
 import Decimal from 'decimal.js';
 import { FindMovesDto } from './dto/find-moves.dto';
 import { AccountingService } from '../accounting/accounting.service'; // Import
@@ -48,11 +48,24 @@ export class InventoryService {
 
   // --- STOCK & MOVES ---
   async getStock(warehouseId: string, search?: string) {
-    let whereClause: any = eq(stock.warehouseId, warehouseId);
+    // Step 1: Aggregate stock quantities by product within the warehouse as a subquery
+    const stockBySq = db
+      .select({
+        productId: stock.productId,
+        totalQty: sql<string>`COALESCE(SUM(${stock.quantity}), 0)`.as(
+          'total_qty',
+        ),
+      })
+      .from(stock)
+      .where(eq(stock.warehouseId, warehouseId))
+      .groupBy(stock.productId)
+      .as('stock_agg');
+
+    // Step 2: Join aggregated stock with products, applying optional search
+    const conditions: any[] = [eq(products.id, stockBySq.productId)];
 
     if (search) {
-      whereClause = and(
-        whereClause,
+      conditions.push(
         or(
           ilike(products.name, `%${search}%`),
           ilike(products.sku, `%${search}%`),
@@ -61,15 +74,21 @@ export class InventoryService {
     }
 
     const rows = await db
-      .select()
-      .from(stock)
-      .innerJoin(products, eq(stock.productId, products.id))
-      .where(whereClause);
+      .select({
+        productId: stockBySq.productId,
+        quantity: stockBySq.totalQty,
+        product: products,
+      })
+      .from(stockBySq)
+      .innerJoin(products, and(...conditions));
 
-    // Map to expected structure (Relational API style)
-    return rows.map(({ stock, products }) => ({
-      ...stock,
-      product: products,
+    return rows.map((row) => ({
+      id: row.productId + '-agg', // stable pseudo-ID for React keys
+      warehouseId,
+      productId: row.productId,
+      quantity: row.quantity,
+      batchId: null,
+      product: row.product,
     }));
   }
 
@@ -86,6 +105,7 @@ export class InventoryService {
     userId: string;
     branchId?: string;
     date?: Date | string;
+    source?: 'MANUAL' | 'SYSTEM'; // MANUAL = requires approval, SYSTEM = auto-approved (orders/billing)
     lines: {
       productId: string;
       quantity: number;
@@ -156,10 +176,13 @@ export class InventoryService {
           note: data.note,
           userId: data.userId,
           date: data.date ? new Date(data.date) : undefined,
+          // Approval flow fields
+          status: data.source === 'MANUAL' ? 'DRAFT' : 'APPROVED',
+          source: data.source ?? 'SYSTEM',
         })
         .returning();
 
-      // 2. Process Lines & Update Stock
+      // 2. Process Lines & Update Stock (only for SYSTEM source)
       for (const line of data.lines) {
         // Create Line
         await tx.insert(inventoryMoveLines).values({
@@ -171,61 +194,65 @@ export class InventoryService {
           batchId: line.batchId,
         });
 
-        // Logic per type
-        if (data.type === 'IN' && data.toWarehouseId) {
-          await this.updateStock(
-            tx,
-            data.toWarehouseId,
-            line.productId,
-            line.quantity,
-            line.cost, // Pass cost
-            line.batchId,
-          );
-        } else if (data.type === 'OUT' && data.fromWarehouseId) {
-          await this.updateStock(
-            tx,
-            data.fromWarehouseId,
-            line.productId,
-            -line.quantity,
-            undefined,
-            line.batchId,
-          );
-        } else if (
-          data.type === 'TRANSFER' &&
-          data.fromWarehouseId &&
-          data.toWarehouseId
-        ) {
-          await this.updateStock(
-            tx,
-            data.fromWarehouseId,
-            line.productId,
-            -line.quantity,
-            undefined,
-            line.batchId,
-          );
-          await this.updateStock(
-            tx,
-            data.toWarehouseId,
-            line.productId,
-            line.quantity,
-            undefined, // Cost logic for transfer? Keeps original?
-            line.batchId,
-          );
-        } else if (data.type === 'ADJUST' && data.fromWarehouseId) {
-          await this.updateStock(
-            tx,
-            data.fromWarehouseId,
-            line.productId,
-            line.quantity,
-            line.cost, // Adjust can change cost if it's an IN adjust
-            line.batchId,
-          );
+        // Only apply stock immediately for SYSTEM moves
+        if (data.source !== 'MANUAL') {
+          // Logic per type
+          if (data.type === 'IN' && data.toWarehouseId) {
+            await this.updateStock(
+              tx,
+              data.toWarehouseId,
+              line.productId,
+              line.quantity,
+              line.cost,
+              line.batchId,
+            );
+          } else if (data.type === 'OUT' && data.fromWarehouseId) {
+            await this.updateStock(
+              tx,
+              data.fromWarehouseId,
+              line.productId,
+              -line.quantity,
+              undefined,
+              line.batchId,
+            );
+          } else if (
+            data.type === 'TRANSFER' &&
+            data.fromWarehouseId &&
+            data.toWarehouseId
+          ) {
+            await this.updateStock(
+              tx,
+              data.fromWarehouseId,
+              line.productId,
+              -line.quantity,
+              undefined,
+              line.batchId,
+            );
+            await this.updateStock(
+              tx,
+              data.toWarehouseId,
+              line.productId,
+              line.quantity,
+              undefined,
+              line.batchId,
+            );
+          } else if (data.type === 'ADJUST' && data.fromWarehouseId) {
+            await this.updateStock(
+              tx,
+              data.fromWarehouseId,
+              line.productId,
+              line.quantity,
+              line.cost,
+              line.batchId,
+            );
+          }
         }
       }
       return move;
     });
 
-    if (!data.skipAccounting) {
+    // Only trigger accounting for SYSTEM moves (MANUAL moves trigger on approval)
+    if (!data.skipAccounting && data.source !== 'MANUAL') {
       try {
         await this.accountingService.createEntryForInventoryMove(result.id);
       } catch (error) {
@@ -237,6 +264,123 @@ export class InventoryService {
     }
 
     return result;
+  }
+
+  async approveMove(id: string, userId: string) {
+    const move = await db.query.inventoryMoves.findFirst({
+      where: eq(inventoryMoves.id, id),
+      with: { lines: true },
+    });
+
+    if (!move) {
+      throw new BadRequestException('Movimiento no encontrado');
+    }
+    if (move.status !== 'DRAFT') {
+      throw new BadRequestException(
+        `El movimiento no puede aprobarse en estado "${move.status}"`,
+      );
+    }
+    if (move.source !== 'MANUAL') {
+      throw new BadRequestException(
+        'Solo los movimientos manuales pueden ser aprobados manualmente',
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      for (const line of move.lines) {
+        const qty = parseFloat(line.quantity);
+        const cost = line.cost ? parseFloat(line.cost) : undefined;
+
+        if (move.type === 'IN' && move.toWarehouseId) {
+          await this.updateStock(
+            tx,
+            move.toWarehouseId,
+            line.productId,
+            qty,
+            cost,
+            line.batchId ?? undefined,
+          );
+        } else if (move.type === 'OUT' && move.fromWarehouseId) {
+          await this.updateStock(
+            tx,
+            move.fromWarehouseId,
+            line.productId,
+            -qty,
+            undefined,
+            line.batchId ?? undefined,
+          );
+        } else if (
+          move.type === 'TRANSFER' &&
+          move.fromWarehouseId &&
+          move.toWarehouseId
+        ) {
+          await this.updateStock(
+            tx,
+            move.fromWarehouseId,
+            line.productId,
+            -qty,
+            undefined,
+            line.batchId ?? undefined,
+          );
+          await this.updateStock(
+            tx,
+            move.toWarehouseId,
+            line.productId,
+            qty,
+            undefined,
+            line.batchId ?? undefined,
+          );
+        } else if (move.type === 'ADJUST' && move.fromWarehouseId) {
+          await this.updateStock(
+            tx,
+            move.fromWarehouseId,
+            line.productId,
+            qty,
+            cost,
+            line.batchId ?? undefined,
+          );
+        }
+      }
+
+      await tx
+        .update(inventoryMoves)
+        .set({
+          status: 'APPROVED',
+          approvedBy: userId,
+          approvedAt: new Date(),
+        })
+        .where(eq(inventoryMoves.id, id));
+    });
+
+    try {
+      await this.accountingService.createEntryForInventoryMove(id);
+    } catch (error) {
+      console.error('Error creating accounting entry on approval:', error);
+    }
+
+    return { message: 'Movimiento aprobado exitosamente' };
+  }
+
+  async rejectMove(id: string, reason: string) {
+    const move = await db.query.inventoryMoves.findFirst({
+      where: eq(inventoryMoves.id, id),
+    });
+
+    if (!move) {
+      throw new BadRequestException('Movimiento no encontrado');
+    }
+    if (move.status !== 'DRAFT') {
+      throw new BadRequestException(
+        `El movimiento no puede rechazarse en estado "${move.status}"`,
+      );
+    }
+
+    await db
+      .update(inventoryMoves)
+      .set({ status: 'REJECTED', rejectionReason: reason })
+      .where(eq(inventoryMoves.id, id));
+
+    return { message: 'Movimiento rechazado' };
   }
 
   // --- MOVES ---
@@ -407,8 +551,7 @@ export class InventoryService {
       // But typically for non-batch products it is just null.
       // If we mix batch and non-batch for same product (should not happen due to hasBatches flag),
       // we need to be careful.
-      // @ts-ignore
-      stockConditions.push(sql`${stock.batchId} IS NULL`);
+      stockConditions.push(isNull(stock.batchId));
     }
 
     const [existing] = await tx

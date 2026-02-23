@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api";
 
 export interface Department {
   id: string;
@@ -28,9 +29,10 @@ export interface UpdateDepartmentDto {
 
 export function useDepartments(branchId?: string) {
   return useQuery<Department[]>({
+    placeholderData: keepPreviousData,
     queryKey: ["departments", { branchId }],
     queryFn: async () => {
-      const { data } = await api.get("/hr/departments", {
+      const { data } = await api.get<Department[]>("/hr/departments", {
         params: { branchId },
       });
       return data;
@@ -50,7 +52,7 @@ export function useDepartmentMutations() {
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       toast.success("Departamento creado exitosamente");
     },
-    onError: (err: any) => {
+    onError: (err: ApiError) => {
       toast.error(err.response?.data?.message || "Error al crear departamento");
     },
   });
@@ -70,7 +72,7 @@ export function useDepartmentMutations() {
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       toast.success("Departamento actualizado");
     },
-    onError: (err: any) => {
+    onError: (err: ApiError) => {
       toast.error(
         err.response?.data?.message || "Error al actualizar departamento",
       );
@@ -85,7 +87,7 @@ export function useDepartmentMutations() {
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       toast.success("Departamento eliminado");
     },
-    onError: (err: any) => {
+    onError: (err: ApiError) => {
       toast.error(
         err.response?.data?.message || "Error al eliminar departamento",
       );

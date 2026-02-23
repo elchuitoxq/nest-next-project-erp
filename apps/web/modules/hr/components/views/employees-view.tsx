@@ -1,0 +1,341 @@
+"use client";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { SidebarInset } from "@/components/ui/sidebar";
+import { AppHeader } from "@/components/layout/app-header";
+import { Button } from "@/components/ui/button";
+import {
+  Plus,
+  Loader2,
+  ChevronRight,
+  MoreHorizontal,
+  Eye,
+  Pencil,
+  UserX,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { PageHeader } from "@/components/layout/page-header";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useEmployees, Employee } from "@/modules/hr/hooks/use-employees";
+import { EmployeeDialog } from "@/modules/hr/components/dialogs/employee-dialog";
+import { TerminationDialog } from "@/modules/hr/components/dialogs/termination-dialog";
+import { ContractDialog } from "@/modules/hr/components/dialogs/contract-dialog";
+import { Badge } from "@/components/ui/badge";
+import { cn, formatCurrency } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { PermissionsGate } from "@/components/auth/permissions-gate";
+import { PERMISSIONS } from "@/config/permissions";
+import { usePermission } from "@/hooks/use-permission";
+import { useRouter } from "next/navigation";
+
+export function EmployeesView() {
+  const router = useRouter();
+  const { hasPermission } = usePermission();
+
+  useEffect(() => {
+    if (!hasPermission(PERMISSIONS.HR.EMPLOYEES.VIEW)) {
+      router.replace("/forbidden");
+    }
+  }, [hasPermission, router]);
+
+  const { data: employees, isLoading } = useEmployees();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<
+    Employee | undefined
+  >();
+  const [contractDialogOpen, setContractDialogOpen] = useState(false);
+  const [pendingEmployee, setPendingEmployee] = useState<Employee | null>(null);
+  const [search, setSearch] = useState("");
+
+  const handleEdit = (emp: Employee) => {
+    setSelectedEmployee(emp);
+    setDialogOpen(true);
+  };
+
+  const handleCreate = () => {
+    setSelectedEmployee(undefined);
+    setDialogOpen(true);
+  };
+
+  const [terminationOpen, setTerminationOpen] = useState(false);
+  const [employeeToTerminate, setEmployeeToTerminate] =
+    useState<Employee | null>(null);
+
+  const handleTerminate = (e: React.MouseEvent, emp: Employee) => {
+    e.stopPropagation();
+    setEmployeeToTerminate(emp);
+    setTerminationOpen(true);
+  };
+
+  const filteredEmployees = employees?.filter((emp) => {
+    const term = search.toLowerCase();
+    return (
+      emp.firstName.toLowerCase().includes(term) ||
+      emp.lastName.toLowerCase().includes(term) ||
+      emp.identityCard.toLowerCase().includes(term) ||
+      emp.position?.name.toLowerCase().includes(term)
+    );
+  });
+
+  return (
+    <SidebarInset>
+      <AppHeader />
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-1 flex-col gap-4 p-4 pt-0"
+      >
+        <PageHeader
+          title="Empleados"
+          description="Gestión de personal y nómina."
+        >
+          <PermissionsGate permission={PERMISSIONS.HR.EMPLOYEES.CREATE}>
+            <Button onClick={handleCreate} className="premium-shadow">
+              <Plus className="mr-2 h-4 w-4" /> Nuevo Empleado
+            </Button>
+          </PermissionsGate>
+        </PageHeader>
+
+        <Card className="border premium-shadow">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Listado de Personal</CardTitle>
+                <CardDescription>
+                  Gestión de nómina y datos laborales
+                </CardDescription>
+              </div>
+              <div className="w-[300px]">
+                <Input
+                  placeholder="Buscar por nombre, cédula o cargo..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="bg-muted/30"
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border relative">
+              <AnimatePresence>
+                {isLoading && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-background/40 z-10 flex items-center justify-center backdrop-blur-[2px]"
+                  >
+                    <div className="bg-background/80 p-3 rounded-full shadow-lg border">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead className="px-4">Nombre</TableHead>
+                    <TableHead className="px-4">Cargo</TableHead>
+                    <TableHead className="px-4">Salario Base</TableHead>
+                    <TableHead className="px-4">Frecuencia</TableHead>
+                    <TableHead className="px-4">Estado</TableHead>
+                    <TableHead className="px-4 text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <AnimatePresence mode="wait">
+                    {isLoading || (filteredEmployees?.length ?? 0) > 0 ? (
+                      filteredEmployees?.map((emp, index) => (
+                        <motion.tr
+                          key={emp.id}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{
+                            opacity: 1,
+                            y: 0,
+                            transition: { delay: index * 0.03 },
+                          }}
+                          exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                          className={cn(
+                            "border-b last:border-0 transition-colors group cursor-pointer hover:bg-muted/50",
+                          )}
+                          onClick={() => {
+                            router.push(`/dashboard/hr/employees/${emp.id}`);
+                          }}
+                        >
+                          <TableCell className="py-3 px-4">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-sm text-foreground">
+                                {emp.firstName} {emp.lastName}
+                              </span>
+                              <span className="text-[10px] font-mono-data text-muted-foreground tabular-nums">
+                                {emp.identityCard}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-3 px-4 text-xs font-medium">
+                            {emp.position?.name || "-"}
+                          </TableCell>
+                          <TableCell className="py-3 px-4 font-mono-data text-xs font-bold text-foreground">
+                            {formatCurrency(
+                              emp.baseSalary,
+                              emp.salaryCurrency?.code || "Bs",
+                            )}
+                          </TableCell>
+                          <TableCell className="py-3 px-4">
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] uppercase font-bold tracking-tighter"
+                            >
+                              {emp.payFrequency}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="py-3 px-4">
+                            <Badge
+                              variant={
+                                emp.status === "ACTIVE"
+                                  ? "success"
+                                  : "secondary"
+                              }
+                              className="text-[10px] uppercase font-bold"
+                            >
+                              {emp.status === "ACTIVE" ? "Activo" : "Inactivo"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell
+                            className="py-3 px-4 text-right"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuLabel>
+                                  {emp.firstName} {emp.lastName}
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    router.push(
+                                      `/dashboard/hr/employees/${emp.id}`,
+                                    )
+                                  }
+                                >
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Ver Detalle
+                                </DropdownMenuItem>
+                                <PermissionsGate
+                                  permission={PERMISSIONS.HR.EMPLOYEES.EDIT}
+                                >
+                                  <DropdownMenuItem
+                                    onClick={() => handleEdit(emp)}
+                                  >
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Editar Empleado
+                                  </DropdownMenuItem>
+                                </PermissionsGate>
+                                {emp.status === "ACTIVE" && (
+                                  <PermissionsGate
+                                    permission={PERMISSIONS.HR.EMPLOYEES.EDIT}
+                                  >
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => {
+                                        setEmployeeToTerminate(emp);
+                                        setTerminationOpen(true);
+                                      }}
+                                    >
+                                      <UserX className="mr-2 h-4 w-4" />
+                                      Dar de Baja
+                                    </DropdownMenuItem>
+                                  </PermissionsGate>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </motion.tr>
+                      ))
+                    ) : (
+                      <motion.tr
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <TableCell
+                          colSpan={6}
+                          className="h-32 text-center text-muted-foreground italic"
+                        >
+                          No se encontraron empleados.
+                        </TableCell>
+                      </motion.tr>
+                    )}
+                  </AnimatePresence>
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <EmployeeDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          employee={selectedEmployee}
+          onSuccess={(employee) => {
+            if (!selectedEmployee) {
+              setPendingEmployee(employee);
+              setContractDialogOpen(true);
+            }
+          }}
+        />
+
+        {pendingEmployee && (
+          <ContractDialog
+            open={contractDialogOpen}
+            onOpenChange={(open) => {
+              setContractDialogOpen(open);
+              if (!open) setPendingEmployee(null);
+            }}
+            employeeId={pendingEmployee.id}
+            employeeName={`${pendingEmployee.firstName} ${pendingEmployee.lastName}`}
+          />
+        )}
+
+        <TerminationDialog
+          open={terminationOpen}
+          onOpenChange={setTerminationOpen}
+          employeeId={employeeToTerminate?.id || ""}
+          employeeName={`${employeeToTerminate?.firstName} ${employeeToTerminate?.lastName}`}
+        />
+      </motion.div>
+    </SidebarInset>
+  );
+}

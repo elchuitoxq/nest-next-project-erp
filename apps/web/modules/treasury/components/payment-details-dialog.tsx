@@ -18,6 +18,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Payment } from "../types";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PaymentDetailsDialogProps {
   payment: Payment | null;
@@ -92,7 +93,7 @@ export function PaymentDetailsDialog({
             <Separator className="flex-1" />
           </h3>
 
-          <div className="h-[250px] overflow-auto border rounded-lg bg-card shadow-sm">
+          <ScrollArea className="h-[250px] border rounded-lg bg-card shadow-sm">
             <Table>
               <TableHeader className="bg-muted/50 sticky top-0 backdrop-blur-sm">
                 <TableRow>
@@ -138,7 +139,7 @@ export function PaymentDetailsDialog({
                 )}
               </TableBody>
             </Table>
-          </div>
+          </ScrollArea>
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2 border-t pt-4">

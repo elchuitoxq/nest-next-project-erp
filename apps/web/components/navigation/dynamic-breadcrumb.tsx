@@ -10,7 +10,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { NAV_ITEMS, type NavItem, type NavSubItem } from "@/lib/navigation";
+import { NAV_ITEMS } from "@/lib/navigation";
 import React from "react";
 
 interface DynamicBreadcrumbProps {

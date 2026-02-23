@@ -13,6 +13,9 @@ import {
   users,
   partners,
   creditNoteUsages,
+  taxRetentions,
+  taxRetentionLines,
+  documentLinks,
 } from '@repo/db';
 
 import {
@@ -383,25 +386,31 @@ export class TreasuryService {
           // If it's partial retention, we might need logic, but usually RET payment amount IS the retained amount.
           const retainedAmount = amount.toFixed(2);
 
-          await this.retentionsService.createRetention(
-            {
-              partnerId: data.partnerId,
-              branchId: data.branchId || invoice.branchId,
-              userId: data.userId || 'SYSTEM',
-              type: type,
-              period: new Date().toISOString().slice(0, 7).replace('-', ''),
-              items: [
-                {
-                  invoiceId: invoice.id,
-                  baseAmount: String(baseAmount),
-                  taxAmount: String(taxAmount),
-                  retainedAmount: retainedAmount,
-                  paymentId: payment.id,
-                },
-              ],
-            },
-            tx, // Pass the ACTIVE transaction
-          );
+          try {
+            await this.retentionsService.createRetention(
+              {
+                partnerId: data.partnerId,
+                branchId: data.branchId || invoice.branchId,
+                userId: data.userId,
+                type: type,
+                period: new Date().toISOString().slice(0, 7).replace('-', ''), // Expected output: 202602
+                items: [
+                  {
+                    invoiceId: invoice.id,
+                    baseAmount: String(baseAmount),
+                    taxAmount: String(taxAmount),
+                    retainedAmount: retainedAmount,
+                    paymentId: payment.id,
+                  },
+                ],
+              },
+              tx, // Pass the ACTIVE transaction
+            );
+          } catch (retError) {
+            console.error('------- RETENTION CREATION ERROR -------');
+            console.error(retError);
+            throw retError;
+          }
         }
       }
 
@@ -482,7 +491,7 @@ export class TreasuryService {
                   {
                     partnerId: data.partnerId,
                     branchId: data.branchId || invoice.branchId,
-                    userId: data.userId || invoice.userId || 'SYSTEM',
+                    userId: data.userId || invoice.userId,
                     type: 'IVA',
                     period: new Date()
                       .toISOString()
@@ -833,6 +842,248 @@ export class TreasuryService {
       message: 'Pago registrado con éxito y nota de crédito generada si aplica',
       payment,
     };
+  }
+
+  async voidPayment(paymentId: string, branchId?: string, userId?: string) {
+    return await db.transaction(async (tx) => {
+      // 1. Validations
+      const payment = await tx.query.payments.findFirst({
+        where: and(
+          eq(payments.id, paymentId),
+          branchId ? eq(payments.branchId, branchId) : undefined,
+        ),
+        with: {
+          allocations: true,
+        },
+      });
+
+      if (!payment) throw new BadRequestException('Pago no encontrado');
+      if (payment.status === 'VOID')
+        throw new BadRequestException(
+          'Este pago ya ha sido anulado anteriormente',
+        );
+
+      // 1b. Validate child Credit Notes
+      const childCreditNotes = await tx.query.creditNotes.findMany({
+        where: eq(creditNotes.parentPaymentId, payment.id),
+      });
+
+      for (const cn of childCreditNotes) {
+        // If this credit note was used, we cannot easily void the payment without cascading complex voids.
+        // For safety, we block it.
+        const usages = await tx.query.creditNoteUsages.findMany({
+          where: eq(creditNoteUsages.creditNoteId, cn.id),
+        });
+        if (usages.length > 0) {
+          throw new BadRequestException(
+            `No se puede anular porque este pago generó saldo a favor (Nota de Crédito ${cn.code}) que ya fue utilizado en otros pagos.`,
+          );
+        }
+      }
+
+      // 2. Reverse Bank Account Balance
+      if (payment.bankAccountId) {
+        const operation =
+          payment.type === 'INCOME'
+            ? sql`${bankAccounts.currentBalance} - ${payment.amount}` // Reversing income restores sender's cash, removes ours
+            : sql`${bankAccounts.currentBalance} + ${payment.amount}`; // Reversing expense returns our cash
+
+        await tx
+          .update(bankAccounts)
+          .set({ currentBalance: operation })
+          .where(eq(bankAccounts.id, payment.bankAccountId));
+      }
+
+      // 3. Release Parent Credit Note Usages
+      // If THIS payment was paid using an existing Credit Note (Balance), release it.
+      await tx
+        .delete(creditNoteUsages)
+        .where(eq(creditNoteUsages.paymentId, payment.id));
+      // Removing the usage record implicitly restores the CN's available balance dynamically,
+      // or if you maintain a running total on the DB level, you'd update it here.
+      // (Currently, getAvailableCreditNotes aggregates usages dynamically)
+
+      // 4. Cascade Delete child Credit Notes (the unused surplus)
+      if (childCreditNotes.length > 0) {
+        const cnIds = childCreditNotes.map((c) => c.id);
+        await tx.delete(creditNotes).where(inArray(creditNotes.id, cnIds));
+      }
+
+      // 5. Cascade Delete Tax Retentions (and cleanup empty parents)
+      const retentionLines = await tx
+        .select()
+        .from(taxRetentionLines)
+        .where(eq(taxRetentionLines.paymentId, payment.id));
+
+      if (retentionLines.length > 0) {
+        const retentionIds = [
+          ...new Set(retentionLines.map((l) => l.retentionId)),
+        ];
+
+        // Delete the lines linked to this payment
+        await tx
+          .delete(taxRetentionLines)
+          .where(eq(taxRetentionLines.paymentId, payment.id));
+
+        // Check if parent retentions are now empty, if so, delete them physically
+        for (const retId of retentionIds) {
+          const remainingLines = await tx
+            .select()
+            .from(taxRetentionLines)
+            .where(eq(taxRetentionLines.retentionId, retId));
+
+          if (remainingLines.length === 0) {
+            await tx.delete(taxRetentions).where(eq(taxRetentions.id, retId));
+          } else {
+            // Recalculate parent retention totals
+            const totalBase = remainingLines.reduce(
+              (sum, l) => sum.plus(new Decimal(l.baseAmount)),
+              new Decimal(0),
+            );
+            const totalTax = remainingLines.reduce(
+              (sum, l) => sum.plus(new Decimal(l.taxAmount || 0)),
+              new Decimal(0),
+            );
+            const totalRetained = remainingLines.reduce(
+              (sum, l) => sum.plus(new Decimal(l.retainedAmount)),
+              new Decimal(0),
+            );
+
+            await tx
+              .update(taxRetentions)
+              .set({
+                totalBase: totalBase.toFixed(2),
+                totalTax: totalTax.toFixed(2),
+                totalRetained: totalRetained.toFixed(2),
+              })
+              .where(eq(taxRetentions.id, retId));
+          }
+        }
+      }
+
+      // 6. Delete Payment Allocations physically
+      await tx
+        .delete(paymentAllocations)
+        .where(eq(paymentAllocations.paymentId, payment.id));
+
+      // 7. Delete Document Links
+      await tx
+        .delete(documentLinks)
+        .where(
+          and(
+            eq(documentLinks.targetId, payment.id),
+            eq(documentLinks.targetTable, 'payments'),
+          ),
+        );
+
+      // 8. Update Invoices Statuses (Recalculate)
+      // Extract unique invoice IDs this payment affected
+      const affectedInvoiceIds = [
+        ...new Set(payment.allocations.map((a) => a.invoiceId)),
+      ];
+      if (
+        payment.invoiceId &&
+        !affectedInvoiceIds.includes(payment.invoiceId)
+      ) {
+        affectedInvoiceIds.push(payment.invoiceId);
+      }
+
+      for (const invId of affectedInvoiceIds) {
+        // Redo the exact logic used in registerPayment to recalculate the invoice
+        const [inv] = await tx
+          .select()
+          .from(invoices)
+          .where(eq(invoices.id, invId));
+        if (!inv) continue;
+
+        // Sum remaining ALLOCATED payments
+        const allocs = await tx
+          .select({ amount: paymentAllocations.amount })
+          .from(paymentAllocations)
+          .where(eq(paymentAllocations.invoiceId, invId));
+
+        const totalAllocated = allocs.reduce(
+          (sum, a) => sum.plus(new Decimal(a.amount)),
+          new Decimal(0),
+        );
+
+        // Sum remaining DIRECT legacy payments (not allocated via junction and NOT voided)
+        const directPayments = await tx
+          .select()
+          .from(payments)
+          .where(
+            and(
+              eq(payments.invoiceId, invId),
+              ne(payments.status, 'VOID'), // Exclude VOID
+            ),
+          );
+
+        const explicitAllocPaymentIds = new Set(
+          (
+            await tx
+              .select({ pid: paymentAllocations.paymentId })
+              .from(paymentAllocations)
+              .where(eq(paymentAllocations.invoiceId, invId))
+          ).map((x) => x.pid),
+        );
+
+        let legacyDirectTotal = new Decimal(0);
+        for (const dp of directPayments) {
+          if (!explicitAllocPaymentIds.has(dp.id)) {
+            // Re-normalize currency
+            const pCurrency = await tx.query.currencies.findFirst({
+              where: eq(currencies.id, dp.currencyId),
+            });
+            const invCurrency = await tx.query.currencies.findFirst({
+              where: eq(currencies.id, inv.currencyId),
+            });
+
+            let loopAmount = new Decimal(dp.amount);
+            if (pCurrency && invCurrency && pCurrency.id !== invCurrency.id) {
+              const rate = new Decimal(dp.exchangeRate || '1');
+              const invRate = new Decimal(inv.exchangeRate || '1');
+              if (invCurrency.code === 'USD' && pCurrency.code !== 'USD') {
+                if (invRate.gt(1)) loopAmount = loopAmount.div(invRate);
+                else if (rate.gt(1)) loopAmount = loopAmount.div(rate);
+              } else if (
+                pCurrency.code === 'USD' &&
+                invCurrency.code !== 'USD'
+              ) {
+                if (invRate.gt(1)) loopAmount = loopAmount.times(invRate);
+                else if (rate.gt(1)) loopAmount = loopAmount.times(rate);
+              }
+            }
+            legacyDirectTotal = legacyDirectTotal.plus(loopAmount);
+          }
+        }
+
+        const grandTotalPaid = totalAllocated.plus(legacyDirectTotal);
+        const invTotal = new Decimal(inv.total || 0);
+
+        let newStatus = 'POSTED';
+        if (grandTotalPaid.gte(invTotal.minus(0.01))) newStatus = 'PAID';
+        else if (grandTotalPaid.gt(0)) newStatus = 'PARTIALLY_PAID';
+
+        if (newStatus !== inv.status) {
+          await tx
+            .update(invoices)
+            .set({ status: newStatus })
+            .where(eq(invoices.id, invId));
+        }
+      }
+
+      // 9. Mark Payment as VOID
+      const [updatedPayment] = await tx
+        .update(payments)
+        .set({ status: 'VOID' })
+        .where(eq(payments.id, payment.id))
+        .returning();
+
+      return {
+        message: 'El pago ha sido anulado correctamente de manera reversible',
+        payment: updatedPayment,
+      };
+    });
   }
 
   async findAllPayments(branchId?: string, bankAccountId?: string) {

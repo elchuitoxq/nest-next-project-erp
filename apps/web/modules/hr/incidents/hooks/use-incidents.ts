@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { Employee } from "../../hooks/use-employees";
@@ -17,9 +17,10 @@ export interface Incident {
 
 export function useIncidents() {
   return useQuery<Incident[]>({
+    placeholderData: keepPreviousData,
     queryKey: ["incidents"],
     queryFn: async () => {
-      const { data } = await api.get("/hr/incidents");
+      const { data } = await api.get<Incident[]>("/hr/incidents");
       return data;
     },
   });

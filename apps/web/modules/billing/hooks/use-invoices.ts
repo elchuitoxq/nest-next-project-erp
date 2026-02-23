@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from "@tanstack/react-query";
 import api from "@/lib/api";
 import { Invoice } from "../types";
 
@@ -32,6 +37,7 @@ export function useInvoices(params: FindInvoicesParams = {}) {
       });
       return data;
     },
+    placeholderData: keepPreviousData,
   });
 }
 

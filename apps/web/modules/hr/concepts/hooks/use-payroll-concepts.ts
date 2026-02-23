@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
 
@@ -12,9 +12,10 @@ export interface PayrollConcept {
 
 export function usePayrollConcepts() {
   return useQuery<PayrollConcept[]>({
+    placeholderData: keepPreviousData,
     queryKey: ["payroll-concepts"],
     queryFn: async () => {
-      const { data } = await api.get("/hr/concepts");
+      const { data } = await api.get<PayrollConcept[]>("/hr/concepts");
       return data;
     },
   });
@@ -24,7 +25,11 @@ export function usePayrollConceptMutations() {
   const queryClient = useQueryClient();
 
   const createConcept = useMutation({
-    mutationFn: async (data: { name: string; code: string; category: string }) => {
+    mutationFn: async (data: {
+      name: string;
+      code: string;
+      category: string;
+    }) => {
       return await api.post("/hr/concepts", data);
     },
     onSuccess: () => {

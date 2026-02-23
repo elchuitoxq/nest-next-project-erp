@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Store, MapPin, Phone, Mail } from "lucide-react";
+import { Loader2, Store } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,8 @@ import { GuideHint } from "@/components/guide/guide-hint";
 
 import { useBranchMutations } from "../hooks/use-branch-mutations";
 import { Branch } from "../types";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
 import {
   createBranchSchema,
   CreateBranchFormValues,
@@ -98,142 +100,146 @@ export function BranchDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-              <Store className="size-5" />
-            </div>
-            {isEdit ? "Editar Sede" : "Nueva Sede"}
-          </DialogTitle>
-          <DialogDescription className="ml-12">
-            {isEdit
-              ? "Modifica la información legal y de contacto de la sucursal."
-              : "Registra una nueva sede operativa para el sistema."}
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="grid gap-4 py-4"
-          >
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nombre</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Sede Principal" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Dirección</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Av. Bolívar, Edif. Torre..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="taxId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>RIF / Tax ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="J-12345678-9" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Teléfono</FormLabel>
-                    <FormControl>
-                      <Input placeholder="+58 ..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Correo Electrónico</FormLabel>
-                  <FormControl>
-                    <Input placeholder="sucursal@ejemplo.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="isActive"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="flex items-center">
-                      Activo
-                      <GuideHint text="Desactivar una sede no borra su historial, pero impide crear nuevos movimientos en ella." />
-                    </FormLabel>
-                    <p className="text-sm text-muted-foreground">
-                      Si está desactivado, la sede no aparecerá en selección de
-                      operaciones.
-                    </p>
-                  </div>
-                </FormItem>
-              )}
-            />
+      <DialogContent className="sm:max-w-[425px] max-h-[85vh] p-0">
+        <ScrollArea className="max-h-[85vh] w-full">
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Store className="size-5" />
+                </div>
+                {isEdit ? "Editar Sede" : "Nueva Sede"}
+              </DialogTitle>
+              <DialogDescription className="ml-12">
+                {isEdit
+                  ? "Modifica la información legal y de contacto de la sucursal."
+                  : "Registra una nueva sede operativa para el sistema."}
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="grid gap-4 py-4"
+              >
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Sede Principal" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dirección</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Av. Bolívar, Edif. Torre..."
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="taxId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>RIF / Tax ID</FormLabel>
+                        <FormControl>
+                          <Input placeholder="J-12345678-9" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Teléfono</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+58 ..." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Correo Electrónico</FormLabel>
+                      <FormControl>
+                        <Input placeholder="sucursal@ejemplo.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isActive"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="flex items-center">
+                          Activo
+                          <GuideHint text="Desactivar una sede no borra su historial, pero impide crear nuevos movimientos en ella." />
+                        </FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                          Si está desactivado, la sede no aparecerá en selección
+                          de operaciones.
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
+                />
 
-            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="w-full sm:w-auto px-8"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={createBranch.isPending || updateBranch.isPending}
-                className="w-full sm:w-auto px-8"
-              >
-                {(createBranch.isPending || updateBranch.isPending) && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {isEdit ? "Actualizar" : "Guardar"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    className="w-full sm:w-auto px-8"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createBranch.isPending || updateBranch.isPending}
+                    className="w-full sm:w-auto px-8"
+                  >
+                    {(createBranch.isPending || updateBranch.isPending) && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {isEdit ? "Actualizar" : "Guardar"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

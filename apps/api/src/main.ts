@@ -7,6 +7,7 @@ config({ path: resolve(process.cwd(), '../../.env') });
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -25,6 +26,17 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Swagger Configuration
+  const config = new DocumentBuilder()
+    .setTitle('ERP API')
+    .setDescription('The ERP system API contract')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+
   await app.listen(process.env.PORT || 4000);
 }
 bootstrap();

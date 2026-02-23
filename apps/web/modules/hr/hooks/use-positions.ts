@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api";
 
 export interface JobPosition {
   id: string;
@@ -25,6 +26,7 @@ export interface CreatePositionValues {
 
 export function usePositions() {
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["hr-positions"],
     queryFn: async () => {
       const { data } = await api.get<JobPosition[]>("/hr/positions");
@@ -44,18 +46,28 @@ export function usePositionMutations() {
       queryClient.invalidateQueries({ queryKey: ["hr-positions"] });
       toast.success("Cargo creado exitosamente");
     },
-    onError: () => toast.error("Error al crear cargo"),
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || "Error al crear cargo");
+    },
   });
 
   const updatePosition = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: CreatePositionValues }) => {
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: CreatePositionValues;
+    }) => {
       return await api.put(`/hr/positions/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["hr-positions"] });
       toast.success("Cargo actualizado exitosamente");
     },
-    onError: () => toast.error("Error al actualizar cargo"),
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || "Error al actualizar cargo");
+    },
   });
 
   const deletePosition = useMutation({
@@ -66,7 +78,9 @@ export function usePositionMutations() {
       queryClient.invalidateQueries({ queryKey: ["hr-positions"] });
       toast.success("Cargo eliminado");
     },
-    onError: () => toast.error("Error al eliminar cargo"),
+    onError: (error: ApiError) => {
+      toast.error(error.response?.data?.message || "Error al eliminar cargo");
+    },
   });
 
   return { createPosition, updatePosition, deletePosition };

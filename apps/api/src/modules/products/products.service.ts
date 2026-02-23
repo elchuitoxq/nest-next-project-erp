@@ -12,6 +12,13 @@ import { eq, desc, ilike, or, and, sql } from 'drizzle-orm';
 @Injectable()
 export class ProductsService {
   async findAll(search?: string, branchId?: string) {
+    // Determine the stock column aggregation
+    const stockAgg = branchId
+      ? sql<number>`COALESCE(SUM(CASE WHEN ${warehouses.branchId} = ${branchId} THEN ${stock.quantity} ELSE 0 END), 0)`.mapWith(
+          Number,
+        )
+      : sql<number>`COALESCE(SUM(${stock.quantity}), 0)`.mapWith(Number);
+
     const query = db
       .select({
         id: products.id,
@@ -27,7 +34,7 @@ export class ProductsService {
         minStock: products.minStock,
         currencyId: products.currencyId,
         createdAt: products.createdAt,
-        stock: sql<number>`COALESCE(SUM(${stock.quantity}), 0)`.mapWith(Number),
+        stock: stockAgg,
       })
       .from(products)
       .leftJoin(stock, eq(products.id, stock.productId))
@@ -44,10 +51,6 @@ export class ProductsService {
           ilike(products.sku, `%${search}%`),
         ),
       );
-    }
-
-    if (branchId) {
-      conditions.push(eq(warehouses.branchId, branchId));
     }
 
     if (conditions.length > 0) {

@@ -1,16 +1,18 @@
-import { Partner } from "@/modules/partners/types";
-import { Warehouse } from "@/modules/inventory/types";
+import {
+  Partner,
+  Warehouse,
+  User,
+  Branch,
+  Currency,
+  Product as ApiProduct,
+} from "@/types/api";
 
 export interface OrderItem {
   id: string;
   productId: string;
   quantity: string | number;
   price: string | number;
-  product?: {
-    id: string;
-    name: string;
-    sku: string;
-  };
+  product?: ApiProduct;
 }
 
 export interface Order {
@@ -24,18 +26,12 @@ export interface Order {
   exchangeRate?: string | number;
   date: string;
   userId?: string;
-  currencyId?: string;
-  currency?: {
-    id: string;
-    code: string;
-    symbol: string;
-    isBase: boolean;
-  };
 
+  currency?: Currency;
   partner?: Partner;
   warehouse?: Warehouse;
-  branch?: any;
-  user?: any;
+  branch?: Branch;
+  user?: User;
   items: OrderItem[];
 }
 

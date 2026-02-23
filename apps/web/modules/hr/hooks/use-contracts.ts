@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api";
 
 export enum ContractType {
   INDEFINIDO = "INDEFINIDO",
@@ -48,10 +49,13 @@ export interface UpdateContractDto {
 
 export function useContracts(employeeId: string) {
   return useQuery<Contract[]>({
+    placeholderData: keepPreviousData,
     queryKey: ["contracts", { employeeId }],
     queryFn: async () => {
       if (!employeeId) return [];
-      const { data } = await api.get(`/hr/contracts/employee/${employeeId}`);
+      const { data } = await api.get<Contract[]>(
+        `/hr/contracts/employee/${employeeId}`,
+      );
       return data;
     },
     enabled: !!employeeId,
@@ -72,7 +76,7 @@ export function useContractMutations() {
       });
       toast.success("Contrato registrado exitosamente");
     },
-    onError: (err: any) => {
+    onError: (err: ApiError) => {
       toast.error(err.response?.data?.message || "Error al crear contrato");
     },
   });
@@ -92,7 +96,7 @@ export function useContractMutations() {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       toast.success("Contrato actualizado");
     },
-    onError: (err: any) => {
+    onError: (err: ApiError) => {
       toast.error(
         err.response?.data?.message || "Error al actualizar contrato",
       );
@@ -110,7 +114,7 @@ export function useContractMutations() {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
       toast.success("Contrato terminado");
     },
-    onError: (err: any) => {
+    onError: (err: ApiError) => {
       toast.error(err.response?.data?.message || "Error al terminar contrato");
     },
   });

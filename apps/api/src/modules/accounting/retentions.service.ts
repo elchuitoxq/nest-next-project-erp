@@ -154,7 +154,7 @@ export class RetentionsService {
       branchId: string;
       type: 'IVA' | 'ISLR';
       period: string; // YYYYMM
-      userId: string;
+      userId?: string | null;
       items: {
         invoiceId: string;
         baseAmount: string;

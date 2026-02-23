@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 
 export interface Currency {
@@ -12,6 +12,7 @@ export interface Currency {
 
 export function useCurrencies() {
   return useQuery({
+    placeholderData: keepPreviousData,
     queryKey: ["currencies"],
     queryFn: async () => {
       // Endpoint exposed by CurrenciesController in backend

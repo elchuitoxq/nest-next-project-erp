@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api";
 
 export interface PayrollSetting {
   id: string;
@@ -22,7 +23,8 @@ export function usePayrollSettings() {
   return useQuery<Record<string, PayrollSetting>>({
     queryKey: ["payroll-settings"],
     queryFn: async () => {
-      const { data } = await api.get("/hr/settings");
+      const { data } =
+        await api.get<Record<string, PayrollSetting>>("/hr/settings");
       return data;
     },
   });
@@ -30,9 +32,12 @@ export function usePayrollSettings() {
 
 export function usePayrollConceptTypes() {
   return useQuery<PayrollConceptType[]>({
+    placeholderData: keepPreviousData,
     queryKey: ["payroll-concept-types"],
     queryFn: async () => {
-      const { data } = await api.get("/hr/settings/concepts");
+      const { data } = await api.get<PayrollConceptType[]>(
+        "/hr/settings/concepts",
+      );
       return data;
     },
   });
@@ -50,7 +55,7 @@ export function usePayrollSettingsMutation() {
       toast.success("Configuraciones actualizadas");
       queryClient.invalidateQueries({ queryKey: ["payroll-settings"] });
     },
-    onError: (error: any) => {
+    onError: (error: ApiError) => {
       toast.error(
         error.response?.data?.message || "Error al actualizar configuraciones",
       );

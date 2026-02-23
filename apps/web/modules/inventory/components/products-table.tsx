@@ -18,6 +18,8 @@ import { MoreHorizontal, Pencil, Loader2 } from "lucide-react";
 import { Product } from "../types";
 import { DualCurrencyDisplay } from "./dual-currency-display";
 import { motion, AnimatePresence } from "framer-motion";
+import { PERMISSIONS } from "@/config/permissions";
+import { usePermission } from "@/hooks/use-permission";
 
 interface ProductsTableProps {
   products: Product[];
@@ -30,6 +32,9 @@ export function ProductsTable({
   onEdit,
   isLoading,
 }: ProductsTableProps) {
+  const { hasPermission } = usePermission();
+  const canEdit = hasPermission(PERMISSIONS.INVENTORY.PRODUCTS.EDIT);
+
   return (
     <div className="rounded-md border relative">
       <AnimatePresence>
@@ -55,7 +60,7 @@ export function ProductsTable({
             <TableHead>Costo</TableHead>
             <TableHead>Stock Mín</TableHead>
             <TableHead>Stock</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
+            {canEdit && <TableHead className="text-right">Acciones</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -90,22 +95,24 @@ export function ProductsTable({
                 </TableCell>
                 <TableCell className="py-3 px-4">{product.minStock}</TableCell>
                 <TableCell className="py-3 px-4">{product.stock}</TableCell>
-                <TableCell className="text-right py-3 px-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Abrir menú</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => onEdit(product)}>
-                        <Pencil className="mr-2 h-4 w-4" /> Editar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+                {canEdit && (
+                  <TableCell className="text-right py-3 px-4">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Abrir menú</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => onEdit(product)}>
+                          <Pencil className="mr-2 h-4 w-4" /> Editar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                )}
               </motion.tr>
             ))}
             {!isLoading && products.length === 0 && (

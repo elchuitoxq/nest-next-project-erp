@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Plus, ShieldCheck, Mail, UserCircle } from "lucide-react";
+import { Loader2, ShieldCheck, Mail, UserCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -24,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { GuideCard } from "@/components/guide/guide-card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { useRoles } from "../hooks/use-users";
 import { useBranches } from "../../branches/hooks/use-branches";
@@ -130,206 +130,223 @@ export function UserDialog({ user, open, onOpenChange }: UserDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-              <ShieldCheck className="size-5" />
-            </div>
-            {isEdit ? "Editar Usuario" : "Nuevo Usuario"}
-          </DialogTitle>
-          <DialogDescription>
-            {isEdit
-              ? "Modifica los permisos y accesos del colaborador."
-              : "Configura una nueva cuenta de acceso al sistema."}
-          </DialogDescription>
-        </DialogHeader>
-
-        <GuideCard title="Modelo de Permisos" variant="info" className="mb-4">
-          <p>El acceso se define por dos dimensiones:</p>
-          <ul className="list-disc pl-4 space-y-1">
-            <li>
-              <strong>Roles (Qué puede hacer):</strong> Define permisos
-              funcionales (ej. Crear Facturas, Ver Reportes).
-            </li>
-            <li>
-              <strong>Sucursales (Dónde lo puede hacer):</strong> Limita la data
-              visible solo a las sedes seleccionadas.
-            </li>
-          </ul>
-        </GuideCard>
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="grid gap-4 py-4"
-          >
-            <div className="grid gap-4 p-4 bg-muted/30 rounded-xl border border-dashed mb-2">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      <UserCircle className="size-3" /> Nombre Completo
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Juan Pérez"
-                        className="bg-background"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      <Mail className="size-3" /> Correo Electrónico
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="juan@ejemplo.com"
-                        className="bg-background"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {isEdit ? "Contraseña (Opcional)" : "Contraseña"}
-                  </FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="******" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid gap-2">
-              <FormLabel>Roles</FormLabel>
-              {loadingRoles ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {roles?.map((role) => (
-                    <FormField
-                      key={role.id}
-                      control={form.control}
-                      name="roleIds"
-                      render={({ field }) => {
-                        return (
-                          <FormItem
-                            key={role.id}
-                            className="flex flex-row items-start space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(role.id)}
-                                onCheckedChange={(checked) => {
-                                  return checked
-                                    ? field.onChange([...field.value, role.id])
-                                    : field.onChange(
-                                        field.value?.filter(
-                                          (value) => value !== role.id,
-                                        ),
-                                      );
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              {role.name}
-                            </FormLabel>
-                          </FormItem>
-                        );
-                      }}
-                    />
-                  ))}
+      <DialogContent className="sm:max-w-[425px] max-h-[85vh] p-0">
+        <ScrollArea className="max-h-[85vh] w-full">
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <ShieldCheck className="size-5" />
                 </div>
-              )}
-            </div>
+                {isEdit ? "Editar Usuario" : "Nuevo Usuario"}
+              </DialogTitle>
+              <DialogDescription>
+                {isEdit
+                  ? "Modifica los permisos y accesos del colaborador."
+                  : "Configura una nueva cuenta de acceso al sistema."}
+              </DialogDescription>
+            </DialogHeader>
 
-            <div className="grid gap-2">
-              <FormLabel>Sucursales (Acceso)</FormLabel>
-              {loadingBranches ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <div className="grid grid-cols-2 gap-2 max-h-[150px] overflow-y-auto border p-2 rounded">
-                  {branches?.map((branch) => (
-                    <FormField
-                      key={branch.id}
-                      control={form.control}
-                      name="branchIds"
-                      render={({ field }) => {
-                        return (
-                          <FormItem
+            <GuideCard
+              title="Modelo de Permisos"
+              variant="info"
+              className="mb-4"
+            >
+              <p>El acceso se define por dos dimensiones:</p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>
+                  <strong>Roles (Qué puede hacer):</strong> Define permisos
+                  funcionales (ej. Crear Facturas, Ver Reportes).
+                </li>
+                <li>
+                  <strong>Sucursales (Dónde lo puede hacer):</strong> Limita la
+                  data visible solo a las sedes seleccionadas.
+                </li>
+              </ul>
+            </GuideCard>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="grid gap-4 py-4"
+              >
+                <div className="grid gap-4 p-4 bg-muted/30 rounded-xl border border-dashed mb-2">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          <UserCircle className="size-3" /> Nombre Completo
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Juan Pérez"
+                            className="bg-background"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          <Mail className="size-3" /> Correo Electrónico
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="juan@ejemplo.com"
+                            className="bg-background"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {isEdit ? "Contraseña (Opcional)" : "Contraseña"}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="******"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid gap-2">
+                  <FormLabel>Roles</FormLabel>
+                  {loadingRoles ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {roles?.map((role) => (
+                        <FormField
+                          key={role.id}
+                          control={form.control}
+                          name="roleIds"
+                          render={({ field }) => {
+                            return (
+                              <FormItem
+                                key={role.id}
+                                className="flex flex-row items-start space-x-3 space-y-0"
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(role.id)}
+                                    onCheckedChange={(checked) => {
+                                      return checked
+                                        ? field.onChange([
+                                            ...field.value,
+                                            role.id,
+                                          ])
+                                        : field.onChange(
+                                            field.value?.filter(
+                                              (value) => value !== role.id,
+                                            ),
+                                          );
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  {role.name}
+                                </FormLabel>
+                              </FormItem>
+                            );
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid gap-2">
+                  <FormLabel>Sucursales (Acceso)</FormLabel>
+                  {loadingBranches ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ScrollArea className="max-h-[150px] border rounded">
+                      <div className="grid grid-cols-2 gap-2 p-2">
+                        {branches?.map((branch) => (
+                          <FormField
                             key={branch.id}
-                            className="flex flex-row items-start space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(branch.id)}
-                                onCheckedChange={(checked) => {
-                                  return checked
-                                    ? field.onChange([
-                                        ...(field.value || []),
-                                        branch.id,
-                                      ])
-                                    : field.onChange(
-                                        field.value?.filter(
-                                          (value) => value !== branch.id,
-                                        ),
-                                      );
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal text-sm cursor-pointer">
-                              {branch.name}
-                            </FormLabel>
-                          </FormItem>
-                        );
-                      }}
-                    />
-                  ))}
+                            control={form.control}
+                            name="branchIds"
+                            render={({ field }) => {
+                              return (
+                                <FormItem
+                                  key={branch.id}
+                                  className="flex flex-row items-start space-x-3 space-y-0"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(branch.id)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([
+                                              ...(field.value || []),
+                                              branch.id,
+                                            ])
+                                          : field.onChange(
+                                              field.value?.filter(
+                                                (value) => value !== branch.id,
+                                              ),
+                                            );
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormLabel className="font-normal text-sm cursor-pointer">
+                                    {branch.name}
+                                  </FormLabel>
+                                </FormItem>
+                              );
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                className="w-full sm:w-auto px-8"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={createUser.isPending || updateUser.isPending}
-                className="w-full sm:w-auto px-8"
-              >
-                {(createUser.isPending || updateUser.isPending) && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {isEdit ? "Actualizar" : "Guardar"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-6 border-t mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onOpenChange(false)}
+                    className="w-full sm:w-auto px-8"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={createUser.isPending || updateUser.isPending}
+                    className="w-full sm:w-auto px-8"
+                  >
+                    {(createUser.isPending || updateUser.isPending) && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {isEdit ? "Actualizar" : "Guardar"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
